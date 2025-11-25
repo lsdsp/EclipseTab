@@ -128,7 +128,7 @@ export const Dock: React.FC<DockProps> = ({
                     <AddIcon onClick={rect => onItemAdd(rect)} />
                     <div className={styles.divider}>
                         <svg width="1" height="48" viewBox="0 0 1 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <line x1="0.5" y1="0" x2="0.5" y2="48" stroke="rgba(255,255,255,0.36)" strokeWidth="1" />
+                            <line x1="0.5" y1="0" x2="0.5" y2="48" strokeWidth="1" />
                         </svg>
                     </div>
                 </div>
@@ -178,7 +178,7 @@ export const Dock: React.FC<DockProps> = ({
                 <div className={`${styles.gap} ${placeholderIndex === items.length ? styles.active : ''} ${!isInteracting ? styles.noTransition : ''}`} />
                 <div className={styles.divider}>
                     <svg width="1" height="48" viewBox="0 0 1 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <line x1="0.5" y1="0" x2="0.5" y2="48" stroke="rgba(255,255,255,0.36)" strokeWidth="1" />
+                        <line x1="0.5" y1="0" x2="0.5" y2="48" strokeWidth="1" />
                     </svg>
                 </div>
                 <div className={styles.dockNavigator}>

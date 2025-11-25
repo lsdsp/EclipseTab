@@ -108,6 +108,7 @@
   cursor: pointer;
   border: none;
   flex-shrink: 0;
+  color: var(--color-text-primary);
 }
 
 .asteriskIcon {
