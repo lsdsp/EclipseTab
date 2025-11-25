@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { DockItem, SearchEngine } from './types';
 import { storage } from './utils/storage';
 import { SEARCH_ENGINES, DEFAULT_SEARCH_ENGINE } from './constants/searchEngines';
-import { generateFolderIcon } from './utils/iconFetcher';
+import { generateFolderIcon, fetchIcon } from './utils/iconFetcher';
 import { Searcher } from './components/Searcher/Searcher';
 import { Dock } from './components/Dock/Dock';
 import { Editor } from './components/Editor/Editor';
@@ -32,18 +32,91 @@ function App() {
     if (savedItems.length > 0) {
       setDockItems(savedItems);
     } else {
-      // 默认 8 个常用网站
+      // 默认常用网站
+      // 默认配置
       const defaults: DockItem[] = [
-        { id: 'google', name: 'Google', url: 'https://www.google.com', type: 'app' },
-        { id: 'youtube', name: 'YouTube', url: 'https://www.youtube.com', type: 'app' },
-        { id: 'github', name: 'GitHub', url: 'https://github.com', type: 'app' },
-        { id: 'twitter', name: 'Twitter', url: 'https://twitter.com', type: 'app' },
-        { id: 'facebook', name: 'Facebook', url: 'https://facebook.com', type: 'app' },
-        { id: 'reddit', name: 'Reddit', url: 'https://www.reddit.com', type: 'app' },
-        { id: 'netflix', name: 'Netflix', url: 'https://www.netflix.com', type: 'app' },
-        { id: 'wikipedia', name: 'Wikipedia', url: 'https://wikipedia.org', type: 'app' },
+        { id: 'bilibili', name: 'Bilibili', url: 'https://www.bilibili.com/', type: 'app' },
+        { id: 'xiaohongshu', name: '小红书', url: 'https://www.xiaohongshu.com/', type: 'app' },
+        { id: 'notion', name: 'Notion', url: 'https://www.notion.so/', type: 'app' },
+        { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com/app', type: 'app' },
+        {
+          id: 'folder-design',
+          name: 'Design',
+          type: 'folder',
+          items: [
+            { id: 'behance', name: 'Behance', url: 'https://www.behance.net/', type: 'app' },
+            { id: 'pinterest', name: 'Pinterest', url: 'https://pinterest.com/', type: 'app' },
+            { id: 'iconfont', name: 'Iconfont', url: 'https://www.iconfont.cn/', type: 'app' },
+            { id: 'dribbble', name: 'Dribble', url: 'https://dribbble.com', type: 'app' },
+            { id: 'x', name: 'X', url: 'https://x.com/', type: 'app' },
+          ]
+        },
+        {
+          id: 'folder-ai',
+          name: 'AI',
+          type: 'folder',
+          items: [
+            { id: 'ai-studio', name: 'AI studio', url: 'https://aistudio.google.com/prompts/new_chat', type: 'app' },
+            { id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com/', type: 'app' },
+            { id: 'kimi', name: 'Kimi', url: 'https://kimi.moonshot.cn/', type: 'app' },
+          ]
+        },
+        {
+          id: 'folder-tools',
+          name: 'Tools',
+          type: 'folder',
+          items: [
+            { id: 'keep', name: 'Keep', url: 'https://keep.google.com/', type: 'app' },
+            { id: 'gmail', name: 'Gmail', url: 'https://mail.google.com/', type: 'app' },
+            { id: 'github', name: 'Github', url: 'https://github.com/', type: 'app' },
+          ]
+        },
       ];
+
+      // Generate icons for folders
+      defaults.forEach(item => {
+        if (item.type === 'folder' && item.items) {
+          item.icon = generateFolderIcon(item.items);
+        }
+      });
       setDockItems(defaults);
+
+      // Asynchronously fetch icons for default items
+      const fetchAllIcons = async () => {
+        const itemsWithIcons = await Promise.all(defaults.map(async (item) => {
+          if (item.type === 'folder' && item.items) {
+            const updatedSubItems = await Promise.all(item.items.map(async (subItem) => {
+              if (subItem.url) {
+                try {
+                  const icon = await fetchIcon(subItem.url);
+                  return { ...subItem, icon };
+                } catch (e) {
+                  console.error(`Failed to fetch icon for ${subItem.name}`, e);
+                  return subItem;
+                }
+              }
+              return subItem;
+            }));
+            return {
+              ...item,
+              items: updatedSubItems,
+              icon: generateFolderIcon(updatedSubItems)
+            };
+          } else if (item.url) {
+            try {
+              const icon = await fetchIcon(item.url);
+              return { ...item, icon };
+            } catch (e) {
+              console.error(`Failed to fetch icon for ${item.name}`, e);
+              return item;
+            }
+          }
+          return item;
+        }));
+        setDockItems(itemsWithIcons);
+      };
+
+      fetchAllIcons();
     }
 
     const savedEngine = storage.getSearchEngine();
