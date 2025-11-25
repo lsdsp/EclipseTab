@@ -1,0 +1,30 @@
+.tooltipContainer {
+    position: fixed;
+    z-index: 10000;
+    pointer-events: none;
+    background-color: rgba(229, 229, 229, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: rgba(0, 0, 0, 0.85);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: var(--font-family);
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    border: 0.5px solid rgba(0, 0, 0, 0.1);
+    transform: translateX(-50%);
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+    }
+}

@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { DockItem as DockItemType } from '../../types';
+import { Tooltip } from '../Tooltip/Tooltip';
 import styles from './DockItem.module.css';
 
 interface DockItemProps {
@@ -55,39 +56,69 @@ export const DockItem: React.FC<DockItemProps> = ({
     onDelete();
   };
 
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipTimer = useRef<number | null>(null);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (isEditMode) {
+      setShowDeleteButton(true);
+    }
+
+    // Start tooltip timer
+    if (!isDragging && !isEditMode) { // Don't show tooltip while dragging or in edit mode
+      tooltipTimer.current = window.setTimeout(() => {
+        setShowTooltip(true);
+      }, 1000);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setShowDeleteButton(false);
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      setPressTimer(null);
+    }
+
+    // Clear tooltip timer and hide tooltip
+    if (tooltipTimer.current) {
+      clearTimeout(tooltipTimer.current);
+      tooltipTimer.current = null;
+    }
+    setShowTooltip(false);
+  };
+
+  const handleMouseDownInternal = (e: React.MouseEvent) => {
+    // Hide tooltip on click/mousedown
+    if (tooltipTimer.current) {
+      clearTimeout(tooltipTimer.current);
+      tooltipTimer.current = null;
+    }
+    setShowTooltip(false);
+
+    if (onMouseDown) onMouseDown(e);
+    isLongPressTriggered.current = false;
+    if (onLongPress && !isEditMode) {
+      const t = window.setTimeout(() => {
+        isLongPressTriggered.current = true;
+        onLongPress();
+      }, 600);
+      setPressTimer(t);
+    }
+  };
+
   return (
     <div
       className={`${styles.dockItem} ${isEditMode ? styles.editMode : ''} ${isDragging ? styles.dragging : ''} ${isDropTarget ? styles.dropTarget : ''}`}
       onClick={handleClick}
-      onMouseEnter={() => {
-        setIsHovered(true);
-        if (isEditMode) {
-          setShowDeleteButton(true);
-        }
-      }}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        setShowDeleteButton(false);
-        if (pressTimer) {
-          clearTimeout(pressTimer);
-          setPressTimer(null);
-        }
-      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       ref={rootRef}
       // draggable={isEditMode} // Removed
       // onDragStart removed
       // onDragEnd removed
-      onMouseDown={(e) => {
-        if (onMouseDown) onMouseDown(e);
-        isLongPressTriggered.current = false;
-        if (onLongPress && !isEditMode) {
-          const t = window.setTimeout(() => {
-            isLongPressTriggered.current = true;
-            onLongPress();
-          }, 600);
-          setPressTimer(t);
-        }
-      }}
+      onMouseDown={handleMouseDownInternal}
       onMouseUp={() => {
         if (pressTimer) {
           clearTimeout(pressTimer);
@@ -125,6 +156,9 @@ export const DockItem: React.FC<DockItemProps> = ({
         >
           ×
         </button>
+      )}
+      {showTooltip && (
+        <Tooltip text={item.name} targetRef={rootRef} />
       )}
     </div>
   );

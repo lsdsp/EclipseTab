@@ -202,7 +202,7 @@ export const Dock: React.FC<DockProps> = ({
                         height: 64,
                         pointerEvents: 'none',
                         zIndex: 9999,
-                        transform: isPreMerge ? 'scale(0.6)' : 'scale(1.15)',
+                        transform: isPreMerge ? 'scale(0.6)' : 'scale(1.0)',
                         filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.3))',
                         transition: dragState.isAnimatingReturn
                             ? 'left 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94), top 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.2s cubic-bezier(0.4,0,0.2,1)'
