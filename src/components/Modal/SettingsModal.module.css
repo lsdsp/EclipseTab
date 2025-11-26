@@ -232,7 +232,7 @@
 
 .colorOptionActive {
     border-color: var(--blue-500);
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 0 1px var(--black-alpha-10);
 }
 
 /* Wallpaper Section - Bottom Row */
@@ -326,7 +326,7 @@
     padding: 4px;
     background: var(--red-error);
     border-radius: var(--radius-small);
-    color: white;
+    color: var(--white);
     font-size: 14px;
     text-align: center;
     z-index: 3001;
