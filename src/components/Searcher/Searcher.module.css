@@ -18,7 +18,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-padding-extrasmall);
+  gap: var(--spacing-padding-small);
   box-shadow: var(--shadow-small);
   position: relative;
   transform: translateY(0);

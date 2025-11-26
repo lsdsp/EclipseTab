@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Theme, useTheme, Texture } from '../../context/ThemeContext';
+import { useSystemTheme } from '../../hooks/useSystemTheme';
 import { GRADIENT_PRESETS } from '../../constants/gradients';
+import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
 import styles from './SettingsModal.module.css';
 import pointTexturePreview from '../../assets/Point Texture Preview.svg';
 import xTexturePreview from '../../assets/X Texture Preview.svg';
@@ -9,6 +11,9 @@ import lightIcon from '../../assets/icons/sun.svg';
 import darkIcon from '../../assets/icons/moon.svg';
 import autoIcon from '../../assets/icons/monitor.svg';
 import wallpaperIcon from '../../assets/icons/wallpaper.svg';
+import slashIcon from '../../assets/icons/slash.svg';
+import closeIcon from '../../assets/icons/close.svg';
+import asteriskIcon from '../../assets/icons/asterisk.svg';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -31,10 +36,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         setTexture,
     } = useTheme();
 
+    const systemTheme = useSystemTheme();
+
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [uploadError, setUploadError] = React.useState<string | null>(null);
+    const [isVisible, setIsVisible] = useState(isOpen);
+    const modalRef = useRef<HTMLDivElement>(null);
 
-    if (!isOpen) return null;
+    // Logic to determine if we are in "Default" mode or "Light/Dark" mode
+    const isDefaultTheme = theme === 'default' && !followSystem;
+
+    // Reset texture if switching to Default theme
+    useEffect(() => {
+        if (isDefaultTheme && texture !== 'none') {
+            setTexture('none');
+        }
+    }, [isDefaultTheme, texture, setTexture]);
+
+    // Animation effects
+    useEffect(() => {
+        if (isOpen) {
+            setIsVisible(true);
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen && isVisible && modalRef.current) {
+            scaleFadeIn(modalRef.current);
+        }
+    }, [isOpen, isVisible]);
+
+    useEffect(() => {
+        if (!isOpen && isVisible) {
+            if (modalRef.current) {
+                scaleFadeOut(modalRef.current, 300, () => setIsVisible(false));
+            } else {
+                setIsVisible(false);
+            }
+        }
+    }, [isOpen, isVisible]);
+
+    if (!isVisible) return null;
 
     const handleThemeSelect = (selectedTheme: Theme) => {
         setTheme(selectedTheme);
@@ -57,7 +99,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         setUploadError(null);
         try {
             await uploadWallpaper(file);
-            if (gradientId) setGradientId(null);
         } catch (error) {
             setUploadError(error instanceof Error ? error.message : '上传失败');
         }
@@ -99,19 +140,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         opacity: activeIndex >= 0 ? 1 : 0,
     };
 
-    const isSolidColorMode = !wallpaper && !gradientId;
-    const isCustomTheme = theme === 'default' && !followSystem;
-
     return (
         <>
             <div className={styles.backdrop} onClick={onClose} />
-            <div className={styles.modal} style={modalStyle}>
+            <div ref={modalRef} className={styles.modal} style={modalStyle}>
                 <div className={styles.innerContainer}>
                     {/* Theme Section */}
                     <div className={styles.iconContainer}>
                         {/* Default Theme Button */}
                         <button
-                            className={`${styles.defaultTheme} ${theme === 'default' && !followSystem ? styles.defaultThemeActive : ''}`}
+                            className={`${styles.defaultTheme} ${isDefaultTheme ? styles.defaultThemeActive : ''}`}
                             onClick={() => handleThemeSelect('default')}
                             title="Default Theme"
                         >
@@ -143,37 +181,84 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                             </button>
                         </div>
                     </div>
-                    {/* Texture Section */}
-                    <div className={`${styles.textureSection} ${(isCustomTheme || wallpaper) ? styles.disabled : ''}`}>
-                        {/* None */}
-                        <button
-                            className={`${styles.textureOption} ${texture === 'none' ? styles.textureOptionActive : ''}`}
-                            onClick={() => handleTextureSelect('none')}
-                            disabled={isCustomTheme || !!wallpaper}
-                            title="No Texture"
-                        >
-                            <div className={styles.texturePreviewNone} />
-                        </button>
-                        {/* Point Texture */}
-                        <button
-                            className={`${styles.textureOption} ${texture === 'point' ? styles.textureOptionActive : ''}`}
-                            onClick={() => handleTextureSelect('point')}
-                            disabled={isCustomTheme || !!wallpaper}
-                            title="Point Texture"
-                        >
-                            <img src={pointTexturePreview} alt="Point Texture" className={styles.texturePreviewImage} />
-                        </button>
-                        {/* X Texture */}
-                        <button
-                            className={`${styles.textureOption} ${texture === 'x' ? styles.textureOptionActive : ''}`}
-                            onClick={() => handleTextureSelect('x')}
-                            disabled={isCustomTheme || !!wallpaper}
-                            title="X Texture"
-                        >
-                            <img src={xTexturePreview} alt="X Texture" className={styles.texturePreviewImage} />
-                        </button>
+
+                    {/* Texture Section - Hidden when disabled (Default Theme) */}
+                    {!isDefaultTheme && (
+                        <div className={styles.textureSection}>
+                            {/* None */}
+                            <button
+                                className={`${styles.textureOption} ${texture === 'none' ? styles.textureOptionActive : ''}`}
+                                onClick={() => handleTextureSelect('none')}
+                                title="No Texture"
+                            >
+                                <div className={styles.texturePreviewNone}>
+                                    <img src={slashIcon} alt="No Texture" width={24} height={24} />
+                                </div>
+                            </button>
+                            {/* Point Texture */}
+                            <button
+                                className={`${styles.textureOption} ${texture === 'point' ? styles.textureOptionActive : ''}`}
+                                onClick={() => handleTextureSelect('point')}
+                                title="Point Texture"
+                            >
+                                <img src={pointTexturePreview} alt="Point Texture" className={styles.texturePreviewImage} />
+                            </button>
+                            {/* X Texture */}
+                            <button
+                                className={`${styles.textureOption} ${texture === 'x' ? styles.textureOptionActive : ''}`}
+                                onClick={() => handleTextureSelect('x')}
+                                title="X Texture"
+                            >
+                                <img src={xTexturePreview} alt="X Texture" className={styles.texturePreviewImage} />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Color Options Section - Moved above Wallpaper */}
+                    <div className={styles.colorOptionsContainer}>
+                        {GRADIENT_PRESETS.map(preset => {
+                            // For theme-default preset, use dynamic color based on active theme
+                            let displayColor = '';
+                            const isThemeDefault = preset.id === 'theme-default';
+
+                            if (isThemeDefault) {
+                                // Use #404040 for dark theme, #F3F3F3 for light theme
+                                const isDarkTheme = theme === 'dark' || (followSystem && systemTheme === 'dark');
+                                displayColor = isDarkTheme ? '#404040' : '#F3F3F3';
+                            } else {
+                                displayColor = isDefaultTheme ? preset.gradient : preset.solid;
+                            }
+
+                            return (
+                                <button
+                                    key={preset.id}
+                                    className={`${styles.colorOption} ${gradientId === preset.id ? styles.colorOptionActive : ''}`}
+                                    onClick={() => handleGradientSelect(preset.id)}
+                                    title={preset.name}
+                                    style={{
+                                        background: displayColor,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    {isThemeDefault && (
+                                        <img
+                                            src={asteriskIcon}
+                                            alt="Default"
+                                            width={24}
+                                            height={24}
+                                            style={{
+                                                filter: (theme === 'dark' || (followSystem && systemTheme === 'dark')) ? 'invert(1)' : 'none'
+                                            }}
+                                        />
+                                    )}
+                                </button>
+                            );
+                        })}
                     </div>
-                    {/* Wallpaper / Gradient Section */}
+
+                    {/* Wallpaper Section - Moved to bottom */}
                     <div className={styles.wallpaperSection}>
                         {/* Upload Wallpaper Button */}
                         <div className={styles.wallpaperUploadBtn} onClick={handleWallpaperClick} title="Upload Wallpaper">
@@ -184,28 +269,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                                 onChange={handleFileChange}
                                 style={{ display: 'none' }}
                             />
-                            {wallpaper ? (
-                                <div className={styles.wallpaperPreview}>
+                            <img src={wallpaperIcon} alt="Upload Wallpaper" width={24} height={24} />
+                        </div>
+
+                        {/* Wallpaper Preview Area - Always render */}
+                        <div className={styles.wallpaperPreviewContainer}>
+                            {wallpaper && (
+                                <>
                                     <img src={wallpaper} alt="Current wallpaper" className={styles.wallpaperImage} />
-                                    <button className={styles.removeWallpaperBtn} onClick={handleRemoveWallpaper}>×</button>
-                                </div>
-                            ) : (
-                                <img src={wallpaperIcon} alt="Upload Wallpaper" width={24} height={24} />
+                                    <button className={styles.removeWallpaperBtn} onClick={handleRemoveWallpaper}>
+                                        <img src={closeIcon} alt="Remove" width={12} height={12} />
+                                    </button>
+                                </>
                             )}
                         </div>
-                        {/* Color Options */}
-                        <div className={`${styles.colorOptionsContainer} ${!isCustomTheme ? styles.disabled : ''}`}>
-                            {GRADIENT_PRESETS.map(preset => (
-                                <button
-                                    key={preset.id}
-                                    className={`${styles.colorOption} ${gradientId === preset.id ? styles.colorOptionActive : ''}`}
-                                    onClick={() => handleGradientSelect(preset.id)}
-                                    title={preset.name}
-                                    style={{ background: preset.gradient }}
-                                />
-                            ))}
-                        </div>
                     </div>
+
                     {uploadError && <div className={styles.error}>{uploadError}</div>}
                 </div>
             </div>

@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { storage } from '../utils/storage';
 import { useSystemTheme } from '../hooks/useSystemTheme';
 import { GRADIENT_PRESETS } from '../constants/gradients';
+import pointTextureBg from '../assets/PointTextureBG.svg';
+import xTextureBg from '../assets/XTextureBG.svg';
 
 export type Theme = 'default' | 'light' | 'dark';
 export type Texture = 'none' | 'point' | 'x';
@@ -51,6 +53,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Computed theme: use system theme if followSystem is enabled
     const theme = followSystem ? systemTheme : manualTheme;
+    const isDefaultTheme = manualTheme === 'default' && !followSystem;
 
     // Update manual theme
     const setTheme = useCallback((newTheme: Theme) => {
@@ -109,27 +112,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const setGradientId = useCallback((id: string | null) => {
         setGradientIdState(id);
         storage.saveGradient(id);
-        // Reset texture when gradient is set
-        if (id) {
-            setTextureState('none');
-            storage.saveTexture('none');
-        }
+        // We don't necessarily reset texture here anymore, as texture can coexist with solid color
     }, []);
 
     const setTexture = useCallback((newTexture: Texture) => {
         setTextureState(newTexture);
         storage.saveTexture(newTexture);
-        // Reset wallpaper and gradient when texture is set (if we want strict exclusivity, 
-        // but user requirement says "only applied to solid color background", 
-        // so we might just want to ensure they are null if we want to force it, 
-        // OR just let the effect handle the precedence. 
-        // Let's clear them to be safe and avoid confusion.)
-        if (newTexture !== 'none') {
-            setWallpaperState(null);
-            storage.saveWallpaper(null);
-            setGradientIdState(null);
-            storage.saveGradient(null);
-        }
+        // If texture is set, we might want to clear wallpaper if it exists?
+        // But let's leave that to the UI handler or user choice.
     }, []);
 
     // Apply theme to document
@@ -137,7 +127,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         document.documentElement.setAttribute('data-theme', theme);
     }, [theme]);
 
-    // Apply wallpaper or gradient to body background
+    // Apply wallpaper or gradient/solid/texture to body background
     useEffect(() => {
         const root = document.documentElement;
 
@@ -145,6 +135,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         root.style.removeProperty('--background-custom');
         root.style.removeProperty('--background-size');
         root.style.removeProperty('--background-position');
+        root.style.removeProperty('--background-image');
         root.removeAttribute('data-texture');
 
         if (wallpaper) {
@@ -152,20 +143,55 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             root.style.setProperty('--background-custom', `url(${wallpaper})`);
             root.style.setProperty('--background-size', 'cover');
             root.style.setProperty('--background-position', 'center');
-        } else if (gradientId) {
-            // Apply gradient
-            const gradient = GRADIENT_PRESETS.find(g => g.id === gradientId);
-            if (gradient) {
-                root.style.setProperty('--background-custom', gradient.gradient);
-            }
         } else {
-            // Solid color mode (default background)
-            // Apply texture if selected
-            if (texture !== 'none') {
-                root.setAttribute('data-texture', texture);
+            // Determine background color/gradient
+            let backgroundValue = '';
+
+            if (gradientId) {
+                const preset = GRADIENT_PRESETS.find(g => g.id === gradientId);
+                if (preset) {
+                    if (preset.id === 'theme-default') {
+                        // Use dynamic color based on current theme
+                        if (isDefaultTheme) {
+                            // Default theme specific gradient
+                            backgroundValue = 'linear-gradient(180deg, #00020E 0%, #071633 25%, #3966AD 65%, #8BA9D4 100%)';
+                        } else {
+                            // Light/Dark theme solid colors
+                            const isDarkTheme = theme === 'dark';
+                            backgroundValue = isDarkTheme ? '#404040' : '#F3F3F3';
+                        }
+                    } else if (isDefaultTheme) {
+                        backgroundValue = preset.gradient;
+                    } else {
+                        backgroundValue = preset.solid;
+                    }
+                }
+            }
+
+            if (backgroundValue) {
+                root.style.setProperty('--background-custom', backgroundValue);
+            }
+
+            // Apply texture if enabled and not Default theme
+            // Unified fill mode: Texture also uses cover
+            if (!isDefaultTheme && texture !== 'none') {
+                const textureUrl = texture === 'point' ? pointTextureBg : xTextureBg;
+
+                if (backgroundValue) {
+                    root.style.setProperty('--background-custom', `url(${textureUrl}), ${backgroundValue}`);
+                } else {
+                    root.style.setProperty('--background-custom', `url(${textureUrl})`);
+                }
+
+                root.style.setProperty('--background-size', 'cover');
+                root.style.setProperty('--background-position', 'center');
+            } else if (!wallpaper) {
+                // Unified fill method: consistent cover for all backgrounds
+                root.style.setProperty('--background-size', 'cover');
+                root.style.setProperty('--background-position', 'center');
             }
         }
-    }, [wallpaper, gradientId, texture]);
+    }, [wallpaper, gradientId, texture, isDefaultTheme, theme]);
 
     return (
         <ThemeContext.Provider value={{
