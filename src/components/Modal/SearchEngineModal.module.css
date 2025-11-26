@@ -57,7 +57,7 @@
   align-items: center;
   text-align: left;
   white-space: nowrap;
-  transition: opacity 50ms var(--ease-out-quint);
+  transition: opacity var(--duration-instant) var(--ease-out-quint);
   opacity: 1;
   margin: 0;
 }

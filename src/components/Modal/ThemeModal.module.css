@@ -13,36 +13,14 @@
     box-shadow: var(--shadow-combined);
     z-index: 4000;
     width: 280px;
-    animation: modalEnter var(--duration-fast) var(--ease-out-quint);
+    animation: modalEnter var(--transition-medium);
 }
 
 .modal.closing {
-    animation: modalExit var(--duration-fast) var(--ease-out-quint);
+    animation: modalExit var(--transition-medium);
 }
 
-@keyframes modalEnter {
-    from {
-        opacity: 0;
-        transform: translateY(-8px) scale(0.96);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-@keyframes modalExit {
-    from {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-
-    to {
-        opacity: 0;
-        transform: translateY(-8px) scale(0.96);
-    }
-}
+/* Global keyframes moved to variables.css: modalEnter, modalExit */
 
 .content {
     background: var(--color-bg-secondary);
@@ -61,7 +39,7 @@
     padding: 12px;
     border-radius: var(--radius-small);
     cursor: pointer;
-    transition: background var(--duration-fast) ease-out, transform var(--duration-fast) ease-out;
+    transition: background var(--transition-fast), transform var(--transition-fast);
     background: transparent;
 }
 

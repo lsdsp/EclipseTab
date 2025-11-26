@@ -19,21 +19,7 @@
     display: flex;
     gap: 4px;
     /* Match FolderView animation */
-    animation: folder-pop var(--duration-fast) var(--ease-spring);
-}
-
-@keyframes folder-pop {
-    0% {
-        transform: scale(0.95);
-        opacity: 0;
-        filter: blur(5px);
-    }
-
-    100% {
-        transform: scale(1);
-        opacity: 1;
-        filter: blur(2px);
-    }
+    animation: folderPop var(--transition-bounce);
 }
 
 /* Inner Container - exact Figma specs */
@@ -70,7 +56,7 @@
     justify-content: center;
     padding: 12px 20px;
     cursor: pointer;
-    transition: background var(--duration-fast) ease;
+    transition: background var(--transition-medium);
 }
 
 .defaultTheme:hover {
@@ -103,7 +89,7 @@
     height: 40px;
     background: var(--color-bg-tertiary);
     border-radius: 4px;
-    transition: transform var(--duration-fast) var(--ease-material);
+    transition: transform var(--transition-smooth);
     z-index: 0;
 }
 
@@ -138,10 +124,10 @@
     overflow: hidden;
     transform: scale(0.95);
     transition:
-        height var(--duration-medium) var(--ease-material),
-        opacity var(--duration-fast) var(--ease-material),
-        margin-bottom var(--duration-medium) var(--ease-material),
-        transform var(--duration-medium) var(--ease-material);
+        height var(--transition-normal),
+        opacity var(--transition-medium),
+        margin-bottom var(--transition-normal),
+        transform var(--transition-normal);
 }
 
 .textureSectionWrapperOpen {
@@ -174,7 +160,7 @@
     cursor: pointer;
     padding: 0;
     overflow: hidden;
-    transition: all var(--duration-fast) ease;
+    transition: all var(--transition-medium);
 }
 
 .textureOption:hover {
@@ -223,7 +209,7 @@
     border-radius: 4px;
     border: 2px solid transparent;
     cursor: pointer;
-    transition: all 0.1s ease;
+    transition: all var(--transition-instant);
 }
 
 .colorOption:hover {
@@ -298,7 +284,7 @@
     justify-content: center;
     cursor: pointer;
     z-index: 10;
-    transition: background var(--duration-fast);
+    transition: background var(--transition-medium);
 }
 
 .removeWallpaperBtn:hover {

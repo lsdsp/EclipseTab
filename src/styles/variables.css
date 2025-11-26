@@ -86,6 +86,54 @@
   /* Layout */
   --container-max-width: 1280px;
   --container-min-width: 640px;
+  --icon-size: 64px;
+  --icon-size-small: 25px;
+  --icon-size-medium: 32px;
+  --search-icon-size: 18px;
+  --editor-icon-size: 25px;
+
+  /* Animation - Duration (统一时间标准) */
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-medium: 200ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+
+  /* Animation - Easing Functions (标准化缓动函数) */
+  --ease-linear: linear;
+  --ease-in: ease-in;
+  --ease-out: ease-out;
+  --ease-in-out: ease-in-out;
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-quint: cubic-bezier(0.755, 0.05, 0.855, 0.06);
+  --ease-bounce: cubic-bezier(0.2, 0, 0.13, 1.5);
+  /* 弹性效果 */
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  /* 平滑过渡 */
+  --ease-swift: cubic-bezier(0.2, 0, 0, 1);
+  /* 快速响应 */
+
+  /* Animation - Common Transitions (组合式变量) */
+  --transition-instant: var(--duration-instant) var(--ease-out);
+  --transition-fast: var(--duration-fast) var(--ease-out);
+  --transition-medium: var(--duration-medium) var(--ease-out);
+  --transition-normal: var(--duration-normal) var(--ease-out-quint);
+  --transition-slow: var(--duration-slow) var(--ease-out-quint);
+  --transition-smooth: var(--duration-normal) var(--ease-smooth);
+  --transition-bounce: var(--duration-medium) var(--ease-bounce);
+
+  /* Animation - Special Effects */
+  --blur-amount-subtle: 2px;
+  --blur-amount-medium: 5px;
+  --scale-hover: 1.05;
+  --scale-active: 0.95;
+  --translate-hover: -4px;
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  /* Colors - Light Theme */
+  --color-bg-primary: var(--gray-100);
   --color-bg-secondary: var(--white);
   --color-bg-tertiary: var(--gray-200);
   --color-bg-white: var(--white);
@@ -156,4 +204,101 @@ body {
 #root {
   width: 100%;
   height: 100%;
+}
+
+/* Common Keyframe Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(var(--translate-hover));
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes folderPop {
+  from {
+    transform: scale(var(--scale-active));
+    opacity: 0;
+    filter: blur(var(--blur-amount-medium));
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(var(--blur-amount-subtle));
+  }
+}
+
+@keyframes modalEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes modalExit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes jiggle {
+
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes iconIn {
+  from {
+    transform: translateY(6px) scale(0.8);
+    opacity: 0;
+    filter: blur(3px);
+  }
+
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: blur(var(--blur-amount-subtle));
+  }
 }

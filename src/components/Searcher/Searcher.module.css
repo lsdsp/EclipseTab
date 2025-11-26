@@ -22,7 +22,7 @@
   box-shadow: var(--shadow-small);
   position: relative;
   transform: translateY(0);
-  transition: transform var(--duration-fast) var(--ease-out-quint), box-shadow var(--duration-fast) var(--ease-out-quint), filter var(--duration-fast) var(--ease-out-quint);
+  transition: transform var(--transition-medium), box-shadow var(--transition-medium), filter var(--transition-medium);
 }
 
 .divider {
@@ -33,14 +33,13 @@
   height: 44px;
 }
 
-/* 2.1 悬停状态：轻微上移 + 阴影增强 */
-/* Hover should visually lift only the inner container */
+/* 悬停状态：轻微上移 + 阴影增强 */
 .innerContainer:hover {
   transform: translateY(-4px);
   box-shadow: 0px 8px 24px 0px var(--black-alpha-18);
 }
 
-/* 2.2 焦点状态：蓝色光环（移除默认outline） */
+/*焦点状态：蓝色光环（移除默认outline） */
 .innerContainer:focus-within {
   box-shadow: 0 0 0 2px var(--blue-focus), var(--shadow-small);
 }

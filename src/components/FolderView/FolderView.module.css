@@ -42,36 +42,6 @@
   align-items: start;
 }
 
-/* 3.1 Folder Window 进场：scale + opacity + blur */
-@keyframes folder-pop {
-  0% {
-    transform: scale(0.95);
-    opacity: 0;
-    filter: blur(5px);
-  }
-
-  100% {
-    transform: scale(1);
-    opacity: 1;
-    filter: blur(2px);
-  }
-}
-
-/* 3.2 子图标错峰入场 */
-@keyframes icon-in {
-  0% {
-    transform: translateY(6px) scale(0.8);
-    opacity: 0;
-    filter: blur(3px);
-  }
-
-  100% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-    filter: blur(2px);
-  }
-}
-
 .container {
   background: var(--color-bg-primary);
   backdrop-filter: blur(20px);
@@ -92,6 +62,8 @@
   border-radius: 16px;
   background: var(--color-bg-secondary);
   border: 2px dashed var(--color-border);
-  transition: all var(--duration-fast) var(--ease-out-quint);
+  transition: all var(--transition-medium);
   pointer-events: none;
 }
+
+/* Global keyframes moved to variables.css: folderPop, iconIn */

@@ -50,7 +50,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-small);
-  transition: background var(--duration-fast) ease-out;
+  transition: background var(--transition-medium);
 }
 
 .closeButton:hover {

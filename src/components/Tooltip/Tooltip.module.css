@@ -14,17 +14,7 @@
     box-shadow: 0 2px 8px var(--black-alpha-15);
     border: 0.5px solid var(--black-alpha-10);
     transform: translateX(-50%);
-    animation: fadeIn var(--duration-fast) ease-out;
+    animation: fadeIn var(--transition-medium);
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateX(-50%) scale(0.95);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(-50%) scale(1);
-    }
-}
+/* Global keyframes moved to variables.css: fadeIn */
