@@ -184,7 +184,7 @@
 }
 
 .textureOptionActive {
-    border-color: #5798FF;
+    border-color: var(--blue-400);
     background: var(--color-bg-secondary);
 }
 
@@ -231,7 +231,7 @@
 }
 
 .colorOptionActive {
-    border-color: #007AFF;
+    border-color: var(--blue-500);
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
@@ -288,9 +288,9 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: #E8E8ED;
+    background: var(--gray-200);
     /* Updated background */
-    color: rgba(255, 77, 77, 1);
+    color: var(--red-400);
     /* Updated color */
     border: none;
     display: flex;
@@ -302,7 +302,7 @@
 }
 
 .removeWallpaperBtn:hover {
-    background: #D1D1D6;
+    background: var(--gray-300);
     /* Slightly darker on hover */
 }
 
@@ -324,7 +324,7 @@
     left: 0;
     right: 0;
     padding: 4px;
-    background: rgba(255, 59, 48, 0.9);
+    background: var(--red-error);
     border-radius: var(--radius-small);
     color: white;
     font-size: 14px;

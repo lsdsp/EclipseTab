@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Theme, useTheme, Texture } from '../../context/ThemeContext';
+import { Theme, useTheme, Texture, DEFAULT_THEME_COLORS } from '../../context/ThemeContext';
 import { useSystemTheme } from '../../hooks/useSystemTheme';
 import { GRADIENT_PRESETS } from '../../constants/gradients';
 import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
@@ -226,7 +226,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                             if (isThemeDefault) {
                                 // Use #404040 for dark theme, #F3F3F3 for light theme
                                 const isDarkTheme = theme === 'dark' || (followSystem && systemTheme === 'dark');
-                                displayColor = isDarkTheme ? '#404040' : '#F3F3F3';
+                                displayColor = isDarkTheme ? DEFAULT_THEME_COLORS.dark : DEFAULT_THEME_COLORS.light;
                             } else {
                                 displayColor = isDefaultTheme ? preset.gradient : preset.solid;
                             }

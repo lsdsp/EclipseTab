@@ -8,6 +8,11 @@ import xTextureBg from '../assets/XTextureBG.svg';
 export type Theme = 'default' | 'light' | 'dark';
 export type Texture = 'none' | 'point' | 'x';
 
+export const DEFAULT_THEME_COLORS = {
+    light: '#F3F3F3',
+    dark: '#404040',
+};
+
 interface ThemeContextType {
     theme: Theme;
     setTheme: (theme: Theme) => void;
@@ -157,7 +162,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         } else {
                             // Light/Dark theme solid colors
                             const isDarkTheme = theme === 'dark';
-                            backgroundValue = isDarkTheme ? '#404040' : '#F3F3F3';
+                            backgroundValue = isDarkTheme ? DEFAULT_THEME_COLORS.dark : DEFAULT_THEME_COLORS.light;
                         }
                     } else if (isDefaultTheme) {
                         backgroundValue = preset.gradient;

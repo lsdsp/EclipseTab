@@ -37,12 +37,12 @@
 /* Hover should visually lift only the inner container */
 .innerContainer:hover {
   transform: translateY(-4px);
-  box-shadow: 0px 8px 24px 0px rgba(0, 0, 0, 0.18);
+  box-shadow: 0px 8px 24px 0px var(--black-alpha-18);
 }
 
 /* 2.2 焦点状态：蓝色光环（移除默认outline） */
 .innerContainer:focus-within {
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.9), var(--shadow-small);
+  box-shadow: 0 0 0 2px var(--blue-focus), var(--shadow-small);
 }
 
 .searchInput:focus {

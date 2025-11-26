@@ -48,6 +48,18 @@ export const GRADIENT_PRESETS = [
         solid: '#323232',
         blendMode: 'multiply',
     },
+    {
+        id: 'gradient-8',
+        name: '深海幽蓝',
+        gradient: 'linear-gradient(to top, #0c3483 0%, #a2b6df 100%, #6b8cce 100%, #a2b6df 100%)',
+        solid: '#0c3483',
+    },
+    {
+        id: 'gradient-9',
+        name: '极光流彩',
+        gradient: 'linear-gradient(-225deg, #473B7B 0%, #3584A7 51%, #30D2BE 100%)',
+        solid: '#473B7B',
+    },
 ] as const;
 
 export type GradientPreset = typeof GRADIENT_PRESETS[number];
