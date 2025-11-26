@@ -182,8 +182,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                         </div>
                     </div>
 
-                    {/* Texture Section - Hidden when disabled (Default Theme) */}
-                    {!isDefaultTheme && (
+                    {/* Texture Section - Animated Wrapper */}
+                    <div
+                        className={`${styles.textureSectionWrapper} ${!isDefaultTheme ? styles.textureSectionWrapperOpen : ''}`}
+                    >
                         <div className={styles.textureSection}>
                             {/* None */}
                             <button
@@ -212,7 +214,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                                 <img src={xTexturePreview} alt="X Texture" className={styles.texturePreviewImage} />
                             </button>
                         </div>
-                    )}
+                    </div>
 
                     {/* Color Options Section - Moved above Wallpaper */}
                     <div className={styles.colorOptionsContainer}>

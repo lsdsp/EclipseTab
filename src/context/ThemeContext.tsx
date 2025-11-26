@@ -169,6 +169,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
             if (backgroundValue) {
                 root.style.setProperty('--background-custom', backgroundValue);
+
+                // Apply blend mode if present in the selected gradient
+                const preset = GRADIENT_PRESETS.find(g => g.id === gradientId);
+                if (preset && 'blendMode' in preset && preset.blendMode) {
+                    root.style.setProperty('--background-blend-mode', preset.blendMode);
+                } else {
+                    root.style.removeProperty('--background-blend-mode');
+                }
             }
 
             // Apply texture if enabled and not Default theme

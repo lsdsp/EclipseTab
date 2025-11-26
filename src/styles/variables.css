@@ -103,6 +103,7 @@ body {
   background-size: var(--background-size, auto);
   background-position: var(--background-position, initial);
   background-repeat: no-repeat;
+  background-blend-mode: var(--background-blend-mode, normal);
   font-family: var(--font-family);
   font-weight: var(--font-weight-medium);
   overflow: hidden;
@@ -115,6 +116,7 @@ body {
   background-size: var(--background-size, auto);
   background-position: var(--background-position, initial);
   background-repeat: no-repeat;
+  background-blend-mode: var(--background-blend-mode, normal);
 }
 
 /* Dark Theme Background */
@@ -123,6 +125,7 @@ body {
   background-size: var(--background-size, auto);
   background-position: var(--background-position, initial);
   background-repeat: no-repeat;
+  background-blend-mode: var(--background-blend-mode, normal);
 }
 
 #root {
