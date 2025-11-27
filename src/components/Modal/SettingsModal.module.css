@@ -33,7 +33,6 @@
     padding: 8px;
     display: flex;
     flex-direction: column;
-    /* 移除 gap 以实现平滑的高度动画 */
     width: 264px;
 }
 

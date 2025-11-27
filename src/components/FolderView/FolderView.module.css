@@ -70,5 +70,3 @@
   transition: all var(--transition-medium);
   pointer-events: none;
 }
-
-/* 全局关键帧动画已移至 variables.css：folderPop, iconIn */

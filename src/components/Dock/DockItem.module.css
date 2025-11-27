@@ -111,25 +111,6 @@
     transform: scale(1.1);
 }
 
-/* 遗留动画 - 已移至全局 keyframes */
-@keyframes shake {
-
-    0%,
-    100% {
-        transform: translateX(0);
-    }
-
-    25% {
-        transform: translateX(-1px);
-    }
-
-    75% {
-        transform: translateX(2px);
-    }
-}
-
-/* 抖动动画已移至全局 variables.css */
-
 /* 拖拽目标高亮 - 文件夹放大效果 */
 .dropTarget .iconContainer {
     transform: scale(1.05);
