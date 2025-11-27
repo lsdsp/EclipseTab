@@ -18,5 +18,3 @@
     transform: translateX(-50%);
     animation: fadeIn var(--transition-medium);
 }
-
-/* 全局关键帧动画已移至 variables.css：fadeIn */

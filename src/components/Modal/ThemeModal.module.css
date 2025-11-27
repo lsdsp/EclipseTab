@@ -2,6 +2,9 @@
 文件描述: 主题选择弹窗样式
 作用: 定义主题选择弹窗的外观和交互
 */
+
+/* ===== 主题选择弹窗容器 ===== */
+/* 定义弹窗的定位、模糊背景和基本样式 */
 .modal {
     position: fixed;
     backdrop-filter: blur(40px);
@@ -16,12 +19,14 @@
     animation: modalEnter var(--transition-medium);
 }
 
+/* ===== 关闭动画状态 ===== */
+/* 当弹窗关闭时使用淡出动画 */
 .modal.closing {
     animation: modalExit var(--transition-medium);
 }
 
-/* Global keyframes moved to variables.css: modalEnter, modalExit */
-
+/* ===== 弹窗内容容器 ===== */
+/* 包含主题选项的内部容器，使用次级背景和内边距 */
 .content {
     background: var(--color-bg-secondary);
     border-radius: var(--radius-default-in);
@@ -32,6 +37,8 @@
     box-shadow: var(--shadow-small);
 }
 
+/* ===== 单个主题选项 ===== */
+/* 每个主题行，支持点击和悬停效果 */
 .themeOption {
     display: flex;
     align-items: center;
@@ -43,25 +50,31 @@
     background: transparent;
 }
 
+/* ===== 主题选项悬停效果 ===== */
 .themeOption:hover {
     background: var(--color-bg-primary);
     transform: translateX(2px);
 }
 
+/* ===== 已选中主题样式 ===== */
 .themeOption.selected {
     background: var(--color-bg-tertiary);
 }
 
+/* ===== 已选中主题悬停保持样式 ===== */
 .themeOption.selected:hover {
     background: var(--color-bg-tertiary);
 }
 
+/* ===== 主题信息容器 ===== */
+/* 包含主题名称和描述的垂直布局 */
 .themeInfo {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
+/* ===== 主题名称 ===== */
 .themeLabel {
     font-family: var(--font-family);
     font-weight: var(--font-weight-medium);
@@ -70,6 +83,7 @@
     color: var(--color-text-primary);
 }
 
+/* ===== 主题描述 ===== */
 .themeDescription {
     font-family: var(--font-family);
     font-weight: var(--font-weight-medium);
@@ -78,6 +92,8 @@
     color: var(--color-text-secondary);
 }
 
+/* ===== 勾选标记 ===== */
+/* 选中主题时显示的对号图标 */
 .checkmark {
     display: flex;
     align-items: center;

@@ -7,8 +7,6 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-default);
   padding: var(--spacing-border-default);
-  /* max-width: var(--container-max-width); */
-  /* min-width: var(--container-min-width); */
   width: 100%;
   box-shadow: var(--shadow-small);
 }
