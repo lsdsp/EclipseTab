@@ -51,7 +51,7 @@
     background: var(--color-bg-secondary);
     box-shadow: var(--shadow-small);
     border-radius: 8px;
-    border: none;
+    border: 2px solid transparent;
     width: 64px;
     height: 48px;
     display: flex;
@@ -59,7 +59,7 @@
     justify-content: center;
     padding: 12px 20px;
     cursor: pointer;
-    transition: background var(--transition-medium);
+    transition: all var(--transition-medium);
 }
 
 /* 默认主题按钮悬停效果 */
@@ -69,7 +69,8 @@
 
 /* 默认主题激活状态 */
 .defaultThemeActive {
-    background: var(--color-bg-tertiary);
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 1px var(--black-alpha-10);
 }
 
 /* 主题组容器 (Light/Dark/Auto) */
@@ -158,7 +159,7 @@
 /* 纹理选项按钮 */
 .textureOption {
     background: var(--color-bg-tertiary);
-    border: 1px solid transparent;
+    border: 2px solid transparent;
     border-radius: 4px;
     height: 40px;
     flex: 1;
@@ -179,8 +180,9 @@
 
 /* 纹理选项激活状态 */
 .textureOptionActive {
-    border-color: var(--blue-400);
+    border-color: var(--blue-500);
     background: var(--color-bg-secondary);
+    box-shadow: 0 0 0 1px var(--black-alpha-10);
 }
 
 /* 无纹理预览 */
@@ -218,14 +220,14 @@
     width: 100%;
     height: 48px;
     border-radius: 4px;
-    border: 2px solid transparent;
+    border: 2px transparent;
     cursor: pointer;
-    transition: all var(--transition-instant);
+    transition: all var(--transition-medium);
 }
 
 /* 颜色选项悬停效果 */
 .colorOption:hover {
-    transform: scale(1.05);
+    filter: brightness(0.95);
 }
 
 /* 颜色选项激活状态 */
@@ -256,11 +258,19 @@
     position: relative;
     overflow: hidden;
     flex-shrink: 0;
+    border: 2px solid transparent;
+    transition: all var(--transition-medium);
 }
 
 /* 壁纸上传按钮悬停效果 */
 .wallpaperUploadBtn:hover {
     background: var(--color-bg-tertiary);
+}
+
+/* 壁纸上传按钮激活状态 */
+.wallpaperUploadBtnActive {
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 1px var(--black-alpha-10);
 }
 
 /* 壁纸预览容器 */
@@ -287,8 +297,8 @@
     position: absolute;
     top: 4px;
     right: 4px;
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     background: var(--gray-200);
     color: var(--red-400);

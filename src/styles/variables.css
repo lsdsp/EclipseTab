@@ -178,6 +178,15 @@
   --shadow-combined: 0px 4px 16px 0px rgba(0, 0, 0, 0.5), 0px 0px 8px 0px rgba(0, 0, 0, 0.4);
 }
 
+/* ===== 默认主题（浅色背景） ===== */
+/* 当默认主题检测到浅色背景（如壁纸）时，使用深色文字以提高可读性 */
+[data-theme="default"][data-background-brightness="light"] {
+  /* 深色文字 */
+  --color-text-primary: var(--gray-950);
+  --color-text-secondary: var(--gray-600);
+  --color-text-tertiary: var(--gray-600);
+}
+
 /* ===== 全局背景设置 ===== */
 /* 默认主题背景 - 渐变效果 */
 body {
