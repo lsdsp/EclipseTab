@@ -176,7 +176,7 @@
 /* 纹理选项悬停效果 */
 .textureOption:hover {
     background: var(--color-bg-primary);
-    filter: brightness(0.99);
+    filter: brightness(0.95);
 }
 
 /* 纹理选项激活状态 */
@@ -280,9 +280,11 @@
     background: var(--color-bg-secondary);
     box-shadow: var(--shadow-small);
     border-radius: 8px;
+    border: 2px solid transparent;
     position: relative;
     overflow: hidden;
     height: 48px;
+    transition: all var(--transition-medium);
 }
 
 /* 壁纸图片 */
@@ -364,4 +366,10 @@
 /* 壁纸预览容器 - 可点击状态悬停时的图片 */
 .wallpaperPreviewClickable:hover .wallpaperImageInactive {
     filter: brightness(1.1);
+}
+
+/* 壁纸预览容器 - 激活状态 */
+.wallpaperPreviewContainerActive {
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 1px var(--black-alpha-10);
 }
