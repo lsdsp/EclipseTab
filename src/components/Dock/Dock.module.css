@@ -21,7 +21,6 @@
     background: var(--color-bg-secondary);
     border-radius: var(--radius-large);
     padding: var(--spacing-gap-small);
-    box-shadow: var(--shadow-small);
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
