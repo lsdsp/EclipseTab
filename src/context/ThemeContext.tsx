@@ -194,17 +194,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     useEffect(() => {
         const root = document.documentElement;
 
-        // Reset all background properties first
-        root.style.removeProperty('--background-custom');
-        root.style.removeProperty('--background-size');
-        root.style.removeProperty('--background-position');
-        root.style.removeProperty('--background-image');
+        // Remove data-texture attribute
         root.removeAttribute('data-texture');
 
+        // Determine background value
+        let backgroundValue = '';
 
         if (wallpaper) {
             // Wallpaper takes precedence - always fill entire page
-            root.style.setProperty('--background-custom', `url(${wallpaper})`);
+            backgroundValue = `url(${wallpaper})`;
 
             // For wallpapers, assume light background (can't analyze image brightness)
             // Only apply this for default theme
@@ -214,9 +212,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 root.removeAttribute('data-background-brightness');
             }
         } else {
-            // Determine background color/gradient
-            let backgroundValue = '';
-
+            // Determine background color/gradient based on theme and gradient selection
             if (gradientId) {
                 const preset = GRADIENT_PRESETS.find(g => g.id === gradientId);
                 if (preset) {
@@ -236,29 +232,32 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         backgroundValue = preset.solid;
                     }
                 }
+            } else {
+                // No gradient selected, use default theme backgrounds
+                if (isDefaultTheme) {
+                    backgroundValue = 'linear-gradient(180deg, #00020E 0%, #071633 25%, #3966AD 65%, #8BA9D4 100%)';
+                } else {
+                    const isDarkTheme = theme === 'dark';
+                    backgroundValue = isDarkTheme ? DEFAULT_THEME_COLORS.dark : DEFAULT_THEME_COLORS.light;
+                }
             }
 
-            if (backgroundValue) {
-                root.style.setProperty('--background-custom', backgroundValue);
-
-                // Apply blend mode if present in the selected gradient
+            // Apply blend mode if present in the selected gradient
+            if (gradientId) {
                 const preset = GRADIENT_PRESETS.find(g => g.id === gradientId);
                 if (preset && 'blendMode' in preset && preset.blendMode) {
                     root.style.setProperty('--background-blend-mode', preset.blendMode);
                 } else {
                     root.style.removeProperty('--background-blend-mode');
                 }
+            } else {
+                root.style.removeProperty('--background-blend-mode');
             }
 
             // Apply texture if enabled and not Default theme
             if (!isDefaultTheme && texture !== 'none') {
                 const textureUrl = texture === 'point' ? pointTextureBg : xTextureBg;
-
-                if (backgroundValue) {
-                    root.style.setProperty('--background-custom', `url(${textureUrl}), ${backgroundValue}`);
-                } else {
-                    root.style.setProperty('--background-custom', `url(${textureUrl})`);
-                }
+                backgroundValue = `url(${textureUrl}), ${backgroundValue}`;
             }
 
             // Detect background brightness for default theme only
@@ -270,7 +269,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
         }
 
-        // ALWAYS set cover and center for consistent fill behavior across all themes
+        // ALWAYS set the background value explicitly (never rely on CSS fallback)
+        root.style.setProperty('--background-custom', backgroundValue);
         root.style.setProperty('--background-size', 'cover');
         root.style.setProperty('--background-position', 'center');
     }, [wallpaper, gradientId, texture, isDefaultTheme, theme]);

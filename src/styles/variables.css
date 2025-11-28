@@ -202,7 +202,7 @@ body {
   font-family: var(--font-family);
   font-weight: var(--font-weight-medium);
   overflow: hidden;
-  transition: background 0.3s ease-out;
+  transition: background-color 0.5s ease-out, background-image 0.5s ease-out;
 }
 
 /* 亮色主题背景 - 纯色 */
@@ -212,6 +212,7 @@ body {
   background-position: var(--background-position, initial);
   background-repeat: no-repeat;
   background-blend-mode: var(--background-blend-mode, normal);
+  transition: background-color 0.5s ease-out, background-image 0.5s ease-out;
 }
 
 /* 暗色主题背景 - 深灰色 */
@@ -221,6 +222,7 @@ body {
   background-position: var(--background-position, initial);
   background-repeat: no-repeat;
   background-blend-mode: var(--background-blend-mode, normal);
+  transition: background-color 0.5s ease-out, background-image 0.5s ease-out;
 }
 
 /* 根元素容器 */
