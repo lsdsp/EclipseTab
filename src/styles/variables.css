@@ -22,11 +22,11 @@
 
   /* ===== 原始颜色变量 ===== */
   /* 白色和黑色基础色 */
-  --white: #F5F5F7;
+  --white: #f1f1f1;
   --black: #000000;
 
   /* 灰度色阶 - 从浅到深 */
-  --gray-100: #F5F5F7;
+  --gray-100: #f1f1f1;
   --gray-200: #E8E8ED;
   --gray-300: #D1D1D6;
   --gray-400: #AEAEB2;
@@ -144,10 +144,10 @@
 /* 覆盖默认主题的颜色变量 */
 [data-theme="light"] {
   /* 亮色主题颜色变量 */
-  --color-bg-primary: var(--gray-100);
-  --color-bg-secondary: var(--white);
-  --color-bg-tertiary: var(--gray-200);
-  --color-bg-white: var(--white);
+  --color-bg-primary: var(--gray-200);
+  --color-bg-secondary: var(--gray-100);
+  --color-bg-tertiary: var(--gray-300);
+  --color-bg-white: var(--gray-100);
   --color-border: var(--gray-300);
   --color-text-primary: var(--gray-950);
   --color-text-secondary: var(--gray-600);

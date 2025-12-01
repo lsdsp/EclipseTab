@@ -229,7 +229,7 @@
 
 /* 颜色选项悬停效果 */
 .colorOption:hover {
-    filter: brightness(1.1);
+    filter: brightness(1.05);
 }
 
 /* 颜色选项激活状态 */
@@ -360,13 +360,13 @@
 
 /* 壁纸预览容器 - 可点击状态悬停效果 */
 .wallpaperPreviewClickable:hover {
-    filter: brightness(1.1);
+    filter: brightness(1.05);
     transform: scale(1);
 }
 
 /* 壁纸预览容器 - 可点击状态悬停时的图片 */
 .wallpaperPreviewClickable:hover .wallpaperImageInactive {
-    filter: brightness(1.1);
+    filter: brightness(1.05);
 }
 
 /* 壁纸预览容器 - 激活状态 */
