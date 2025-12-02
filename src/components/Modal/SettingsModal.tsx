@@ -10,10 +10,9 @@ import defaultIcon from '../../assets/icons/star3.svg';
 import lightIcon from '../../assets/icons/sun.svg';
 import darkIcon from '../../assets/icons/moon.svg';
 import autoIcon from '../../assets/icons/monitor.svg';
-import wallpaperIcon from '../../assets/icons/wallpaper.svg';
 import slashIcon from '../../assets/icons/slash.svg';
-import closeIcon from '../../assets/icons/close.svg';
 import asteriskIcon from '../../assets/icons/asterisk.svg';
+import { WallpaperGallery } from '../WallpaperGallery/WallpaperGallery';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -29,8 +28,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         setFollowSystem,
         wallpaper,
         setWallpaper,
-        uploadWallpaper,
-        lastWallpaper,
         gradientId,
         setGradientId,
         texture,
@@ -38,9 +35,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     } = useTheme();
 
     const systemTheme = useSystemTheme();
-
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
-    const [uploadError, setUploadError] = React.useState<string | null>(null);
     const [isVisible, setIsVisible] = useState(isOpen);
     const modalRef = useRef<HTMLDivElement>(null);
 
@@ -94,28 +88,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         setFollowSystem(!followSystem);
     };
 
-    const handleWallpaperClick = () => {
-        fileInputRef.current?.click();
-    };
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setUploadError(null);
-        try {
-            await uploadWallpaper(file);
-        } catch (error) {
-            setUploadError(error instanceof Error ? error.message : '上传失败');
-        }
-        e.target.value = '';
-    };
-
-    const handleRemoveWallpaper = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setWallpaper(null);
-        setUploadError(null);
-    };
-
     const handleGradientSelect = (id: string) => {
         setGradientId(id);
         if (wallpaper) setWallpaper(null);
@@ -123,13 +95,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
 
     const handleTextureSelect = (selectedTexture: Texture) => {
         setTexture(selectedTexture);
-    };
-
-    const handleWallpaperPreviewClick = () => {
-        // If there's a last wallpaper and no current wallpaper, reuse the last one
-        if (lastWallpaper && !wallpaper) {
-            setWallpaper(lastWallpaper);
-        }
     };
 
     const modalStyle: React.CSSProperties = {
@@ -277,47 +242,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
 
                     {/* Wallpaper Section - Moved to bottom */}
                     <div className={styles.wallpaperSection}>
-                        {/* Upload Wallpaper Button */}
-                        <div
-                            className={`${styles.wallpaperUploadBtn} ${wallpaper ? styles.wallpaperUploadBtnActive : ''}`}
-                            onClick={handleWallpaperClick}
-                            title="Upload Wallpaper"
-                        >
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                onChange={handleFileChange}
-                                style={{ display: 'none' }}
-                            />
-                            <img src={wallpaperIcon} alt="Upload Wallpaper" width={24} height={24} />
-                        </div>
-
-                        {/* Wallpaper Preview Area - Always render */}
-                        <div
-                            className={`${styles.wallpaperPreviewContainer} ${lastWallpaper && !wallpaper ? styles.wallpaperPreviewClickable : ''
-                                }`}
-                            onClick={lastWallpaper && !wallpaper ? handleWallpaperPreviewClick : undefined}
-                            title={lastWallpaper && !wallpaper ? 'Click to use this wallpaper' : undefined}
-                        >
-                            {wallpaper ? (
-                                <>
-                                    <img src={wallpaper} alt="Current wallpaper" className={styles.wallpaperImage} />
-                                    <button className={styles.removeWallpaperBtn} onClick={handleRemoveWallpaper}>
-                                        <img src={closeIcon} alt="Remove" width={12} height={12} />
-                                    </button>
-                                </>
-                            ) : lastWallpaper ? (
-                                <img
-                                    src={lastWallpaper}
-                                    alt="Last used wallpaper"
-                                    className={`${styles.wallpaperImage} ${styles.wallpaperImageInactive}`}
-                                />
-                            ) : null}
-                        </div>
+                        <WallpaperGallery />
                     </div>
 
-                    {uploadError && <div className={styles.error}>{uploadError}</div>}
                 </div>
             </div>
         </>

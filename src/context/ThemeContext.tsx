@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { storage } from '../utils/storage';
 import { useSystemTheme } from '../hooks/useSystemTheme';
+import { useWallpaperStorage } from '../hooks/useWallpaperStorage';
 import { GRADIENT_PRESETS } from '../constants/gradients';
 import pointTextureBg from '../assets/PointTextureBG.svg';
 import xTextureBg from '../assets/XTextureBG.svg';
@@ -26,6 +27,8 @@ interface ThemeContextType {
     setGradientId: (gradientId: string | null) => void;
     texture: Texture;
     setTexture: (texture: Texture) => void;
+    wallpaperId: string | null;
+    setWallpaperId: (id: string) => Promise<void>;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -88,6 +91,9 @@ const isBackgroundLight = (backgroundValue: string): boolean => {
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const systemTheme = useSystemTheme();
 
+    // Wallpaper storage hook
+    const { saveWallpaper: saveToDb, getWallpaper: getFromDb, createWallpaperUrl } = useWallpaperStorage();
+
     // Core theme state
     const [manualTheme, setManualTheme] = useState<Theme>(() => {
         const saved = storage.getTheme();
@@ -98,8 +104,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return storage.getFollowSystem();
     });
 
+    // Current wallpaper URL (blob URL or base64)
     const [wallpaper, setWallpaperState] = useState<string | null>(() => {
         return storage.getWallpaper();
+    });
+
+    // Current wallpaper ID (for IndexedDB)
+    const [wallpaperId, setWallpaperIdState] = useState<string | null>(() => {
+        return storage.getWallpaperId();
     });
 
     const [lastWallpaper] = useState<string | null>(() => {
@@ -117,6 +129,18 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Computed theme: use system theme if followSystem is enabled
     const theme = followSystem ? systemTheme : manualTheme;
     const isDefaultTheme = manualTheme === 'default' && !followSystem;
+
+    // Load wallpaper from DB if ID exists
+    useEffect(() => {
+        if (wallpaperId) {
+            getFromDb(wallpaperId).then(blob => {
+                if (blob) {
+                    const url = createWallpaperUrl(blob);
+                    setWallpaperState(url);
+                }
+            });
+        }
+    }, [wallpaperId, getFromDb, createWallpaperUrl]);
 
     // Update manual theme
     const setTheme = useCallback((newTheme: Theme) => {
@@ -139,7 +163,23 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const setWallpaper = useCallback((wp: string | null) => {
         setWallpaperState(wp);
         storage.saveWallpaper(wp);
+        if (!wp) {
+            setWallpaperIdState(null);
+            storage.saveWallpaperId(null);
+        }
     }, []);
+
+    // Set wallpaper by ID (from gallery)
+    const setWallpaperId = useCallback(async (id: string) => {
+        setWallpaperIdState(id);
+        storage.saveWallpaperId(id);
+        const blob = await getFromDb(id);
+        if (blob) {
+            const url = createWallpaperUrl(blob);
+            setWallpaperState(url);
+            storage.saveWallpaper(null); // Clear legacy base64 storage
+        }
+    }, [getFromDb, createWallpaperUrl]);
 
     // Upload wallpaper file
     const uploadWallpaper = useCallback(async (file: File) => {
@@ -153,23 +193,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             throw new Error('请选择图片文件');
         }
 
-        return new Promise<void>((resolve, reject) => {
-            const reader = new FileReader();
-
-            reader.onload = (e) => {
-                const base64 = e.target?.result as string;
-                setWallpaperState(base64);
-                storage.saveWallpaper(base64);
-                resolve();
-            };
-
-            reader.onerror = () => {
-                reject(new Error('图片读取失败'));
-            };
-
-            reader.readAsDataURL(file);
-        });
-    }, []);
+        try {
+            const id = await saveToDb(file);
+            await setWallpaperId(id);
+        } catch (error) {
+            console.error('Failed to upload wallpaper:', error);
+            throw error;
+        }
+    }, [saveToDb, setWallpaperId]);
 
     // Update gradient
     const setGradientId = useCallback((id: string | null) => {
@@ -289,6 +320,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setGradientId,
             texture,
             setTexture,
+            wallpaperId,
+            setWallpaperId,
         }}>
             {children}
         </ThemeContext.Provider>

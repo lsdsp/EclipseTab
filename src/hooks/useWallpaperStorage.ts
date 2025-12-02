@@ -5,6 +5,7 @@ export interface UseWallpaperStorageReturn {
     saveWallpaper: (file: File) => Promise<string>;
     getWallpaper: (id: string) => Promise<Blob | null>;
     deleteWallpaper: (id: string) => Promise<void>;
+    getRecentWallpapers: () => Promise<WallpaperItem[]>;
     createWallpaperUrl: (blob: Blob) => string;
     isSupported: boolean;
     isProcessing: boolean;
@@ -139,10 +140,27 @@ export const useWallpaperStorage = (): UseWallpaperStorageReturn => {
         }
     }, [isSupported]);
 
+    const getRecentWallpapers = useCallback(async (): Promise<WallpaperItem[]> => {
+        if (!isSupported) return [];
+
+        try {
+            const allItems = await db.getAll();
+            // Sort by createdAt desc and take top 6
+            return allItems
+                .sort((a, b) => b.createdAt - a.createdAt)
+                .slice(0, 7);
+        } catch (err) {
+            const error = err instanceof Error ? err : new Error('Failed to get recent wallpapers');
+            setError(error);
+            return [];
+        }
+    }, [isSupported]);
+
     return {
         saveWallpaper,
         getWallpaper,
         deleteWallpaper,
+        getRecentWallpapers,
         createWallpaperUrl,
         isSupported,
         isProcessing,

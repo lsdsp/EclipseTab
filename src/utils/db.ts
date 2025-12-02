@@ -12,6 +12,7 @@ interface DBWrapper {
     save: (item: WallpaperItem) => Promise<string>;
     get: (id: string) => Promise<WallpaperItem | null>;
     remove: (id: string) => Promise<void>;
+    getAll: () => Promise<WallpaperItem[]>;
 }
 
 class IndexedDBWrapper implements DBWrapper {
@@ -102,6 +103,23 @@ class IndexedDBWrapper implements DBWrapper {
         } catch (error) {
             console.error('DB Remove Error:', error);
             throw error;
+        }
+    }
+
+    async getAll(): Promise<WallpaperItem[]> {
+        try {
+            const db = await this.getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.getAll();
+
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('DB GetAll Error:', error);
+            return [];
         }
     }
 }

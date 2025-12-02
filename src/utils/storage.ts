@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   LAST_WALLPAPER: 'EclipseTab_lastWallpaper',
   GRADIENT: 'EclipseTab_gradient',
   TEXTURE: 'EclipseTab_texture',
+  WALLPAPER_ID: 'EclipseTab_wallpaperId',
 } as const;
 
 export const storage = {
@@ -98,6 +99,26 @@ export const storage = {
       }
     } catch (error) {
       console.error('Failed to save wallpaper:', error);
+    }
+  },
+
+  getWallpaperId(): string | null {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.WALLPAPER_ID);
+    } catch {
+      return null;
+    }
+  },
+
+  saveWallpaperId(id: string | null): void {
+    try {
+      if (id) {
+        localStorage.setItem(STORAGE_KEYS.WALLPAPER_ID, id);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.WALLPAPER_ID);
+      }
+    } catch (error) {
+      console.error('Failed to save wallpaper ID:', error);
     }
   },
 
