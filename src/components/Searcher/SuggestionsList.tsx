@@ -28,7 +28,7 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({
             setPosition({
                 position: 'fixed',
                 left: `${anchorRect.left}px`,
-                bottom: `${window.innerHeight - anchorRect.top + 12}px`,
+                bottom: `${window.innerHeight - anchorRect.top}px`,
                 width: `${anchorRect.width}px`,
             });
         }

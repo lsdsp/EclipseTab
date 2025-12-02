@@ -25,6 +25,8 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
         if (!trimmedQuery) {
             setSuggestions([]);
             setError(null);
+            // Invalidate any pending requests
+            latestRequestRef.current = `cleared_${Date.now()}`;
             return;
         }
 
