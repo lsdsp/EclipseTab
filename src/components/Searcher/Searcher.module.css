@@ -1,6 +1,7 @@
 /* ===== 搜索框组件样式 ===== */
 /* 外层容器 - 玻璃态效果 */
 .searcher {
+  position: relative;
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   background: var(--color-bg-primary);

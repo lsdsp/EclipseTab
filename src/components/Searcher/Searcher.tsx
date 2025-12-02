@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SearchEngine } from '../../types';
 import styles from './Searcher.module.css';
+import { useSearchSuggestions } from '../../hooks/useSearchSuggestions';
+import { SuggestionsList } from './SuggestionsList';
 
 interface SearcherProps {
   searchEngine: SearchEngine;
@@ -16,35 +18,110 @@ export const Searcher: React.FC<SearcherProps> = ({
   containerStyle,
 }) => {
   const [query, setQuery] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const { suggestions } = useSearchSuggestions(query);
+
+  // Animation state management
+  const showSuggestions = isFocused && suggestions.length > 0;
+  const [shouldRender, setShouldRender] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
+
+  useEffect(() => {
+    if (showSuggestions) {
+      setShouldRender(true);
+      setIsExiting(false);
+    } else if (shouldRender) {
+      setIsExiting(true);
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+        setIsExiting(false);
+      }, 300); // Match CSS animation duration (duration-normal)
+      return () => clearTimeout(timer);
+    }
+  }, [showSuggestions, shouldRender]);
 
   useEffect(() => {
     // 自动聚焦搜索框
     inputRef.current?.focus();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+  // Reset active index when suggestions change
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [suggestions]);
+
+  const handleSearch = (searchQuery: string) => {
+    if (!searchQuery.trim()) return;
 
     // 检查是否是 URL
     try {
-      const url = new URL(query);
+      const url = new URL(searchQuery);
       window.open(url.toString(), '_blank');
     } catch {
       // 不是 URL，进行搜索
-      onSearch(query);
+      onSearch(searchQuery);
     }
+    setQuery(''); // Optional: clear query after search
+    // Force close suggestions
+    setIsFocused(false);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSearch(query);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (shouldRender && suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveIndex((prev) => (prev + 1) % suggestions.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length);
+        return;
+      }
+    }
+
     if (e.key === 'Enter') {
-      handleSubmit(e);
+      e.preventDefault();
+      if (activeIndex >= 0 && suggestions[activeIndex] && shouldRender) {
+        handleSearch(suggestions[activeIndex]);
+      } else {
+        handleSearch(query);
+      }
     }
   };
 
+  const containerRef = useRef<HTMLElement>(null);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    if (shouldRender && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setAnchorRect(rect);
+    }
+  }, [shouldRender, suggestions]);
+
   return (
-    <header className={styles.searcher} style={containerStyle}>
+    <header ref={containerRef} className={styles.searcher} style={containerStyle}>
+      {/* Suggestions List */}
+      {shouldRender && suggestions.length > 0 && (
+        <SuggestionsList
+          suggestions={suggestions}
+          activeIndex={activeIndex}
+          onSelect={(suggestion) => handleSearch(suggestion)}
+          onHover={(index) => setActiveIndex(index)}
+          isExiting={isExiting}
+          anchorRect={anchorRect}
+        />
+      )}
+
       <div className={styles.innerContainer}>
         <div className={styles.divider}></div>
         <div className={styles.searchInfo}>
@@ -70,6 +147,11 @@ export const Searcher: React.FC<SearcherProps> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => {
+              // Delay hiding suggestions to allow click event to fire
+              setTimeout(() => setIsFocused(false), 200);
+            }}
           />
         </div>
         <div className={styles.iconContainer} onClick={handleSubmit}>
