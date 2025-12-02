@@ -16,6 +16,11 @@ export const SEARCH_ENGINES: SearchEngine[] = [
     name: 'Baidu',
     url: 'https://www.baidu.com/s?wd=',
   },
+  {
+    id: 'duckduckgo',
+    name: 'DuckDuckGo',
+    url: 'https://duckduckgo.com/?q=',
+  },
 ];
 
 export const DEFAULT_SEARCH_ENGINE: SearchEngine = SEARCH_ENGINES[0];
