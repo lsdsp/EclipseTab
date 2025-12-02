@@ -161,7 +161,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
 
                     {/* Texture Section - Animated Wrapper */}
                     <div
-                        className={`${styles.textureSectionWrapper} ${!isDefaultTheme ? styles.textureSectionWrapperOpen : ''}`}
+                        className={`${styles.textureSectionWrapper} ${!isDefaultTheme && !wallpaper ? styles.textureSectionWrapperOpen : ''}`}
                     >
                         <div className={styles.textureSection}>
                             {/* None */}

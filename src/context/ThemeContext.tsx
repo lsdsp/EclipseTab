@@ -33,7 +33,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const MAX_WALLPAPER_SIZE = 2 * 1024 * 1024; // 2MB limit
+const MAX_WALLPAPER_SIZE = 20 * 1024 * 1024; // 20MB limit
 
 /**
  * Determines if a background color/gradient is light or dark

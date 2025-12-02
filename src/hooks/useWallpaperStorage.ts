@@ -12,7 +12,7 @@ export interface UseWallpaperStorageReturn {
     error: Error | null;
 }
 
-const COMPRESSION_THRESHOLD = 3 * 1024 * 1024; // 3MB
+const COMPRESSION_THRESHOLD = 15 * 1024 * 1024; // 15MB
 
 const compressImage = async (file: File): Promise<Blob> => {
     if (file.size <= COMPRESSION_THRESHOLD) return file;
@@ -147,8 +147,7 @@ export const useWallpaperStorage = (): UseWallpaperStorageReturn => {
             const allItems = await db.getAll();
             // Sort by createdAt desc and take top 6
             return allItems
-                .sort((a, b) => b.createdAt - a.createdAt)
-                .slice(0, 7);
+                .sort((a, b) => b.createdAt - a.createdAt);
         } catch (err) {
             const error = err instanceof Error ? err : new Error('Failed to get recent wallpapers');
             setError(error);
