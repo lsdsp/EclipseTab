@@ -1,0 +1,109 @@
+export const DB_NAME = 'EclipseTabDB';
+export const STORE_NAME = 'wallpapers';
+const DB_VERSION = 1;
+
+export interface WallpaperItem {
+    id: string;
+    data: Blob;
+    createdAt: number;
+}
+
+interface DBWrapper {
+    save: (item: WallpaperItem) => Promise<string>;
+    get: (id: string) => Promise<WallpaperItem | null>;
+    remove: (id: string) => Promise<void>;
+}
+
+class IndexedDBWrapper implements DBWrapper {
+    private dbPromise: Promise<IDBDatabase> | null = null;
+
+    private getDB(): Promise<IDBDatabase> {
+        if (!this.dbPromise) {
+            this.dbPromise = new Promise((resolve, reject) => {
+                if (typeof window === 'undefined' || !window.indexedDB) {
+                    reject(new Error('IndexedDB is not supported'));
+                    return;
+                }
+
+                try {
+                    const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+
+                    request.onerror = (event) => {
+                        this.dbPromise = null;
+                        // Handle privacy mode restrictions (SecurityError)
+                        const error = (event.target as IDBOpenDBRequest).error;
+                        console.error('IndexedDB open error:', error);
+                        reject(error || new Error('Failed to open IndexedDB'));
+                    };
+
+                    request.onsuccess = () => resolve(request.result);
+
+                    request.onupgradeneeded = (event) => {
+                        const db = (event.target as IDBOpenDBRequest).result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            // Use keyPath 'id' for future extensibility and easier querying
+                            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                        }
+                    };
+                } catch (e) {
+                    this.dbPromise = null;
+                    reject(e);
+                }
+            });
+        }
+        return this.dbPromise;
+    }
+
+    async save(item: WallpaperItem): Promise<string> {
+        try {
+            const db = await this.getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.put(item);
+
+                request.onsuccess = () => resolve(item.id);
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('DB Save Error:', error);
+            throw error;
+        }
+    }
+
+    async get(id: string): Promise<WallpaperItem | null> {
+        try {
+            const db = await this.getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.get(id);
+
+                request.onsuccess = () => resolve(request.result || null);
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('DB Get Error:', error);
+            return null;
+        }
+    }
+
+    async remove(id: string): Promise<void> {
+        try {
+            const db = await this.getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.delete(id);
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('DB Remove Error:', error);
+            throw error;
+        }
+    }
+}
+
+export const db = new IndexedDBWrapper();
