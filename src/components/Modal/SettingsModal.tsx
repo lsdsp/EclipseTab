@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Theme, useTheme, Texture, DEFAULT_THEME_COLORS } from '../../context/ThemeContext';
+import { Theme, useTheme, Texture } from '../../context/ThemeContext';
 import { useSystemTheme } from '../../hooks/useSystemTheme';
 import { GRADIENT_PRESETS } from '../../constants/gradients';
 import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
