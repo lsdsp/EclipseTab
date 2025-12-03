@@ -11,9 +11,11 @@ Eclipse Tab 是一个浏览器插件，旨在为用户提供一个高度可定�
 ### 🎨 主题系统
 - **四种主题模式**：Default（默认渐变）、Light（浅色）、Dark（深色）、Auto（跟随系统）
 - **背景自定义**：
-  - Default 主题支持 8 种渐变色方案
+  - Default 主题支持 9 种渐变色方案
   - Light/Dark 主题支持纯色背景
-  - 支持自定义壁纸上传（最大 2MB）
+  - 支持自定义壁纸上传,使用 IndexedDB 存储,突破 5MB 限制,允许 10MB+ 高清图片
+  - 壁纸历史记录:最多保存 7 张最近使用的壁纸,支持快速切换
+  - 平滑壁纸切换动画:双缓冲淡入淡出效果
   - Light/Dark 主题支持 Point 和 X 两种纹理叠加
 - **智能亮度检测**：自动根据背景颜色调整文字对比度
 
@@ -24,9 +26,10 @@ Eclipse Tab 是一个浏览器插件，旨在为用户提供一个高度可定�
 - **智能图标获取**：自动获取网站图标
 
 ### 🔍 搜索功能
-- **多搜索引擎支持**：Google、Bing、Baidu、DuckDuckGo 等
-- **快速切换**：点击搜索引擎图标即可切换
-- **即时搜索**：输入关键词，Enter 键直达搜索结果，所选搜索引擎会通过 `storage.saveSearchEngine` 持久化，下次打开页面自动恢复。
+- **多搜索引擎支持**:Google、Bing、Baidu、DuckDuckGo
+- **快速切换**:点击搜索引擎图标即可切换
+- **搜索建议**:输入时自动显示搜索建议下拉列表,支持键盘导航(上下箭头选择,Enter 确认)
+- **即时搜索**:输入关键词,Enter 键直达搜索结果,所选搜索引擎会通过 `storage.saveSearchEngine` 持久化,下次打开页面自动恢复。
 
 ## 📦 安装与使用
 
@@ -609,13 +612,15 @@ npm run build
 
 ### 6️⃣ 数据持久化
 
-所有用户设置和数据都会自动保存到浏览器的 localStorage：
+所有用户设置和数据都会自动保存:
 
-- **Dock 应用列表**：实时保存每次增删改
-- **搜索引擎选择**：自动保存
-- **主题设置**：包括主题模式、跟随系统、纹理选项
-- **背景选择**：渐变 ID、壁纸数据、上次使用的壁纸
-- **图标缓存**：获取的网站图标会缓存
+- **Dock 应用列表**:实时保存每次增删改(localStorage)
+- **搜索引擎选择**:自动保存(localStorage)
+- **主题设置**:包括主题模式、跟随系统、纹理选项(localStorage)
+- **背景选择**:渐变 ID、壁纸 ID(localStorage)
+- **壁纸存储**:使用 IndexedDB 存储壁纸数据,突破 localStorage 5MB 限制,支持 10MB+ 高清壁纸
+- **壁纸历史**:最多保存 7 张最近使用的壁纸,包含缩略图(IndexedDB)
+- **图标缓存**:获取的网站图标会缓存(localStorage)
 
 ## 🛠️ 技术栈
 
@@ -625,33 +630,47 @@ npm run build
 - **Vite**: 构建工具
 
 ### 主要技术特性
-- **CSS Modules**: 组件样式隔离
-- **CSS Variables**: 动态主题系统
-- **Context API**: 全局主题状态管理
-- **Custom Hooks**: 拖拽逻辑、系统主题检测
-- **LocalStorage**: 数据持久化
-- **FileReader API**: 壁纸上传
-- **ResizeObserver**: Dock 宽度自适应
-- **Favicon API**: 自动获取网站图标
+- **CSS Modules**:组件样式隔离
+- **CSS Variables**:动态主题系统
+- **Context API**:全局主题状态管理
+- **Custom Hooks**:拖拽逻辑、系统主题检测、壁纸存储、搜索建议
+- **LocalStorage**:轻量数据持久化(设置、应用列表)
+- **IndexedDB**:大容量壁纸存储,突破 5MB 限制
+- **FileReader API**:壁纸上传与压缩
+- **ResizeObserver**:Dock 宽度自适应
+- **Favicon API**:自动获取网站图标
+- **JSONP**:跨域搜索建议 API 调用
 
 ### 项目结构
 
 ```
 src/
-├── assets/                 # 静态资源（图标、纹理等）
+├── assets/                 # 静态资源(图标、纹理等)
 ├── components/             # React 组件
+│   ├── Background/        # 背景双缓冲组件
 │   ├── Dock/              # Dock 应用栏组件
+│   ├── Editor/            # 编辑按钮组件
 │   ├── FolderView/        # 文件夹弹窗组件
 │   ├── Modal/             # 各类模态框
 │   ├── Searcher/          # 搜索组件
 │   ├── Settings/          # 设置按钮组件
-│   ├── Editor/            # 编辑按钮组件
-│   └── Tooltip/           # 工具提示组件
-├── constants/             # 常量配置（搜索引擎、渐变色）
-├── context/               # React Context（主题）
-├── hooks/                 # 自定义 Hooks（拖拽、系统主题）
+│   ├── Tooltip/           # 工具提示组件
+│   └── WallpaperGallery/  # 壁纸历史画廊组件
+├── constants/             # 常量配置(搜索引擎、渐变色)
+├── context/               # React Context(主题)
+├── hooks/                 # 自定义 Hooks
+│   ├── useDragAndDrop     # Dock 拖拽逻辑
+│   ├── useFolderDragAndDrop  # 文件夹拖拽逻辑
+│   ├── useSearchSuggestions  # 搜索建议
+│   ├── useSystemTheme     # 系统主题检测
+│   └── useWallpaperStorage   # 壁纸存储管理
 ├── types/                 # TypeScript 类型定义
-├── utils/                 # 工具函数（存储、动画、图标获取）
+├── utils/                 # 工具函数
+│   ├── storage            # localStorage 管理
+│   ├── db                 # IndexedDB 管理
+│   ├── animations         # 动画工具函数
+│   ├── iconFetcher        # 图标获取
+│   └── jsonp              # JSONP 跨域请求
 └── styles/                # 全局样式和变量
 ```
 
@@ -663,6 +682,8 @@ src/
 - 模态框缩放渐入/渐出
 - 拖拽时的实时视觉反馈
 - 主题切换的背景渐变过渡
+- **平滑壁纸切换动画**:双缓冲层淡入淡出(0.5s),无闪烁切换
+- 搜索建议下拉列表缩放渐入/渐出动画
 
 ### 2. 响应式设计
 - Dock 宽度自适应内容
@@ -671,11 +692,13 @@ src/
 - 智能边界检测，防止溢出屏幕
 
 ### 3. 用户体验优化
-- 长按触发编辑，避免误操作
+- 长按触发编辑,避免误操作
 - 拖拽时的预览和插入指示器
 - 智能文件夹合并和自动解散
-- 上次壁纸快速复用功能
+- 壁纸历史画廊:最多保存 7 张壁纸,支持快速切换和删除
 - 编辑模态框位置跟随触发元素
+- 搜索建议实时显示,支持键盘导航
+- 壁纸自动压缩优化,支持 10MB+ 高清图片
 
 ### 4. 可访问性
 - 完整的键盘支持（Esc 关闭弹窗）
