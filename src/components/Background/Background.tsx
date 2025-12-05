@@ -3,8 +3,16 @@ import { useTheme } from '../../context/ThemeContext';
 import styles from './Background.module.css';
 
 // Helper function to extract URL from background value
+// Only returns URL if the background is purely a wallpaper image
+// Returns null if background contains texture overlays or other complex values
 const extractUrl = (bgValue: string): string | null => {
-    const match = bgValue.match(/url\(['"]?([^'"]+)['"]?\)/);
+    // If the background contains a comma, it has multiple layers (e.g., texture + color)
+    // In this case, we should render as a div with background style, not as an img
+    if (bgValue.includes(',')) {
+        return null;
+    }
+    // Only match if the entire value is a single url()
+    const match = bgValue.match(/^url\(['\"]?([^'\"]+)['\"]?\)$/);
     return match ? match[1] : null;
 };
 

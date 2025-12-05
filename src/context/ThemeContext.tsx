@@ -237,7 +237,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 if (preset) {
                     if (preset.id === 'theme-default') {
                         if (isDefaultTheme) {
-                            bgValue = 'linear-gradient(180deg, #00020E 0%, #071633 25%, #3966AD 65%, #8BA9D4 100%)';
+                            bgValue = 'linear-gradient(180deg, #00020E 0%, #071633 25%, #3966AD 65%, #7e9ecb 100%)';
                         } else {
                             const isDarkTheme = theme === 'dark';
                             bgValue = isDarkTheme ? DEFAULT_THEME_COLORS.dark : DEFAULT_THEME_COLORS.light;
@@ -254,7 +254,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 }
             } else {
                 if (isDefaultTheme) {
-                    bgValue = 'linear-gradient(180deg, #00020E 0%, #071633 25%, #3966AD 65%, #8BA9D4 100%)';
+                    bgValue = 'linear-gradient(180deg, #00020E 0%, #071633 25%, #3966AD 65%, #7e9ecb 100%)';
                 } else {
                     const isDarkTheme = theme === 'dark';
                     bgValue = isDarkTheme ? DEFAULT_THEME_COLORS.dark : DEFAULT_THEME_COLORS.light;

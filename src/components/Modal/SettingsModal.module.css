@@ -128,6 +128,8 @@
     opacity: 0;
     margin-bottom: 0;
     transform: scale(0.95);
+    pointer-events: none;
+    overflow: hidden;
     transition:
         height var(--transition-normal),
         opacity var(--transition-medium),
@@ -141,6 +143,8 @@
     opacity: 1;
     margin-bottom: 8px;
     transform: scale(1);
+    pointer-events: auto;
+    overflow: visible;
 }
 
 /* 纹理选择容器 */

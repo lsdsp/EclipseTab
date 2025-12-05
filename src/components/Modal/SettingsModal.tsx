@@ -89,8 +89,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     };
 
     const handleGradientSelect = (id: string) => {
-        setGradientId(id);
-        if (wallpaper) setWallpaper(null);
+        // If there's a wallpaper, just clear it and set the gradient directly
+        // No special handling needed because the visual change is from wallpaper to color
+        if (wallpaper) {
+            setWallpaper(null);
+            setGradientId(id);
+            return;
+        }
+
+        // If clicking the same gradient (and no wallpaper), we need to force React to update
+        // by using a temporary different value first
+        if (gradientId === id) {
+            const tempId = id === 'theme-default' ? 'gradient-1' : 'theme-default';
+            setGradientId(tempId);
+            // Force a synchronous update by using requestAnimationFrame
+            requestAnimationFrame(() => {
+                setGradientId(id);
+            });
+        } else {
+            setGradientId(id);
+        }
     };
 
     const handleTextureSelect = (selectedTexture: Texture) => {
