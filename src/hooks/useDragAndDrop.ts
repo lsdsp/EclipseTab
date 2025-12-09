@@ -1,24 +1,7 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { DockItem } from '../types';
-
-interface Position {
-    x: number;
-    y: number;
-}
-
-interface DragState {
-    isDragging: boolean;
-    item: DockItem | null;
-    originalIndex: number;
-    currentPosition: Position;
-    startPosition: Position;
-    offset: Position;
-    // 归位动画相关状态
-    isAnimatingReturn: boolean;
-    targetPosition: Position | null;
-    targetAction: 'reorder' | 'dropToFolder' | 'mergeFolder' | 'dragToOpenFolder' | null;
-    targetActionData: any;
-}
+import { useDragBase, createDockDragState, resetDockDragState, DockDragState } from './useDragBase';
+import { createMouseDownHandler } from '../utils/dragUtils';
 
 interface UseDragAndDropOptions {
     items: DockItem[];
@@ -45,51 +28,46 @@ export const useDragAndDrop = ({
     onDragEnd,
     externalDragItem,
 }: UseDragAndDropOptions) => {
-    const [dragState, setDragState] = useState<DragState>({
-        isDragging: false,
-        item: null,
-        originalIndex: -1,
-        currentPosition: { x: 0, y: 0 },
-        startPosition: { x: 0, y: 0 },
-        offset: { x: 0, y: 0 },
-        isAnimatingReturn: false,
-        targetPosition: null,
-        targetAction: null,
-        targetActionData: null,
+    // 使用基础 Hook
+    const {
+        dragState,
+        setDragState,
+        placeholderIndex,
+        setPlaceholderIndex,
+        itemRefs,
+        dragRef,
+        itemsRef,
+        placeholderRef,
+        hasMovedRef,
+        thresholdListenerRef,
+        startDragging,
+    } = useDragBase<DockDragState>({
+        items,
+        isEditMode,
+        onDragStart,
+        onDragEnd,
+        externalDragItem,
+        createInitialState: createDockDragState,
+        resetState: resetDockDragState,
     });
 
-    useEffect(() => {
-        if (dragState.isDragging) {
-            document.body.classList.add('is-dragging');
-        } else {
-            document.body.classList.remove('is-dragging');
-        }
-    }, [dragState.isDragging]);
-
-    const [placeholderIndex, setPlaceholderIndex] = useState<number | null>(null);
+    // Dock 特有的状态
     const [hoveredFolderId, setHoveredFolderId] = useState<string | null>(null);
     const [hoveredAppId, setHoveredAppId] = useState<string | null>(null);
     const [mergeTargetId, setMergeTargetId] = useState<string | null>(null);
     const [isPreMerge, setIsPreMerge] = useState(false);
     const [isOverFolderView, setIsOverFolderView] = useState(false);
 
-    const itemRefs = useRef<(HTMLElement | null)[]>([]);
+    // Refs
     const dockRef = useRef<HTMLElement | null>(null);
-    const dragRef = useRef<DragState>(dragState);
-    const itemsRef = useRef(items);
-    const placeholderRef = useRef<number | null>(null);
     const hoveredFolderRef = useRef<string | null>(null);
     const hoveredAppRef = useRef<string | null>(null);
     const mergeTargetRef = useRef<string | null>(null);
     const isPreMergeRef = useRef(false);
     const hoverStartTime = useRef<number>(0);
     const potentialMergeTarget = useRef<string | null>(null);
-    const hasMovedRef = useRef(false);
-    const thresholdListenerRef = useRef<((e: MouseEvent) => void) | null>(null);
 
-    useEffect(() => { dragRef.current = dragState; }, [dragState]);
-    useEffect(() => { itemsRef.current = items; }, [items]);
-    useEffect(() => { placeholderRef.current = placeholderIndex; }, [placeholderIndex]);
+    // 同步 Refs
     useEffect(() => { hoveredFolderRef.current = hoveredFolderId; }, [hoveredFolderId]);
     useEffect(() => { hoveredAppRef.current = hoveredAppId; }, [hoveredAppId]);
     useEffect(() => { mergeTargetRef.current = mergeTargetId; }, [mergeTargetId]);
@@ -103,9 +81,7 @@ export const useDragAndDrop = ({
         if (!state.isDragging && !externalDragItem && state.item) {
             const dist = Math.hypot(e.clientX - state.startPosition.x, e.clientY - state.startPosition.y);
             if (dist > 8) { // Increased threshold from 5 to 8px
-                hasMovedRef.current = true;
-                setDragState(prev => ({ ...prev, isDragging: true }));
-                if (onDragStart) onDragStart(state.item);
+                startDragging(state.item);
             } else {
                 return; // Not dragging yet
             }
@@ -238,23 +214,6 @@ export const useDragAndDrop = ({
 
             const dockRect = dockRef.current?.getBoundingClientRect();
             if (dockRect) {
-                // For transform-based layout, we consider ALL items including the dragged one
-                // The "gap" is technically where the dragged item IS, but we want to know where it SHOULD be.
-
-                // We want to find the insertion index based on the mouse X position relative to the items.
-                // If we are dragging internally, the item is still in the list taking up space.
-                // We want to find which "slot" the mouse is closest to.
-
-                // Iterate through all items to find the closest slot
-                // Slots are: Before item 0, Between 0 and 1, ..., After last item
-
-                // However, a simpler approach for 1D list is:
-                // Find the item whose center is closest to mouseX? 
-                // Or find the first item whose center is > mouseX?
-
-                // Let's use the "Center Crossing" rule (Overlap > 50%)
-                // If mouseX < ItemCenter, we insert before that item.
-
                 let targetIndex = -1;
 
                 for (let i = 0; i < itemsRef.current.length; i++) {
@@ -278,7 +237,7 @@ export const useDragAndDrop = ({
                 setPlaceholderIndex(targetIndex);
             }
         }
-    }, [onDragStart, externalDragItem]);
+    }, [onDragStart, externalDragItem, startDragging, itemRefs, itemsRef, onHoverOpenFolder]);
 
     // Handle external drag tracking
     useEffect(() => {
@@ -288,7 +247,6 @@ export const useDragAndDrop = ({
                 window.removeEventListener('mousemove', handleMouseMove);
             };
         } else {
-            // Reset placeholder when external drag ends
             setPlaceholderIndex(null);
             setHoveredFolderId(null);
             setHoveredAppId(null);
@@ -296,7 +254,7 @@ export const useDragAndDrop = ({
             setIsPreMerge(false);
             potentialMergeTarget.current = null;
         }
-    }, [externalDragItem, handleMouseMove]);
+    }, [externalDragItem, handleMouseMove, setPlaceholderIndex]);
 
     const handleMouseUp = useCallback(() => {
         const state = dragRef.current;
@@ -311,18 +269,7 @@ export const useDragAndDrop = ({
             window.removeEventListener('mouseup', handleMouseUp);
             hasMovedRef.current = false;
             // Reset state to allow click
-            setDragState({
-                isDragging: false,
-                item: null,
-                originalIndex: -1,
-                currentPosition: { x: 0, y: 0 },
-                startPosition: { x: 0, y: 0 },
-                offset: { x: 0, y: 0 },
-                isAnimatingReturn: false,
-                targetPosition: null,
-                targetAction: null,
-                targetActionData: null,
-            });
+            setDragState(resetDockDragState());
             return;
         }
 
@@ -342,18 +289,17 @@ export const useDragAndDrop = ({
         const isPreMergeState = isPreMergeRef.current;
 
         // 计算目标位置并设置动画状态
-        let targetPos: Position | null = null;
-        let action: DragState['targetAction'] = null;
+        let targetPos: { x: number, y: number } | null = null;
+        let action: DockDragState['targetAction'] = null;
         let actionData: any = null;
 
         // Check if dropping onto open folder view
         if (isOverFolderView && onDragToOpenFolder && state.item.type !== 'folder') {
-            // 找到打开的文件夹视图元素
             const folderViewElement = document.querySelector('[data-folder-view="true"]');
             if (folderViewElement) {
                 const rect = folderViewElement.getBoundingClientRect();
                 targetPos = {
-                    x: rect.left + rect.width / 2 - 32, // 减去图标宽度的一半
+                    x: rect.left + rect.width / 2 - 32,
                     y: rect.top + rect.height / 2 - 32,
                 };
                 action = 'dragToOpenFolder';
@@ -363,7 +309,6 @@ export const useDragAndDrop = ({
             if (currentHoveredFolder && onDropToFolder) {
                 const targetFolder = currentItems.find(i => i.id === currentHoveredFolder);
                 if (targetFolder) {
-                    // 找到目标文件夹图标的位置
                     const folderIndex = currentItems.findIndex(i => i.id === currentHoveredFolder);
                     const folderElement = itemRefs.current[folderIndex];
                     if (folderElement) {
@@ -379,7 +324,6 @@ export const useDragAndDrop = ({
             } else if (currentHoveredApp && onMergeFolder) {
                 const targetApp = currentItems.find(i => i.id === currentHoveredApp);
                 if (targetApp) {
-                    // 找到目标应用图标的位置
                     const appIndex = currentItems.findIndex(i => i.id === currentHoveredApp);
                     const appElement = itemRefs.current[appIndex];
                     if (appElement) {
@@ -397,28 +341,19 @@ export const useDragAndDrop = ({
             const oldIndex = state.originalIndex;
 
             if (oldIndex !== -1) {
-                // 计算插入索引
                 let insertIndex = currentPlaceholder;
                 if (insertIndex > oldIndex) {
                     insertIndex -= 1;
                 }
 
-                // 准备新数组用于动画完成后更新
                 const newItems = [...currentItems];
                 const [moved] = newItems.splice(oldIndex, 1);
                 newItems.splice(insertIndex, 0, moved);
 
-                // 计算目标位置：图标在新数组中的位置对应的 DOM 坐标
-                // insertIndex 是图标在重排后数组中的索引
-                // 我们需要找到对应的 DOM 元素位置
                 let targetElementIndex = -1;
-
-                // 如果图标向后移动（insertIndex > oldIndex），目标元素是 insertIndex + 1
-                // 因为被拖动的元素在当前 DOM 中还在 oldIndex，所以后面的元素索引要 +1
                 if (insertIndex >= oldIndex) {
                     targetElementIndex = insertIndex + 1;
                 } else {
-                    // 如果图标向前移动，目标元素就是 insertIndex
                     targetElementIndex = insertIndex;
                 }
                 const targetElement = itemRefs.current[targetElementIndex];
@@ -427,9 +362,6 @@ export const useDragAndDrop = ({
                     const rect = targetElement.getBoundingClientRect();
                     let targetX = rect.left;
 
-                    // If the target element is currently shifted by the placeholder, we need to compensate.
-                    // Items are shifted if their index is >= placeholderIndex.
-                    // Note: placeholderIndex indicates the gap BEFORE that index is active.
                     if (currentPlaceholder !== null && targetElementIndex >= currentPlaceholder) {
                         targetX -= 72; // 64px width + 8px gap
                     }
@@ -441,12 +373,7 @@ export const useDragAndDrop = ({
                     action = 'reorder';
                     actionData = { newItems };
                 } else {
-                    // Fallback: If targetElement is undefined (e.g., dropping at the end of the list),
-                    // calculate position based on the last visible item.
-
                     let lastVisibleIndex = currentItems.length - 1;
-                    // If the last item is the dragged item, it's hidden (absolute/width 0).
-                    // We should use the previous item to calculate position.
                     if (lastVisibleIndex === state.originalIndex) {
                         lastVisibleIndex--;
                     }
@@ -455,13 +382,7 @@ export const useDragAndDrop = ({
                         const lastVisibleRef = itemRefs.current[lastVisibleIndex];
                         if (lastVisibleRef) {
                             const rect = lastVisibleRef.getBoundingClientRect();
-                            let targetX = rect.right + 8; // 8px gap
-
-                            // If the last visible item itself was shifted, its rect.right is shifted.
-                            // We need to un-shift it to get the correct "end of list" position relative to the unshifted list?
-                            // Actually, if we are appending to the end, and the list is shifted, the "end" is also shifted.
-                            // But when the placeholder collapses, everything shifts back.
-                            // So yes, if the reference item was shifted, we need to subtract 72.
+                            let targetX = rect.right + 8;
 
                             if (currentPlaceholder !== null && lastVisibleIndex >= currentPlaceholder) {
                                 targetX -= 72;
@@ -475,16 +396,12 @@ export const useDragAndDrop = ({
                             actionData = { newItems };
                         }
                     } else {
-                        // If no visible items (e.g. dragging the only item), fallback to container start.
-                        // We can try to find the dock container.
                         const dockContainer = document.querySelector('[data-dock-container="true"]');
                         if (dockContainer) {
                             const rect = dockContainer.getBoundingClientRect();
-                            // Estimate start position: padding-left is 8px.
-                            // If edit mode, we might need more, but this is a safe fallback.
                             targetPos = {
                                 x: rect.left + 8,
-                                y: rect.top + 8, // padding-top is 8px
+                                y: rect.top + 8,
                             };
                             action = 'reorder';
                             actionData = { newItems };
@@ -494,18 +411,15 @@ export const useDragAndDrop = ({
             }
         }
 
-        // 如果有目标位置，触发归位动画
         if (targetPos && action) {
             setDragState(prev => ({
                 ...prev,
                 isDragging: false,
                 isAnimatingReturn: true,
-                targetPosition: targetPos,
+                targetPosition: targetPos!,
                 targetAction: action,
                 targetActionData: actionData,
             }));
-            // 清理拖拽相关的 UI 状态
-            // setPlaceholderIndex(null); // Keep placeholder during animation
             setHoveredFolderId(null);
             setHoveredAppId(null);
             setMergeTargetId(null);
@@ -513,19 +427,7 @@ export const useDragAndDrop = ({
             potentialMergeTarget.current = null;
             hasMovedRef.current = false;
         } else {
-            // 没有有效的放置目标，直接清理状态
-            setDragState({
-                isDragging: false,
-                item: null,
-                originalIndex: -1,
-                currentPosition: { x: 0, y: 0 },
-                startPosition: { x: 0, y: 0 },
-                offset: { x: 0, y: 0 },
-                isAnimatingReturn: false,
-                targetPosition: null,
-                targetAction: null,
-                targetActionData: null,
-            });
+            setDragState(resetDockDragState());
             setPlaceholderIndex(null);
             setHoveredFolderId(null);
             setHoveredAppId(null);
@@ -536,74 +438,29 @@ export const useDragAndDrop = ({
 
             if (onDragEnd) onDragEnd();
         }
-    }, [onDropToFolder, onMergeFolder, onReorder, onDragEnd, onDragToOpenFolder, handleMouseMove]);
+    }, [onDropToFolder, onMergeFolder, onDragToOpenFolder, onDragEnd, handleMouseMove, setDragState, setPlaceholderIndex, placeholderRef, itemsRef, itemRefs, dragRef, hasMovedRef, thresholdListenerRef, hoveredFolderRef, hoveredAppRef, isPreMergeRef]);
 
     const handleMouseDown = (e: React.MouseEvent, item: DockItem, index: number) => {
-        if (!isEditMode) return;
-
-        // Prevent default to avoid text selection during drag
-        e.preventDefault();
-
-        hasMovedRef.current = false;
-        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        const offset = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
-
-        const startX = e.clientX;
-        const startY = e.clientY;
-
-        let dragDataSet = false;
-
-        // Delay adding mousemove listener to avoid false drag detection
-        const moveThresholdCheck = (moveEvent: MouseEvent) => {
-            const dist = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
-            if (dist > 3) { // 3px threshold before we start tracking
-                hasMovedRef.current = true;
-
-                // NOW set the drag state for the first time
-                if (!dragDataSet) {
-                    dragDataSet = true;
-                    setDragState({
-                        isDragging: false,
-                        item,
-                        originalIndex: index,
-                        currentPosition: { x: rect.left, y: rect.top },
-                        startPosition: { x: startX, y: startY },
-                        offset,
-                        isAnimatingReturn: false,
-                        targetPosition: null,
-                        targetAction: null,
-                        targetActionData: null,
-                    });
-                }
-
-                window.removeEventListener('mousemove', moveThresholdCheck);
-                thresholdListenerRef.current = null;
-                window.addEventListener('mousemove', handleMouseMove);
+        createMouseDownHandler<DockDragState>({
+            isEditMode,
+            item,
+            index,
+            event: e,
+            setDragState,
+            handleMouseMove,
+            handleMouseUp,
+            createDragState: (item, index, rect, startX, startY, offset) => {
+                const initial = createDockDragState();
+                return {
+                    ...initial,
+                    item,
+                    originalIndex: index,
+                    currentPosition: { x: rect.left, y: rect.top },
+                    startPosition: { x: startX, y: startY },
+                    offset,
+                };
             }
-        };
-
-        const cleanupMouseUp = () => {
-            window.removeEventListener('mousemove', moveThresholdCheck);
-            window.removeEventListener('mouseup', cleanupMouseUp);
-            thresholdListenerRef.current = null;
-            hasMovedRef.current = false;
-
-            // If we never started dragging, don't interfere - let click event handle it
-            if (!dragDataSet) {
-                // Click will fire naturally
-                return;
-            }
-
-            // If we did start setting up drag, call the real handleMouseUp
-            handleMouseUp();
-        };
-
-        thresholdListenerRef.current = moveThresholdCheck;
-        window.addEventListener('mousemove', moveThresholdCheck);
-        window.addEventListener('mouseup', cleanupMouseUp);
+        }, hasMovedRef, thresholdListenerRef);
     };
 
     // 处理归位动画完成
@@ -614,112 +471,77 @@ export const useDragAndDrop = ({
             return;
         }
 
-        // 根据 targetAction 执行相应的数据更新
         switch (state.targetAction) {
             case 'reorder':
-                if (state.targetActionData?.newItems) {
-                    onReorder(state.targetActionData.newItems);
+                if ((state.targetActionData as any)?.newItems) {
+                    onReorder((state.targetActionData as any).newItems);
                 }
                 break;
             case 'dropToFolder':
-                if (state.targetActionData?.targetFolder && onDropToFolder) {
-                    onDropToFolder(state.targetActionData.item, state.targetActionData.targetFolder);
+                if ((state.targetActionData as any)?.targetFolder && onDropToFolder) {
+                    onDropToFolder((state.targetActionData as any).item, (state.targetActionData as any).targetFolder);
                 }
                 break;
             case 'mergeFolder':
-                if (state.targetActionData?.targetItem && onMergeFolder) {
-                    onMergeFolder(state.targetActionData.item, state.targetActionData.targetItem);
+                if ((state.targetActionData as any)?.targetItem && onMergeFolder) {
+                    onMergeFolder((state.targetActionData as any).item, (state.targetActionData as any).targetItem);
                 }
                 break;
             case 'dragToOpenFolder':
                 if (onDragToOpenFolder) {
-                    onDragToOpenFolder(state.targetActionData.item);
+                    onDragToOpenFolder((state.targetActionData as any).item);
                 }
                 break;
         }
 
-        // 清理所有状态
-        setDragState({
-            isDragging: false,
-            item: null,
-            originalIndex: -1,
-            currentPosition: { x: 0, y: 0 },
-            startPosition: { x: 0, y: 0 },
-            offset: { x: 0, y: 0 },
-            isAnimatingReturn: false,
-            targetPosition: null,
-            targetAction: null,
-            targetActionData: null,
-        });
-        setPlaceholderIndex(null); // Clear placeholder after animation
+        setDragState(resetDockDragState());
+        setPlaceholderIndex(null);
 
         if (onDragEnd) onDragEnd();
-    }, [onReorder, onDropToFolder, onMergeFolder, onDragToOpenFolder, onDragEnd]);
+    }, [onReorder, onDropToFolder, onMergeFolder, onDragToOpenFolder, onDragEnd, setDragState, setPlaceholderIndex, dragRef]);
 
-    /**
-     * Calculate transform offset for each item during drag.
-     * 
-     * Since dragged item keeps its width (opacity:0), the dock layout stays constant.
-     * We use transforms to create the visual effect of items sliding to make a gap.
-     * 
-     * Example: [A][B][C][D][E] - drag B (index 1) to between C and D (targetSlot 3)
-     * - B stays in place but is invisible - THIS becomes visually the gap
-     * - Items between B and targetSlot (C only: index 2) shift LEFT to fill B's visual spot
-     * - Items at targetSlot and beyond (D, E) stay in place
-     * - Visual result: [A][C][gap][D][E] where gap is at B's original position
-     * 
-     * Wait, that's not right. The gap should appear between C and D, not at B's position.
-     * 
-     * Let me reconsider: 
-     * - We want the gap to appear at targetSlot position
-     * - Items from (draggedIndex+1) to (targetSlot-1) should shift LEFT to close up
-     * - The dragged item (invisible) stays at its index but we don't care about its visual
-     * 
-     * @param index - The index of the item in the items array
-     * @returns The translateX offset in pixels
-     */
     const getItemTransform = useCallback((index: number): number => {
         const targetSlot = placeholderRef.current;
         if (targetSlot === null) return 0;
 
         const state = dragRef.current;
-        const itemGap = 72; // 64px width + 8px gap
+        const itemGap = 72;
 
         if (state.isDragging && state.originalIndex !== -1) {
             const draggedIndex = state.originalIndex;
 
-            // Dragged item: move it visually to near the target slot (optional, for visual polish)
             if (index === draggedIndex) {
-                // This item is invisible anyway, but we could move it to the gap position
-                // For now, keep it in place
                 return 0;
             }
 
             if (draggedIndex < targetSlot) {
-                // Dragging RIGHT: B is at index 1, target is slot 3 (between C and D)
-                // Items C (index 2) should shift LEFT to fill B's spot
-                // Items D, E stay in place
-                // Gap appears at position 2 (where B was, after C moves there)
-                // But we want gap at position 2 (before D's original position 3)
                 if (index > draggedIndex && index < targetSlot) {
-                    return -itemGap; // Shift LEFT
+                    return -itemGap;
                 }
             } else if (draggedIndex > targetSlot) {
-                // Dragging LEFT: B is at some position, target is before it
-                // Items between targetSlot and draggedIndex-1 should shift RIGHT
                 if (index >= targetSlot && index < draggedIndex) {
-                    return itemGap; // Shift RIGHT
+                    return itemGap;
                 }
             }
         } else if (externalDragItem) {
-            // External drag: items at or after targetSlot shift RIGHT to make room
             if (index >= targetSlot) {
                 return itemGap;
             }
         }
 
         return 0;
-    }, [externalDragItem]);
+    }, [externalDragItem, placeholderRef, dragRef]);
+
+    // Cleanup when component unmounts
+    useEffect(() => {
+        return () => {
+            if (thresholdListenerRef.current) {
+                window.removeEventListener('mousemove', thresholdListenerRef.current);
+            }
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, []);
 
     return {
         dragState,
