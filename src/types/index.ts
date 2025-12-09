@@ -1,22 +1,19 @@
-export interface DockItem {
-  id: string;
-  name: string;
-  url?: string;
-  icon?: string;
-  type: 'app' | 'folder';
-  items?: DockItem[]; // 仅文件夹包含
-}
+/**
+ * 类型定义导出入口
+ * 
+ * 为保持向后兼容，从这里统一导出所有类型
+ */
 
-export interface SearchEngine {
-  id: string;
-  name: string;
-  url: string;
-}
+// Dock 相关类型
+export type { DockItem, SearchEngine, AppState, DockActions, FolderViewActions } from './dock';
 
-export interface AppState {
-  dockItems: DockItem[];
-  isEditMode: boolean;
-  selectedSearchEngine: SearchEngine;
-  openFolderId: string | null;
-}
-
+// 拖拽相关类型
+export type {
+  Position,
+  TargetAction,
+  DragState,
+  PlaceholderState,
+  MergeTargetState,
+  UseDragAndDropOptions,
+  UseFolderDragAndDropOptions
+} from './drag';
