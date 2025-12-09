@@ -5,7 +5,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { DockItem } from '../types';
 import {
-    Position,
     BaseDragState,
     createInitialDragState,
     resetDragState,
