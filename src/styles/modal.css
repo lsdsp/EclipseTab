@@ -1,0 +1,105 @@
+/* ===== 共享模态框基础样式 ===== */
+/* 可被各模态框组件导入使用 */
+
+/* 背景遮罩层（全屏） */
+.modalBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2999;
+    pointer-events: auto;
+}
+
+/* 带暗色遮罩的背景层 */
+.modalBackdropDark {
+    position: fixed;
+    inset: 0;
+    z-index: 2999;
+    pointer-events: auto;
+    background: var(--black-alpha-30);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 模态框容器 - 玻璃态效果 */
+.modalContainer {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-default);
+    box-shadow: var(--shadow-combined);
+}
+
+/* 模态框内层容器 */
+.modalInner {
+    background: var(--color-bg-secondary);
+    box-shadow: var(--shadow-small);
+    border-radius: var(--radius-default-in);
+    padding: var(--spacing-padding-small);
+}
+
+/* ===== 选项样式 ===== */
+
+/* 通用选项按钮 */
+.optionButton {
+    background: var(--color-bg-secondary);
+    border: 2px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all var(--transition-medium);
+}
+
+/* 选项悬停效果 */
+.optionButton:hover {
+    filter: brightness(1.05);
+}
+
+/* 选项激活状态 */
+.optionButtonActive {
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 1px var(--black-alpha-10);
+}
+
+/* ===== 网格布局 ===== */
+
+/* 网格容器 - 通用 */
+.optionsGrid {
+    background: var(--color-bg-secondary);
+    box-shadow: var(--shadow-small);
+    border-radius: var(--radius-small);
+    padding: 4px;
+    display: grid;
+    gap: 4px;
+}
+
+/* 5列网格 */
+.optionsGrid5Cols {
+    background: var(--color-bg-secondary);
+    box-shadow: var(--shadow-small);
+    border-radius: var(--radius-small);
+    padding: 4px;
+    display: grid;
+    gap: 4px;
+    grid-template-columns: repeat(5, 1fr);
+}
+
+/* ===== 通用状态 ===== */
+
+/* 禁用状态 */
+.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    filter: grayscale(100%);
+}
+
+/* 隐藏状态 */
+.hidden {
+    display: none;
+}
+
+/* ===== 暗色模式适配 ===== */
+/* 暗色模式下图标颜色反转 */
+[data-theme='dark'] .iconInvert img {
+    filter: invert(1);
+}
