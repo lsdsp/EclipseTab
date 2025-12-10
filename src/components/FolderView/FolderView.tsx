@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { DockItem } from '../../types';
 import { DockItem as DockItemComponent } from '../Dock/DockItem';
@@ -42,10 +42,9 @@ export const FolderView: React.FC<FolderViewProps> = ({
   const {
     dragState,
     isDraggingOut,
-    placeholderIndex,
     itemRefs,
     handleMouseDown,
-    handleAnimationComplete,
+    getItemTransform,
     dragElementRef,
   } = useFolderDragAndDrop({
     items: folder.items || [],
@@ -58,45 +57,20 @@ export const FolderView: React.FC<FolderViewProps> = ({
     onDragEnd,
   });
 
-  // Projection / Render Items Logic
-  const renderItems = useMemo(() => {
-    const activeDragItem = dragState.isDragging ? dragState.item : externalDragItem;
-    // Base items: All items minus the one currently being dragged (if it exists in the list)
-    let base = (folder.items || []);
+  // 判断是否正在交互（拖拽中或有外部拖入项）
+  const isInteracting = dragState.isDragging || dragState.isAnimatingReturn || !!externalDragItem;
 
-    // Helper: Unique ID check
-    const uniqueMap = new Map();
-    base.forEach(b => uniqueMap.set(b.id, b));
+  // 使用原始列表 + transform 动画（而非投影式重排）
+  // 保持 DOM 顺序不变，通过 CSS transform 实现视觉上的平滑移动
+  const items = folder.items || [];
 
-    // If an item is being dragged, we remove it from the 'base' view because we will re-insert it at placeholder
-    if (activeDragItem) {
-      uniqueMap.delete(activeDragItem.id);
-    }
+  // 计算实际渲染的项目数量（考虑外部拖入时的额外占位）
+  const effectiveItemCount = externalDragItem && !isDraggingOut
+    ? items.length + 1
+    : items.length;
 
-    // Convert back to array
-    const cleanBase = Array.from(uniqueMap.values());
-
-    // If we are dragging out, we just show start items (minus dragged)
-    if (isDraggingOut) {
-      return cleanBase;
-    }
-
-    // Insert at placeholder
-    const result = [...cleanBase];
-    if (activeDragItem && (placeholderIndex !== null || externalDragItem)) {
-      // Default to end if placeholder is null but we have external item (hovering empty space)
-      // Actually, if placeholderIndex is null, usually we don't insert. 
-      // But the user wants 'infinite duplication' fixed. 
-      // Strict rule: Insert ONCE.
-
-      const targetIndex = placeholderIndex !== null ? placeholderIndex : result.length;
-      const safeIndex = Math.min(Math.max(0, targetIndex), result.length);
-
-      result.splice(safeIndex, 0, activeDragItem);
-    }
-
-    return result;
-  }, [folder.items, dragState.item, dragState.isDragging, externalDragItem, placeholderIndex, isDraggingOut]);
+  // 归位动画现在由 useFolderDragAndDrop 通过直接 DOM 操作处理
+  // 不再需要 React 状态驱动的两阶段动画
 
   // Animate entry
   useEffect(() => {
@@ -135,16 +109,13 @@ export const FolderView: React.FC<FolderViewProps> = ({
     }
   };
 
-  // If even projected items are empty, show nothing? Or just standard check.
-  if ((!folder.items || folder.items.length === 0) && (!externalDragItem)) {
-    // If we have external drag item, projected items will not be empty.
-    // So checking projectedItems.length is better but we can keep basic check.
-    if (renderItems.length === 0) return null;
+  // If folder is empty and no external drag item, don't render
+  if (items.length === 0 && !externalDragItem) {
+    return null;
   }
 
-  // Layout calculations based on PROJECTED items
-  const itemCount = renderItems.length;
-  const columns = Math.min(4, Math.max(itemCount, 1));
+  // Layout calculations based on effective item count (includes external drag placeholder)
+  const columns = Math.min(4, Math.max(effectiveItemCount, 1));
 
   // Calculate width
   const popupWidth = (columns * 64) + ((Math.max(columns - 1, 0)) * 8) + 16;
@@ -170,7 +141,6 @@ export const FolderView: React.FC<FolderViewProps> = ({
           style={{
             width: `${popupWidth}px`,
             height: 'auto',
-            minHeight: '120px',
             overflow: 'visible'
           }}
         >
@@ -185,30 +155,49 @@ export const FolderView: React.FC<FolderViewProps> = ({
               alignContent: 'start',
             }}
           >
-            {renderItems.map((item, index) => {
-              // Check if this item is the one being dragged (source)
-              // If it is internal drag, projectedItems has the RE-INSERTED item at new position.
-              // We want to render it invisible to hold the space, while Overlay shows the visual.
+            {items.map((item, index) => {
+              // 检查是否是正在拖拽的源项（包括归位动画期间）
+              const isDraggingSource = (dragState.isDragging || dragState.isAnimatingReturn) && dragState.item?.id === item.id;
 
-              const isDraggingSource = dragState.isDragging && dragState.item?.id === item.id;
-              // Also check external, though external source isn't in this list usually unless we dropped?
-              // The projection puts the external item IN the list. So we need to render it as a placeholder.
+              // 获取 2D 变换偏移量（x 和 y）
+              const transform = getItemTransform(index);
 
-              const isExternalPlaceholder = externalDragItem?.id === item.id;
-              // We DO NOT need getItemTransform shifting anymore because projection array HAS the gap!
-              // The projection "physically" moves the items in the list.
-              // Wait, previous logic used `getItemTransform` to slide items around a fixed list.
-              // IF we use projection, React reorders DOM nodes. Animation might be lost unless we use framer-motion or Flip Move.
-              // However, the user asked for Projection State to fix duplication.
-              // If we strictly use projection, existing CSS transforms (sliding) might fight.
-              // But for robustness, Projection is safer.
-              // Let's rely on standard CSS Grid layout flow.
-
-              // To Restore Animation: We would need `react-flip-move` or similar, OR keep `getItemTransform` but apply to projected?
-              // `getItemTransform` was designed for "Static List + Visual Shift".
-              // "Projection" is "Dynamic List + React Re-render".
-              // Dynamic List is much less buggy for things like overflow/wrapping.
-              // Let's stick to Projection (Dynamic List).
+              // 拖拽源项的样式：
+              // - 当拖到文件夹外(isDraggingOut)时，收缩为0让其他项填补空隙
+              // - 当在文件夹内时，保持尺寸让 transform 创造视觉空隙
+              const sourceItemStyle = isDraggingSource ? (
+                isDraggingOut ? {
+                  // 拖出文件夹：收缩为0，让[A][C]紧凑排列
+                  width: 0,
+                  height: 0,
+                  minWidth: 0,
+                  minHeight: 0,
+                  overflow: 'hidden',
+                  opacity: 0,
+                  visibility: 'hidden' as const,
+                  transition: isInteracting
+                    ? 'width 200ms cubic-bezier(0.2, 0, 0, 1), height 200ms cubic-bezier(0.2, 0, 0, 1), opacity 150ms'
+                    : 'none',
+                } : {
+                  // 在文件夹内：保持尺寸，让其他项通过 transform 创造空隙
+                  width: 64,
+                  height: 64,
+                  opacity: 0,
+                  visibility: 'hidden' as const,
+                  transform: `translate(${transform.x}px, ${transform.y}px)`,
+                  transition: isInteracting
+                    ? 'transform 200ms cubic-bezier(0.2, 0, 0, 1), opacity 150ms'
+                    : 'none',
+                }
+              ) : {
+                // 普通项
+                width: 64,
+                height: 64,
+                transform: `translate(${transform.x}px, ${transform.y}px)`,
+                transition: isInteracting
+                  ? 'transform 200ms cubic-bezier(0.2, 0, 0, 1)'
+                  : 'none',
+              };
 
               return (
                 <div
@@ -217,14 +206,7 @@ export const FolderView: React.FC<FolderViewProps> = ({
                     itemRefs.current[index] = el;
                   }}
                   className={styles.gridItem}
-                  style={{
-                    width: 64,
-                    height: 64,
-                    // For projection, we can just let them sit.
-                    // If we want to hide the source one (ghost):
-                    opacity: (isDraggingSource || isExternalPlaceholder) ? 0 : 1,
-                    visibility: (isDraggingSource || isExternalPlaceholder) ? 'hidden' : 'visible',
-                  }}
+                  style={sourceItemStyle}
                 >
                   <DockItemComponent
                     item={item}
@@ -232,9 +214,8 @@ export const FolderView: React.FC<FolderViewProps> = ({
                     onClick={() => onItemClick(item)}
                     onEdit={(rect) => onItemEdit(item, rect)}
                     onDelete={() => onItemDelete(item)}
-                    isDragging={isDraggingSource} // Passes prop down
+                    isDragging={isDraggingSource}
                     staggerIndex={index}
-                    // We only attaching mousedown if it's a real item? Yes.
                     onMouseDown={(e) => handleMouseDown(e, item, index)}
                   />
                 </div>
@@ -253,6 +234,7 @@ export const FolderView: React.FC<FolderViewProps> = ({
           }}
           style={{
             position: 'fixed',
+            // 位置由 currentPosition 初始化，归位动画通过 hook 直接操作 DOM
             left: dragState.currentPosition.x,
             top: dragState.currentPosition.y,
             width: 64,
@@ -261,15 +243,10 @@ export const FolderView: React.FC<FolderViewProps> = ({
             zIndex: 9999,
             transform: isDraggingOut ? 'scale(1.0)' : 'scale(1.0)',
             filter: 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3))',
-            transition: dragState.isAnimatingReturn
-              ? 'left 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94), top 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.2s cubic-bezier(0.4,0,0.2,1)'
-              : 'transform 0.2s cubic-bezier(0.4,0,0.2,1)',
+            // 拖拽时禁用过渡，归位动画由 hook 直接设置
+            transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1)',
           }}
-          onTransitionEnd={(e) => {
-            if (dragState.isAnimatingReturn && (e.propertyName === 'left' || e.propertyName === 'top')) {
-              handleAnimationComplete();
-            }
-          }}
+        // onTransitionEnd 不再需要 - hook 直接监听 DOM
         >
           <DockItemComponent
             item={dragState.item}

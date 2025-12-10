@@ -171,6 +171,26 @@ export const useFolderDragAndDrop = ({
 
         setIsDraggingOut(false);
 
+        // 检查鼠标是否在 Dock 区域内 - 确保占位符互斥
+        const dockElement = document.querySelector('[data-dock-container="true"]');
+        if (dockElement) {
+            const dockRect = dockElement.getBoundingClientRect();
+            const dockBuffer = 80; // 略小于 Dock 的 150 buffer，确保优先级正确
+            const isOverDock = (
+                mouseX >= dockRect.left - dockBuffer &&
+                mouseX <= dockRect.right + dockBuffer &&
+                mouseY >= dockRect.top - dockBuffer &&
+                mouseY <= dockRect.bottom + dockBuffer
+            );
+
+            if (isOverDock) {
+                // 鼠标在 Dock 区域，清除 FolderView 的占位符
+                setPlaceholderIndex(null);
+                localLastPlaceholderRef.current = null;
+                return;
+            }
+        }
+
         if (!containerRef.current) return;
 
         const containerRect = containerRef.current.getBoundingClientRect();
@@ -296,24 +316,87 @@ export const useFolderDragAndDrop = ({
         }
 
         if (targetPos && action) {
-            setDragState(prev => ({
-                ...prev,
-                isDragging: false,
-                isAnimatingReturn: true,
-                targetPosition: targetPos!,
-                targetAction: action,
-                targetActionData: actionData,
-            }));
-            setIsDraggingOut(false);
-            hasMovedRef.current = false;
+            // 使用直接 DOM 操作进行归位动画，避免 React 重渲染导致的卡顿
+            const el = dragElementRef.current;
+            if (el) {
+                // 启用过渡动画
+                el.style.transition = 'left 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94), top 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
 
-            // Timeout fallback
-            setTimeout(() => {
-                const currentState = dragRef.current;
-                if (currentState.isAnimatingReturn) {
-                    handleAnimationComplete();
+                // 设置目标位置（CSS transition 会平滑动画）
+                el.style.left = `${targetPos.x}px`;
+                el.style.top = `${targetPos.y}px`;
+
+                // 监听过渡完成
+                const onTransitionEnd = (e: TransitionEvent) => {
+                    if (e.propertyName === 'left') {
+                        el.removeEventListener('transitionend', onTransitionEnd);
+
+                        // 执行动作
+                        if (action === 'reorder') {
+                            const newItems = reorderItems(itemsRef.current, state.item!, currentPlaceholder!);
+                            onReorder(newItems);
+                        } else if (action === 'dragOut' && onDragOut) {
+                            const mousePos = (actionData as any)?.mousePosition;
+                            if (mousePos) {
+                                onDragOut(state.item!, mousePos);
+                            }
+                        }
+
+                        // 重置状态
+                        setDragState(resetFolderDragState());
+                        setPlaceholderIndex(null);
+                        localLastPlaceholderRef.current = null;
+                        if (onDragEnd) onDragEnd();
+                    }
+                };
+
+                el.addEventListener('transitionend', onTransitionEnd);
+
+                // 更新状态（仅标记动画中，不改变位置）
+                setDragState(prev => ({
+                    ...prev,
+                    isDragging: false,
+                    isAnimatingReturn: true,
+                    targetAction: action,
+                    targetActionData: actionData,
+                }));
+                setIsDraggingOut(false);
+                hasMovedRef.current = false;
+
+                // Timeout fallback
+                setTimeout(() => {
+                    el.removeEventListener('transitionend', onTransitionEnd);
+                    const currentState = dragRef.current;
+                    if (currentState.isAnimatingReturn) {
+                        // 执行动作
+                        if (action === 'reorder') {
+                            const newItems = reorderItems(itemsRef.current, state.item!, currentPlaceholder!);
+                            onReorder(newItems);
+                        } else if (action === 'dragOut' && onDragOut) {
+                            const mousePos = (actionData as any)?.mousePosition;
+                            if (mousePos) {
+                                onDragOut(state.item!, mousePos);
+                            }
+                        }
+
+                        setDragState(resetFolderDragState());
+                        setPlaceholderIndex(null);
+                        localLastPlaceholderRef.current = null;
+                        if (onDragEnd) onDragEnd();
+                    }
+                }, 350);
+            } else {
+                // 无 DOM 元素，直接完成
+                if (action === 'reorder') {
+                    const newItems = reorderItems(itemsRef.current, state.item!, currentPlaceholder!);
+                    onReorder(newItems);
                 }
-            }, 350);
+                setDragState(resetFolderDragState());
+                setPlaceholderIndex(null);
+                setIsDraggingOut(false);
+                hasMovedRef.current = false;
+                if (onDragEnd) onDragEnd();
+            }
 
         } else {
             setDragState(resetFolderDragState());

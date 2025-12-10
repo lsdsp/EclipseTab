@@ -60,11 +60,12 @@
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
-  height: auto;
-  min-height: auto;
+  height: fit-content;
   overflow: visible;
   display: flex;
   flex-direction: column;
+  /* 容器高度平滑过渡，与拖拽动画保持一致 */
+  transition: height 200ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* 网格项目 - 支持 transform 动画 */
