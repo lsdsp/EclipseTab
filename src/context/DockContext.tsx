@@ -1,57 +1,69 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { DockItem, SearchEngine } from '../types';
 import { storage } from '../utils/storage';
 import { DEFAULT_SEARCH_ENGINE } from '../constants/searchEngines';
 import { generateFolderIcon, fetchIcon } from '../utils/iconFetcher';
 
-/**
- * Dock 状态上下文类型
- */
-interface DockContextType {
-    // 状态
+// ============================================================================
+// 数据层 Context (低频变化)
+// ============================================================================
+
+interface DockDataContextType {
     dockItems: DockItem[];
-    isEditMode: boolean;
     selectedSearchEngine: SearchEngine;
-    openFolderId: string | null;
-    folderAnchor: DOMRect | null;
-    draggingItem: DockItem | null;
-
-    // 操作
     setDockItems: React.Dispatch<React.SetStateAction<DockItem[]>>;
-    setIsEditMode: (value: boolean) => void;
     setSelectedSearchEngine: (engine: SearchEngine) => void;
-    setOpenFolderId: (id: string | null) => void;
-    setFolderAnchor: (rect: DOMRect | null) => void;
-    setDraggingItem: (item: DockItem | null) => void;
-
-    // 项目操作
-    handleItemClick: (item: DockItem, rect?: DOMRect) => void;
-    handleItemEdit: (item: DockItem, rect?: DOMRect) => void;
-    handleItemDelete: (item: DockItem) => void;
     handleItemSave: (data: Partial<DockItem>, editingItem: DockItem | null) => void;
     handleItemsReorder: (items: DockItem[]) => void;
-
-    // 文件夹操作
+    handleItemDelete: (item: DockItem) => void;
     handleFolderItemsReorder: (folderId: string, items: DockItem[]) => void;
     handleFolderItemDelete: (folderId: string, item: DockItem) => void;
     handleDragFromFolder: (item: DockItem, mousePosition: { x: number; y: number }) => void;
     handleDragToFolder: (item: DockItem) => void;
     handleDropOnFolder: (dragItem: DockItem, targetFolder: DockItem) => void;
-    handleHoverOpenFolder: (item: DockItem, folder: DockItem) => void;
+}
 
-    // 获取当前打开的文件夹
+const DockDataContext = createContext<DockDataContextType | undefined>(undefined);
+
+// ============================================================================
+// UI 层 Context (中频变化)
+// ============================================================================
+
+interface DockUIContextType {
+    isEditMode: boolean;
+    openFolderId: string | null;
+    folderAnchor: DOMRect | null;
+    draggingItem: DockItem | null;
+    setIsEditMode: (value: boolean) => void;
+    setOpenFolderId: (id: string | null) => void;
+    setFolderAnchor: (rect: DOMRect | null) => void;
+    setDraggingItem: (item: DockItem | null) => void;
+}
+
+const DockUIContext = createContext<DockUIContextType | undefined>(undefined);
+
+// ============================================================================
+// 组合 Context (用于需要同时访问数据和 UI 的场景)
+// ============================================================================
+
+interface DockContextType extends DockDataContextType, DockUIContextType {
+    handleItemClick: (item: DockItem, rect?: DOMRect) => void;
+    handleItemEdit: (item: DockItem, rect?: DOMRect) => void;
+    handleHoverOpenFolder: (item: DockItem, folder: DockItem) => void;
     openFolder: DockItem | undefined;
 }
 
-const DockContext = createContext<DockContextType | undefined>(undefined);
+// ============================================================================
+// Provider 实现
+// ============================================================================
 
-/**
- * Dock 状态管理 Provider
- */
 export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    // 数据状态 (低频变化)
     const [dockItems, setDockItems] = useState<DockItem[]>([]);
-    const [isEditMode, setIsEditModeState] = useState(false);
     const [selectedSearchEngine, setSelectedSearchEngineState] = useState<SearchEngine>(DEFAULT_SEARCH_ENGINE);
+
+    // UI 状态 (中频变化)
+    const [isEditMode, setIsEditModeState] = useState(false);
     const [openFolderId, setOpenFolderIdState] = useState<string | null>(null);
     const [folderAnchor, setFolderAnchor] = useState<DOMRect | null>(null);
     const [draggingItem, setDraggingItem] = useState<DockItem | null>(null);
@@ -189,17 +201,18 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return updatedItems;
     }, []);
 
-    // 设置编辑模式
+    // ========================================================================
+    // UI 操作 (中频)
+    // ========================================================================
+
     const setIsEditMode = useCallback((value: boolean) => {
         setIsEditModeState(value);
     }, []);
 
-    // 设置搜索引擎
     const setSelectedSearchEngine = useCallback((engine: SearchEngine) => {
         setSelectedSearchEngineState(engine);
     }, []);
 
-    // 设置打开的文件夹
     const setOpenFolderId = useCallback((id: string | null) => {
         setOpenFolderIdState(id);
         if (!id) {
@@ -207,23 +220,10 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, []);
 
-    // 点击项目
-    const handleItemClick = useCallback((item: DockItem, rect?: DOMRect) => {
-        if (item.type === 'folder') {
-            setOpenFolderIdState(item.id);
-            setFolderAnchor(rect ?? null);
-        } else if (item.url) {
-            window.open(item.url, '_blank');
-        }
-    }, []);
+    // ========================================================================
+    // 数据操作 (低频)
+    // ========================================================================
 
-    // 编辑项目 (返回需要编辑的项目和位置，由 App 处理 modal)
-    const handleItemEdit = useCallback((_item: DockItem, _rect?: DOMRect) => {
-        // 这个函数在 App 中处理，因为需要打开 modal
-        // 这里只是占位，实际逻辑保留在 App 中
-    }, []);
-
-    // 删除项目
     const handleItemDelete = useCallback((item: DockItem) => {
         if (window.confirm(`确定要删除 "${item.name}" 吗？${item.type === 'folder' ? '文件夹内的所有内容也将被删除。' : ''}`)) {
             setDockItems(prev => {
@@ -236,10 +236,8 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [openFolderId]);
 
-    // 保存项目
     const handleItemSave = useCallback((data: Partial<DockItem>, editingItem: DockItem | null) => {
         if (editingItem) {
-            // 编辑现有项目
             const updateItemRecursively = (items: DockItem[]): DockItem[] => {
                 return items.map((item) => {
                     if (item.id === editingItem.id) {
@@ -257,7 +255,6 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setDockItems(prev => updateItemRecursively(prev));
         } else {
-            // 添加新项目
             const newItem: DockItem = {
                 id: `item-${Date.now()}`,
                 name: data.name || '',
@@ -269,7 +266,6 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, []);
 
-    // 重新排序项目
     const handleItemsReorder = useCallback((items: DockItem[]) => {
         const updatedItems = items.map((item) => {
             if (item.type === 'folder' && item.items && item.items.length > 0) {
@@ -283,7 +279,6 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setDockItems(updatedItems);
     }, []);
 
-    // 文件夹内项目重新排序
     const handleFolderItemsReorder = useCallback((folderId: string, items: DockItem[]) => {
         setDockItems(prev => prev.map((item) => {
             if (item.id === folderId && item.type === 'folder') {
@@ -297,7 +292,6 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
     }, []);
 
-    // 删除文件夹内项目
     const handleFolderItemDelete = useCallback((folderId: string, item: DockItem) => {
         setDockItems(prev => {
             const folder = prev.find((i) => i.id === folderId);
@@ -315,10 +309,8 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return i;
                 });
 
-                // Auto-dissolve folder if only 1 or 0 items remain
                 newDockItems = checkAndDissolveFolderIfNeeded(folderId, newDockItems);
 
-                // Close folder view if it was dissolved
                 const dissolvedFolder = newDockItems.find(i => i.id === folderId);
                 if (!dissolvedFolder || dissolvedFolder.type !== 'folder') {
                     setOpenFolderIdState(null);
@@ -330,7 +322,6 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     }, [checkAndDissolveFolderIfNeeded]);
 
-    // 从文件夹拖拽到 Dock
     const handleDragFromFolder = useCallback((item: DockItem, mousePosition: { x: number; y: number }) => {
         if (!openFolderId) return;
 
@@ -338,10 +329,8 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const folder = prev.find(i => i.id === openFolderId);
             if (!folder || folder.type !== 'folder' || !folder.items) return prev;
 
-            // Remove item from folder
             const newFolderItems = folder.items.filter(i => i.id !== item.id);
 
-            // Update dock items, removing item from folder
             let newDockItems = prev.map(i => {
                 if (i.id === openFolderId) {
                     return {
@@ -353,19 +342,15 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return i;
             });
 
-            // Check and dissolve folder if needed
             const updatedDockItems = checkAndDissolveFolderIfNeeded(openFolderId, newDockItems);
 
-            // If the folder was dissolved, close the folder view
             const folderAfter = updatedDockItems.find(i => i.id === openFolderId);
             if (!folderAfter || folderAfter.type !== 'folder') {
                 setOpenFolderIdState(null);
             }
 
-            // Calculate insertion position based on mouse X coordinate
             const dockElement = document.querySelector('[data-dock-container="true"]');
             if (!dockElement) {
-                // Fallback: append to end
                 const finalItems = [...updatedDockItems];
                 const existingIdx = finalItems.findIndex(i => i.id === item.id);
                 if (existingIdx !== -1) finalItems.splice(existingIdx, 1);
@@ -394,7 +379,6 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     }, [openFolderId, checkAndDissolveFolderIfNeeded]);
 
-    // 从 Dock 拖拽到打开的文件夹
     const handleDragToFolder = useCallback((item: DockItem) => {
         if (!openFolderId || item.type === 'folder') return;
 
@@ -417,7 +401,6 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     }, [openFolderId]);
 
-    // 拖放到文件夹上
     const handleDropOnFolder = useCallback((dragItem: DockItem, targetFolder: DockItem) => {
         if (targetFolder.type !== 'folder') return;
 
@@ -443,57 +426,136 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     }, []);
 
-    // 悬停打开文件夹
-    const handleHoverOpenFolder = useCallback((_item: DockItem, folder: DockItem) => {
-        if (folder.type === 'folder') {
-            setOpenFolderIdState(folder.id);
-        }
-    }, []);
+    // ========================================================================
+    // Context Values (使用 useMemo 避免不必要的 Re-render)
+    // ========================================================================
 
-    // 获取当前打开的文件夹
-    const openFolder = dockItems.find((item) => item.id === openFolderId);
-
-    const value: DockContextType = {
+    const dataValue: DockDataContextType = useMemo(() => ({
         dockItems,
-        isEditMode,
         selectedSearchEngine,
-        openFolderId,
-        folderAnchor,
-        draggingItem,
         setDockItems,
-        setIsEditMode,
         setSelectedSearchEngine,
-        setOpenFolderId,
-        setFolderAnchor,
-        setDraggingItem,
-        handleItemClick,
-        handleItemEdit,
-        handleItemDelete,
         handleItemSave,
         handleItemsReorder,
+        handleItemDelete,
         handleFolderItemsReorder,
         handleFolderItemDelete,
         handleDragFromFolder,
         handleDragToFolder,
         handleDropOnFolder,
-        handleHoverOpenFolder,
-        openFolder,
-    };
+    }), [
+        dockItems,
+        selectedSearchEngine,
+        handleItemSave,
+        handleItemsReorder,
+        handleItemDelete,
+        handleFolderItemsReorder,
+        handleFolderItemDelete,
+        handleDragFromFolder,
+        handleDragToFolder,
+        handleDropOnFolder,
+    ]);
+
+    const uiValue: DockUIContextType = useMemo(() => ({
+        isEditMode,
+        openFolderId,
+        folderAnchor,
+        draggingItem,
+        setIsEditMode,
+        setOpenFolderId,
+        setFolderAnchor,
+        setDraggingItem,
+    }), [
+        isEditMode,
+        openFolderId,
+        folderAnchor,
+        draggingItem,
+        setIsEditMode,
+        setOpenFolderId,
+    ]);
 
     return (
-        <DockContext.Provider value={value}>
-            {children}
-        </DockContext.Provider>
+        <DockDataContext.Provider value={dataValue}>
+            <DockUIContext.Provider value={uiValue}>
+                {children}
+            </DockUIContext.Provider>
+        </DockDataContext.Provider>
     );
 };
 
+// ============================================================================
+// Hooks
+// ============================================================================
+
 /**
- * 使用 Dock 上下文的 Hook
+ * 获取 Dock 数据状态 (低频变化)
+ * 用于需要访问 dockItems、searchEngine 等数据的组件
  */
-export const useDock = () => {
-    const context = useContext(DockContext);
+export const useDockData = () => {
+    const context = useContext(DockDataContext);
     if (context === undefined) {
-        throw new Error('useDock must be used within a DockProvider');
+        throw new Error('useDockData must be used within a DockProvider');
     }
     return context;
+};
+
+/**
+ * 获取 Dock UI 状态 (中频变化)
+ * 用于需要访问 isEditMode、openFolderId 等 UI 状态的组件
+ */
+export const useDockUI = () => {
+    const context = useContext(DockUIContext);
+    if (context === undefined) {
+        throw new Error('useDockUI must be used within a DockProvider');
+    }
+    return context;
+};
+
+/**
+ * 获取完整的 Dock 上下文 (兼容层)
+ * 组合 DockDataContext 和 DockUIContext，提供完整功能
+ * 
+ * 性能建议：如果组件只需要部分状态，建议使用 useDockData 或 useDockUI
+ */
+export const useDock = (): DockContextType => {
+    const dataContext = useContext(DockDataContext);
+    const uiContext = useContext(DockUIContext);
+
+    if (dataContext === undefined || uiContext === undefined) {
+        throw new Error('useDock must be used within a DockProvider');
+    }
+
+    // 组合操作 - 需要同时访问数据和 UI
+    const handleItemClick = useCallback((item: DockItem, rect?: DOMRect) => {
+        if (item.type === 'folder') {
+            uiContext.setOpenFolderId(item.id);
+            uiContext.setFolderAnchor(rect ?? null);
+        } else if (item.url) {
+            window.open(item.url, '_blank');
+        }
+    }, [uiContext]);
+
+    const handleItemEdit = useCallback((_item: DockItem, _rect?: DOMRect) => {
+        // 这个函数在 App 中处理
+    }, []);
+
+    const handleHoverOpenFolder = useCallback((_item: DockItem, folder: DockItem) => {
+        if (folder.type === 'folder') {
+            uiContext.setOpenFolderId(folder.id);
+        }
+    }, [uiContext]);
+
+    const openFolder = useMemo(() =>
+        dataContext.dockItems.find((item) => item.id === uiContext.openFolderId),
+        [dataContext.dockItems, uiContext.openFolderId]
+    );
+
+    return {
+        ...dataContext,
+        ...uiContext,
+        handleItemClick,
+        handleItemEdit,
+        handleHoverOpenFolder,
+        openFolder,
+    };
 };

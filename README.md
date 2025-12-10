@@ -632,47 +632,159 @@ npm run build
 ### 主要技术特性
 - **CSS Modules**:组件样式隔离
 - **CSS Variables**:动态主题系统
-- **Context API**:全局主题状态管理
-- **Custom Hooks**:拖拽逻辑、系统主题检测、壁纸存储、搜索建议
+- **React Context API**:全局状态管理(ThemeContext、DockContext)
+- **Custom Hooks**:模块化拖拽系统(useDragBase、useDragAndDrop、useFolderDragAndDrop)、系统主题检测、壁纸存储、搜索建议
 - **LocalStorage**:轻量数据持久化(设置、应用列表)
 - **IndexedDB**:大容量壁纸存储,突破 5MB 限制
 - **FileReader API**:壁纸上传与压缩
 - **ResizeObserver**:Dock 宽度自适应
 - **Favicon API**:自动获取网站图标
 - **JSONP**:跨域搜索建议 API 调用
+- **TypeScript 类型系统**:模块化类型定义,统一导出入口
 
 ### 项目结构
 
 ```
 src/
-├── assets/                 # 静态资源(图标、纹理等)
+├── assets/                 # 静态资源
+│   ├── icons/             # 应用图标资源
+│   └── textures/          # 背景纹理图片(Point、X 纹理)
+│
 ├── components/             # React 组件
-│   ├── Background/        # 背景双缓冲组件
-│   ├── Dock/              # Dock 应用栏组件
-│   ├── Editor/            # 编辑按钮组件
-│   ├── FolderView/        # 文件夹弹窗组件
-│   ├── Modal/             # 各类模态框
+│   ├── Background/        # 背景组件
+│   │   ├── Background.tsx           # 双缓冲背景切换,支持壁纸/渐变/纹理
+│   │   └── Background.module.css    # 淡入淡出过渡动画
+│   │
+│   ├── Dock/              # Dock 应用栏
+│   │   ├── Dock.tsx                 # 主容器,集成拖拽、编辑、文件夹逻辑
+│   │   ├── DockItem.tsx             # 单个应用/文件夹图标,支持点击、删除、编辑
+│   │   ├── AddIcon.tsx              # 编辑模式下的"+"添加按钮
+│   │   └── *.module.css             # 抖动动画、间隙动画、样式
+│   │
+│   ├── Editor/            # 编辑按钮
+│   │   ├── Editor.tsx               # 右上角编辑按钮,切换编辑模式
+│   │   └── Editor.module.css        # 悬停显示动画
+│   │
+│   ├── FolderView/        # 文件夹弹窗
+│   │   ├── FolderView.tsx           # 文件夹内容网格布局,支持拖拽重排
+│   │   └── FolderView.module.css    # 缩放渐入/渐出动画,网格布局
+│   │
+│   ├── Modal/             # 模态框组件
+│   │   ├── Modal.tsx                # 通用模态框基础组件,处理定位和关闭
+│   │   ├── AddEditModal.tsx         # 添加/编辑应用模态框,表单验证
+│   │   ├── SearchEngineModal.tsx    # 搜索引擎选择器
+│   │   ├── SettingsModal.tsx        # 设置面板,主题/背景/壁纸配置
+│   │   ├── ThemeModal.tsx           # 主题选择子组件(Default/Light/Dark/Auto)
+│   │   └── *.module.css             # 各模态框样式和动画
+│   │
 │   ├── Searcher/          # 搜索组件
-│   ├── Settings/          # 设置按钮组件
-│   ├── Tooltip/           # 工具提示组件
-│   └── WallpaperGallery/  # 壁纸历史画廊组件
-├── constants/             # 常量配置(搜索引擎、渐变色)
-├── context/               # React Context(主题)
+│   │   ├── Searcher.tsx             # 搜索框,集成搜索引擎切换
+│   │   ├── SuggestionsList.tsx      # 搜索建议下拉列表,支持键盘导航
+│   │   └── *.module.css             # 搜索框样式,建议列表动画
+│   │
+│   ├── Settings/          # 设置按钮
+│   │   ├── Settings.tsx             # 左上角设置按钮,悬停显示
+│   │   └── Settings.module.css      # 悬停动画
+│   │
+│   ├── Tooltip/           # 工具提示
+│   │   ├── Tooltip.tsx              # 通用 Tooltip 组件,自动定位
+│   │   └── Tooltip.module.css       # 淡入动画
+│   │
+│   └── WallpaperGallery/  # 壁纸历史画廊
+│       ├── WallpaperGallery.tsx     # 壁纸历史管理,最多 7 张,支持删除
+│       └── WallpaperGallery.module.css  # 网格布局,缩略图样式
+│
+├── constants/             # 常量配置
+│   ├── gradients.ts       # 9 种渐变色预设(紫粉、粉蓝、微光等)
+│   └── searchEngines.ts   # 搜索引擎配置(Google、Bing、Baidu、DuckDuckGo)
+│
+├── context/               # React Context 状态管理
+│   ├── DockContext.tsx    # Dock 状态管理(双层 Context 架构)
+│   │                      # DockDataContext: 低频数据状态(dockItems、searchEngine)
+│   │                      # DockUIContext: 中频 UI 状态(isEditMode、openFolderId)
+│   │                      # useDock(): 兼容层,组合两个 Context
+│   │
+│   └── ThemeContext.tsx   # 主题全局状态:theme、followSystem、wallpaper
+│                          # 背景值计算、亮度检测、壁纸管理
+│
 ├── hooks/                 # 自定义 Hooks
-│   ├── useDragAndDrop     # Dock 拖拽逻辑
-│   ├── useFolderDragAndDrop  # 文件夹拖拽逻辑
-│   ├── useSearchSuggestions  # 搜索建议
-│   ├── useSystemTheme     # 系统主题检测
-│   └── useWallpaperStorage   # 壁纸存储管理
+│   ├── useDragBase.ts     # 共享拖拽基础逻辑
+│   │                      # 提供:状态管理、阈值检测、refs 同步
+│   │                      # 返回:dragState、placeholderIndex、itemRefs 等
+│   │
+│   ├── useDragAndDrop.ts  # Dock 拖拽逻辑(基于 useDragBase)
+│   │                      # 功能:重排序、合并文件夹、拖入打开的文件夹
+│   │                      # 处理:placeholder 计算、合并检测、归位动画
+│   │
+│   ├── useFolderDragAndDrop.ts  # 文件夹内拖拽逻辑(基于 useDragBase)
+│   │                            # 功能:文件夹内重排、拖出到 Dock
+│   │                            # 网格布局 placeholder 计算
+│   │
+│   ├── useSearchSuggestions.ts  # 搜索建议 Hook
+│   │                            # 使用 fetch API + Chrome 扩展权限
+│   │                            # Google/百度 API 自动降级
+│   │
+│   ├── useSystemTheme.ts        # 系统主题检测
+│   │                            # 监听 prefers-color-scheme 变化
+│   │
+│   └── useWallpaperStorage.ts   # 壁纸存储管理
+│                                # IndexedDB 存储、历史记录、缩略图生成
+│
 ├── types/                 # TypeScript 类型定义
+│   ├── dock.ts            # DockItem、SearchEngine、AppState 等
+│   ├── drag.ts            # Position、DragState、PlaceholderState 等
+│   ├── index.ts           # 统一导出入口
+│   └── css.d.ts           # CSS Modules 类型声明
+│
 ├── utils/                 # 工具函数
-│   ├── storage            # localStorage 管理
-│   ├── db                 # IndexedDB 管理
-│   ├── animations         # 动画工具函数
-│   ├── iconFetcher        # 图标获取
-│   └── jsonp              # JSONP 跨域请求
-└── styles/                # 全局样式和变量
+│   ├── storage.ts         # localStorage 封装
+│   │                      # 管理:dockItems、searchEngine、theme、wallpaper 等
+│   │
+│   ├── db.ts              # IndexedDB 封装
+│   │                      # 壁纸存储:save、get、remove、getAll
+│   │                      # 支持 Blob 存储,突破 5MB 限制
+│   │
+│   ├── animations.ts      # 动画工具函数
+│   │                      # scaleFadeIn、scaleFadeOut 等动画触发
+│   │
+│   ├── dragUtils.ts       # 拖拽工具函数
+│   │                      # 距离计算、索引计算、mousedown 处理
+│   │                      # createMouseDownHandler 统一事件逻辑
+│   │
+│   ├── iconFetcher.ts     # 图标获取
+│   │                      # 从 URL 获取 favicon,生成文件夹组合图标
+│   │
+│   └── jsonp.ts           # JSONP 跨域请求
+│                          # 用于搜索建议 API 调用
+│
+└── styles/                # 全局样式
+    └── global.css         # CSS 变量、全局样式、字体
 ```
+
+### 架构亮点
+
+#### 状态管理
+- **双层 Context 架构**: 避免不必要的 Re-render
+  - `DockDataContext`: 低频数据状态(dockItems、searchEngine)
+  - `DockUIContext`: 中频 UI 状态(isEditMode、openFolderId、draggingItem)
+  - `useDock()`: 兼容层,组合两个 Context
+- **useMemo 优化**: Context value 使用 useMemo 包装,避免引用变化触发重渲染
+- **高频状态 Ref 化**: 拖拽坐标、placeholder 索引等使用 useRef 管理
+
+#### 模块化拖拽系统
+- **useDragBase**: 提取共享拖拽逻辑,减少代码重复
+  - 统一的状态管理: isDragging、currentPosition、targetPosition 等
+  - 通用的工具函数: 距离计算、阈值检测、状态重置
+- **dragUtils**: 拖拽工具函数库
+  - 位置计算: calculateDistance、calculateDistanceToCenter、isPointInRect
+  - 索引计算: findClosestItemIndex、calculateInsertIndex
+  - 事件处理: createMouseDownHandler 统一 mousedown 逻辑
+- **类型安全**: BaseDragState、DockDragState、FolderDragState 清晰的类型层次
+
+#### 搜索建议 API
+- **Chrome Extension 权限**: 利用扩展的跨域特权,使用标准 fetch API
+- **双 API 降级**: Google 搜索建议 API 优先,百度 API 作为备选
+- **安全性**: 移除 JSONP,避免 XSS 风险
 
 ## 🎨 设计亮点
 
