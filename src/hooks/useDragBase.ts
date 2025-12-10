@@ -13,6 +13,17 @@ import {
 } from '../utils/dragUtils';
 
 /**
+ * 布局快照项
+ */
+export interface LayoutItem {
+    id: string;
+    index: number;
+    rect: DOMRect;
+    centerX: number;
+    centerY: number;
+}
+
+/**
  * Dock 拖拽状态 - 扩展基础状态
  */
 export interface DockDragState extends BaseDragState {
@@ -79,6 +90,8 @@ export interface UseDragBaseOptions<T extends BaseDragState> {
     externalDragItem?: DockItem | null;
     createInitialState: () => T;
     resetState: () => T;
+    /** 容器引用 (grid 布局需要) */
+    containerRef?: React.RefObject<HTMLElement>;
 }
 
 /**
@@ -93,8 +106,11 @@ export interface UseDragBaseReturn<T extends BaseDragState> {
     dragRef: React.MutableRefObject<T>;
     itemsRef: React.MutableRefObject<DockItem[]>;
     placeholderRef: React.MutableRefObject<number | null>;
+    layoutSnapshotRef: React.MutableRefObject<LayoutItem[]>;
     hasMovedRef: React.MutableRefObject<boolean>;
     thresholdListenerRef: React.MutableRefObject<((e: MouseEvent) => void) | null>;
+    lastPlaceholderRef: React.MutableRefObject<number | null>;
+    containerRef?: React.RefObject<HTMLElement>;
     startDragging: (item: DockItem) => void;
     handleDragThresholdCheck: (
         e: MouseEvent,
@@ -102,6 +118,8 @@ export interface UseDragBaseReturn<T extends BaseDragState> {
         startY: number,
         onThresholdExceeded: () => void
     ) => boolean;
+    captureLayoutSnapshot: () => void;
+    resetPlaceholderState: () => void;
 }
 
 /**
@@ -115,6 +133,7 @@ export const useDragBase = <T extends BaseDragState>(
         onDragStart,
         externalDragItem,
         createInitialState,
+        containerRef,
     } = options;
 
     // 状态
@@ -126,8 +145,10 @@ export const useDragBase = <T extends BaseDragState>(
     const dragRef = useRef<T>(dragState);
     const itemsRef = useRef(items);
     const placeholderRef = useRef<number | null>(null);
+    const layoutSnapshotRef = useRef<LayoutItem[]>([]);
     const hasMovedRef = useRef(false);
     const thresholdListenerRef = useRef<((e: MouseEvent) => void) | null>(null);
+    const lastPlaceholderRef = useRef<number | null>(null);
 
     // 同步 refs
     useEffect(() => { dragRef.current = dragState; }, [dragState]);
@@ -139,11 +160,32 @@ export const useDragBase = <T extends BaseDragState>(
         toggleDraggingClass(dragState.isDragging);
     }, [dragState.isDragging]);
 
+    // 捕获布局快照
+    const captureLayoutSnapshot = useCallback(() => {
+        const snapshot: LayoutItem[] = [];
+        itemRefs.current.forEach((ref, index) => {
+            if (ref && itemsRef.current[index]) {
+                const rect = ref.getBoundingClientRect();
+                snapshot.push({
+                    id: itemsRef.current[index].id,
+                    index: index,
+                    rect: rect,
+                    centerX: rect.left + rect.width / 2,
+                    centerY: rect.top + rect.height / 2,
+                });
+            }
+        });
+        layoutSnapshotRef.current = snapshot;
+    }, []);
+
     // 开始拖拽
     const startDragging = useCallback((item: DockItem) => {
+        // 先捕获布局
+        captureLayoutSnapshot();
+
         setDragState(prev => ({ ...prev, isDragging: true }));
         if (onDragStart) onDragStart(item);
-    }, [onDragStart]);
+    }, [onDragStart, captureLayoutSnapshot]);
 
     // 检查拖拽阈值
     const handleDragThresholdCheck = useCallback((
@@ -161,12 +203,18 @@ export const useDragBase = <T extends BaseDragState>(
         return false;
     }, []);
 
+    // 重置占位符状态
+    const resetPlaceholderState = useCallback(() => {
+        setPlaceholderIndex(null);
+        lastPlaceholderRef.current = null;
+    }, []);
+
     // 清理外部拖拽状态
     useEffect(() => {
         if (!externalDragItem) {
-            setPlaceholderIndex(null);
+            resetPlaceholderState();
         }
-    }, [externalDragItem]);
+    }, [externalDragItem, resetPlaceholderState]);
 
     return {
         dragState,
@@ -177,9 +225,14 @@ export const useDragBase = <T extends BaseDragState>(
         dragRef,
         itemsRef,
         placeholderRef,
+        layoutSnapshotRef,
         hasMovedRef,
         thresholdListenerRef,
+        lastPlaceholderRef,
+        containerRef,
         startDragging,
         handleDragThresholdCheck,
+        captureLayoutSnapshot,
+        resetPlaceholderState,
     };
 };

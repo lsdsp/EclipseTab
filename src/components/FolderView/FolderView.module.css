@@ -44,6 +44,8 @@
   gap: 8px;
   justify-items: start;
   align-items: start;
+  grid-auto-rows: min-content;
+  grid-template-rows: repeat(auto-fill, min-content);
 }
 
 /* 文件夹容器 - 玻璃态效果 */
@@ -52,12 +54,17 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: var(--radius-large);
-  padding: 8px;
+  padding: 24px;
   border: 1px solid var(--color-border);
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+  height: auto;
+  min-height: auto;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 网格项目 - 支持 transform 动画 */

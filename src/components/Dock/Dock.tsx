@@ -145,7 +145,7 @@ export const Dock: React.FC<DockProps> = ({
                         <div
                             key={item.id}
                             ref={el => { itemRefs.current[index] = el; }}
-                            className={styles.dockItemWrapper}
+                            className={`${styles.dockItemWrapper} ${isDragging ? styles.isBeingDragged : ''}`}
                             data-dock-item-wrapper="true"
                             style={isDragging ? (
                                 // When cursor is far from dock, collapse width so dock shrinks
@@ -155,6 +155,7 @@ export const Dock: React.FC<DockProps> = ({
                                     minWidth: 0,
                                     overflow: 'hidden',
                                     opacity: 0,
+                                    visibility: 'hidden', // Force hide
                                     pointerEvents: 'none',
                                     transition: isInteracting
                                         ? 'width 200ms cubic-bezier(0.2, 0, 0, 1), min-width 200ms cubic-bezier(0.2, 0, 0, 1), opacity 150ms'
@@ -163,6 +164,7 @@ export const Dock: React.FC<DockProps> = ({
                                     width: 64,
                                     minWidth: 64,
                                     opacity: 0,
+                                    visibility: 'hidden', // Force hide
                                     pointerEvents: 'none',
                                     transform: `translateX(${translateX}px)`,
                                     transition: isInteracting

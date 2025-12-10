@@ -155,3 +155,9 @@
     margin-right: 0;
     /* Reset margin to restore gap */
 }
+
+/* 拖拽时隐藏源项目 */
+.isBeingDragged {
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
