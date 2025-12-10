@@ -70,6 +70,7 @@
   --color-bg-tertiary: var(--white-alpha-60);
   --color-bg-white: var(--white);
   --color-border: var(--white-alpha-36);
+  --color-border-light: transparent;
   --color-text-primary: var(--white);
   --color-text-secondary: var(--white-alpha-85);
   --color-text-tertiary: var(--gray-600);
@@ -150,6 +151,7 @@
   --color-bg-tertiary: var(--gray-300);
   --color-bg-white: var(--gray-100);
   --color-border: var(--gray-300);
+  --color-border-light: var(--gray-100);
   --color-text-primary: var(--gray-950);
   --color-text-secondary: var(--gray-600);
   --color-text-tertiary: var(--gray-600);
@@ -169,6 +171,7 @@
   --color-bg-tertiary: var(--gray-700);
   --color-bg-white: var(--white);
   --color-border: var(--gray-750);
+  --color-border-light: var(transparent);
   --color-text-primary: var(--gray-100);
   --color-text-secondary: var(--gray-300);
   --color-text-tertiary: var(--gray-300);
