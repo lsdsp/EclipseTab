@@ -1,4 +1,4 @@
-import { DockItem, SearchEngine } from '../types';
+import { DockItem, SearchEngine, SpacesState, createDefaultSpacesState } from '../types';
 
 const STORAGE_KEYS = {
   DOCK_ITEMS: 'EclipseTab_dockItems',
@@ -10,6 +10,8 @@ const STORAGE_KEYS = {
   GRADIENT: 'EclipseTab_gradient',
   TEXTURE: 'EclipseTab_texture',
   WALLPAPER_ID: 'EclipseTab_wallpaperId',
+  // Focus Spaces 新增
+  SPACES: 'EclipseTab_spaces',
 } as const;
 
 export const storage = {
@@ -175,6 +177,60 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.TEXTURE, texture);
     } catch (error) {
       console.error('Failed to save texture:', error);
+    }
+  },
+
+  // ============================================================================
+  // Focus Spaces 存储
+  // ============================================================================
+
+  /**
+   * 获取空间状态
+   * 如果不存在则尝试从旧版 dockItems 迁移
+   */
+  getSpaces(): SpacesState {
+    try {
+      const spacesJson = localStorage.getItem(STORAGE_KEYS.SPACES);
+      if (spacesJson) {
+        return JSON.parse(spacesJson);
+      }
+
+      // 尝试从旧版数据迁移
+      const legacyItems = this.getDockItems();
+      if (legacyItems.length > 0) {
+        console.log('[Storage] Migrating legacy dockItems to Spaces...');
+        const migratedState = createDefaultSpacesState(legacyItems);
+        this.saveSpaces(migratedState);
+        return migratedState;
+      }
+
+      // 返回默认空状态
+      return createDefaultSpacesState();
+    } catch (error) {
+      console.error('Failed to get spaces:', error);
+      return createDefaultSpacesState();
+    }
+  },
+
+  /**
+   * 保存空间状态
+   */
+  saveSpaces(state: SpacesState): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SPACES, JSON.stringify(state));
+    } catch (error) {
+      console.error('Failed to save spaces:', error);
+    }
+  },
+
+  /**
+   * 清除空间数据（用于调试/重置）
+   */
+  clearSpaces(): void {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.SPACES);
+    } catch (error) {
+      console.error('Failed to clear spaces:', error);
     }
   },
 };

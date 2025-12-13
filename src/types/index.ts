@@ -17,3 +17,7 @@ export type {
   UseDragAndDropOptions,
   UseFolderDragAndDropOptions
 } from './drag';
+
+// Space 相关类型
+export type { Space, SpacesState } from './space';
+export { createDefaultSpace, createDefaultSpacesState } from './space';

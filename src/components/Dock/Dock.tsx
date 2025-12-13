@@ -1,10 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { DockItem as DockItemType } from '../../types';
 import { DockItem } from './DockItem';
 import { AddIcon } from './AddIcon';
+import { DockNavigator } from './DockNavigator';
+import { SpaceManageMenu } from '../Modal/SpaceManageMenu';
 import { DragPreview } from '../DragPreview';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import { useDockDrag } from '../../context/DockContext';
+import { useSpaces } from '../../context/SpacesContext';
 import { generateFolderIcon } from '../../utils/iconFetcher';
 import {
     EASE_SWIFT,
@@ -51,6 +54,53 @@ export const Dock: React.FC<DockProps> = ({
 }) => {
     const innerRef = useRef<HTMLDivElement>(null);
     const { folderPlaceholderActive } = useDockDrag();
+
+    // Focus Spaces 集成
+    const {
+        spaces,
+        currentSpace,
+        currentIndex,
+        isSwitching,
+        setIsSwitching,
+        switchToNextSpace,
+        addSpace,
+        renameSpace,
+        deleteSpace,
+    } = useSpaces();
+
+    // 动画阶段状态机
+    type AnimationPhase = 'idle' | 'exiting' | 'entering';
+    const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('idle');
+
+    // 空间切换处理
+    const handleSpaceSwitch = useCallback(() => {
+        if (isSwitching || spaces.length <= 1) return;
+
+        setIsSwitching(true);
+        setAnimationPhase('exiting');
+
+        // 退场动画结束后切换数据
+        setTimeout(() => {
+            switchToNextSpace();
+            setAnimationPhase('entering');
+
+            // 入场动画结束后恢复
+            const enterDuration = 350 + items.length * 30;
+            setTimeout(() => {
+                setAnimationPhase('idle');
+                setIsSwitching(false);
+            }, enterDuration);
+        }, 200); // 退场动画 200ms
+    }, [isSwitching, spaces.length, items.length, switchToNextSpace, setIsSwitching]);
+
+    // 空间管理菜单状态
+    const [showSpaceMenu, setShowSpaceMenu] = useState(false);
+    const [spaceMenuAnchor, setSpaceMenuAnchor] = useState<DOMRect | null>(null);
+
+    const handleSpaceContextMenu = useCallback((e: React.MouseEvent) => {
+        setSpaceMenuAnchor((e.currentTarget as HTMLElement).getBoundingClientRect());
+        setShowSpaceMenu(true);
+    }, []);
 
     // Sync ref for access in drag callbacks
     const folderPlaceholderActiveRef = useRef(folderPlaceholderActive);
@@ -156,11 +206,18 @@ export const Dock: React.FC<DockProps> = ({
                     // Transform-based animation: calculate horizontal offset for smooth sliding
                     const translateX = getItemTransform(index);
 
+                    // 空间切换动画类
+                    const animationClass = animationPhase === 'exiting'
+                        ? styles.itemExiting
+                        : animationPhase === 'entering'
+                            ? styles.itemEntering
+                            : '';
+
                     return (
                         <div
                             key={item.id}
                             ref={el => { itemRefs.current[index] = el; }}
-                            className={`${styles.dockItemWrapper} ${isDragging ? styles.isBeingDragged : ''}`}
+                            className={`${styles.dockItemWrapper} ${isDragging ? styles.isBeingDragged : ''} ${animationClass}`}
                             data-dock-item-wrapper="true"
                             style={isDragging ? (
                                 // When cursor is far from dock, collapse width so dock shrinks
@@ -226,6 +283,7 @@ export const Dock: React.FC<DockProps> = ({
                         <line x1="0.5" y1="0" x2="0.5" y2="48" strokeWidth="1" />
                     </svg>
                 </div>
+                {/* DockNavigator - 空间切换器 */}
                 <div
                     className={styles.dockNavigator}
                     style={{
@@ -235,9 +293,14 @@ export const Dock: React.FC<DockProps> = ({
                             : 'none',
                     }}
                 >
-                    <div className={styles.navigatorIcon}>
-                        {/* AddIcon removed in non-edit mode as per request */}
-                    </div>
+                    <DockNavigator
+                        currentSpace={currentSpace}
+                        totalSpaces={spaces.length}
+                        currentIndex={currentIndex}
+                        onSwitch={handleSpaceSwitch}
+                        onContextMenu={handleSpaceContextMenu}
+                        disabled={isSwitching}
+                    />
                 </div>
                 {/* 动态占位元素 - 仅当需要扩展时渲染，避免 flex gap 造成多余间距 */}
                 {getItemTransform(items.length) > 0 && (
@@ -261,6 +324,26 @@ export const Dock: React.FC<DockProps> = ({
                 dragElementRef={dragElementRef}
                 isPreMerge={isPreMerge}
                 onAnimationComplete={handleAnimationComplete}
+            />
+            {/* 空间管理菜单 */}
+            <SpaceManageMenu
+                isOpen={showSpaceMenu}
+                anchorRect={spaceMenuAnchor}
+                currentSpace={currentSpace}
+                isLastSpace={spaces.length <= 1}
+                onClose={() => setShowSpaceMenu(false)}
+                onAdd={() => {
+                    addSpace();
+                    setShowSpaceMenu(false);
+                }}
+                onRename={(newName) => {
+                    renameSpace(currentSpace.id, newName);
+                    setShowSpaceMenu(false);
+                }}
+                onDelete={() => {
+                    deleteSpace(currentSpace.id);
+                    setShowSpaceMenu(false);
+                }}
             />
         </header>
     );

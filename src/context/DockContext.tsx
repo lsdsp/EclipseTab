@@ -3,6 +3,7 @@ import { DockItem, SearchEngine } from '../types';
 import { storage } from '../utils/storage';
 import { DEFAULT_SEARCH_ENGINE } from '../constants/searchEngines';
 import { generateFolderIcon, fetchIcon } from '../utils/iconFetcher';
+import { useSpaces } from './SpacesContext';
 
 // ============================================================================
 // 数据层 Context (低频变化)
@@ -70,8 +71,11 @@ interface DockContextType extends DockDataContextType, DockUIContextType, DockDr
 // ============================================================================
 
 export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // 数据状态 (低频变化)
-    const [dockItems, setDockItems] = useState<DockItem[]>([]);
+    // 从 SpacesContext 获取当前空间的 apps
+    const { currentSpace, updateCurrentSpaceApps } = useSpaces();
+
+    // 数据状态: dockItems 来自当前 Space
+    const [dockItems, setDockItemsInternal] = useState<DockItem[]>(currentSpace.apps);
     const [selectedSearchEngine, setSelectedSearchEngineState] = useState<SearchEngine>(DEFAULT_SEARCH_ENGINE);
 
     // UI 状态 (中频变化)
@@ -81,12 +85,28 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [draggingItem, setDraggingItem] = useState<DockItem | null>(null);
     const [folderPlaceholderActive, setFolderPlaceholderActive] = useState(false);
 
-    // 加载数据
+    // 当 currentSpace 变化时同步 dockItems
     useEffect(() => {
-        const savedItems = storage.getDockItems();
-        if (savedItems.length > 0) {
-            setDockItems(savedItems);
-        } else {
+        setDockItemsInternal(currentSpace.apps);
+    }, [currentSpace.id, currentSpace.apps]);
+
+    // 包装 setDockItems: 同时更新本地状态和 SpacesContext
+    const setDockItems: React.Dispatch<React.SetStateAction<DockItem[]>> = useCallback(
+        (action) => {
+            setDockItemsInternal((prev) => {
+                const newItems = typeof action === 'function' ? action(prev) : action;
+                // 同步回 SpacesContext（异步避免渲染循环）
+                setTimeout(() => updateCurrentSpaceApps(newItems), 0);
+                return newItems;
+            });
+        },
+        [updateCurrentSpaceApps]
+    );
+
+    // 初始化: 如果当前空间为空，加载默认数据
+    useEffect(() => {
+        // 只在首次且空间为空时初始化默认数据
+        if (currentSpace.apps.length === 0 && dockItems.length === 0) {
             // 默认常用网站
             const defaults: DockItem[] = [
                 { id: 'bilibili', name: 'Bilibili', url: 'https://www.bilibili.com/', type: 'app' },
@@ -173,19 +193,14 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
             fetchAllIcons();
         }
 
+        // 搜索引擎仍使用独立存储
         const savedEngine = storage.getSearchEngine();
         if (savedEngine) {
             setSelectedSearchEngineState(savedEngine);
         }
-    }, []);
+    }, []); // 仅首次运行
 
-    // 保存数据
-    useEffect(() => {
-        if (dockItems.length > 0) {
-            storage.saveDockItems(dockItems);
-        }
-    }, [dockItems]);
-
+    // 保存搜索引擎 (dockItems 存储由 SpacesContext 管理)
     useEffect(() => {
         storage.saveSearchEngine(selectedSearchEngine);
     }, [selectedSearchEngine]);

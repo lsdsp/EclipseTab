@@ -1,0 +1,142 @@
+/* ===== 空间管理菜单样式 ===== */
+/* 菜单容器 - 由 Modal 组件处理定位，这里只定义内容样式 */
+.menu {
+    display: flex;
+    flex-direction: column;
+    min-width: 160px;
+    padding: var(--spacing-padding-small);
+    gap: 0px;
+}
+
+/* 标签文本 */
+.label {
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-medium);
+    font-size: 12px;
+    padding: var(--spacing-padding-extrasmall);
+    line-height: var(--line-height-none);
+    color: var(--color-text-primary);
+    opacity: 0.6;
+    white-space: nowrap;
+    margin: 0;
+}
+
+/* 分隔线 */
+.divider {
+    width: 100%;
+    height: 0;
+    padding: var(--spacing-padding-extrasmall);
+    position: relative;
+    margin: 0;
+}
+
+.divider::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: var(--color-border);
+}
+
+/* 选项容器 */
+.optionsContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+/* 菜单项 */
+.menuItem {
+    background: none;
+    border: none;
+    padding: var(--spacing-padding-small);
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-medium);
+    line-height: var(--line-height-none);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-gap-small);
+    text-align: left;
+    white-space: nowrap;
+    transition: opacity var(--transition-medium);
+    opacity: 1;
+    margin: 0;
+    border-radius: 8px;
+}
+
+.menuItem:hover {
+    opacity: 0.8;
+    background: var(--color-bg-secondary);
+}
+
+.menuItem:active {
+    background: var(--color-bg-tertiary);
+}
+
+/* 危险操作 (删除) */
+.menuItem.danger {
+    color: #ff6b6b;
+}
+
+.menuItem.danger:hover {
+    background: rgba(255, 107, 107, 0.1);
+}
+
+/* 禁用状态 */
+.menuItem.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* 图标 - 使用 mask-image 让 SVG 继承颜色变量 */
+.icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    /* 使用 mask-image 技术，让 background-color 决定图标颜色 */
+    background-color: var(--color-text-primary);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+/* 危险操作图标 - 红色 */
+.danger .icon {
+    background-color: #ff6b6b;
+}
+
+/* 重命名输入框 */
+.renameInput {
+    padding: var(--spacing-padding-extrasmall);
+}
+
+.renameInput input {
+    width: 100%;
+    padding: var(--spacing-padding-extrasmall);
+    background: var(--color-bg-secondary);
+    border: none;
+    border-radius: 8px;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-medium);
+    outline: none;
+    transition: background var(--transition-medium);
+    box-sizing: border-box;
+}
+
+.renameInput input:focus {
+    background: var(--color-bg-tertiary);
+}
+
+.renameInput input::placeholder {
+    color: var(--color-text-secondary);
+}
