@@ -12,6 +12,8 @@ interface DockItemProps {
   isDragging?: boolean;
   staggerIndex?: number;
   isDropTarget?: boolean;
+  /** 是否为合并目标（触发脉冲动画） */
+  isMergeTarget?: boolean;
   onLongPress?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
 }
@@ -25,9 +27,11 @@ const DockItemComponent: React.FC<DockItemProps> = ({
   isDragging = false,
   staggerIndex: _staggerIndex,
   isDropTarget = false,
+  isMergeTarget = false,
   onLongPress,
   onMouseDown,
 }) => {
+  // ... (existing state)
   const [isHovered, setIsHovered] = useState(false);
   const [showDeleteButton, setShowDeleteButton] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -110,7 +114,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
 
   return (
     <div
-      className={`${styles.dockItem} ${isEditMode ? styles.editMode : ''} ${isDragging ? styles.dragging : ''} ${isDropTarget ? styles.dropTarget : ''}`}
+      className={`${styles.dockItem} ${isEditMode ? styles.editMode : ''} ${isDragging ? styles.dragging : ''} ${isDropTarget ? styles.dropTarget : ''} ${isMergeTarget ? styles.pulse : ''}`}
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -171,6 +175,7 @@ const arePropsEqual = (prev: DockItemProps, next: DockItemProps) => {
     prev.isEditMode === next.isEditMode &&
     prev.isDragging === next.isDragging &&
     prev.isDropTarget === next.isDropTarget &&
+    prev.isMergeTarget === next.isMergeTarget && // Check pulse state
     prev.staggerIndex === next.staggerIndex
     // Ignore function props (onClick, onEdit, etc.) as they are recreated on every render of parent
     // but the underlying logic relies on the same item data which we checked above.

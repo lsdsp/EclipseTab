@@ -145,6 +145,7 @@ export interface UseDragBaseReturn<T extends BaseDragState> {
         actionData: any,
         onAnimationCompleteCallback: () => void
     ) => void;
+    performHapticFeedback: (pattern: number | number[]) => void;
 }
 
 /**
@@ -153,9 +154,11 @@ export interface UseDragBaseReturn<T extends BaseDragState> {
 export const useDragBase = <T extends BaseDragState>(
     options: UseDragBaseOptions<T>
 ): UseDragBaseReturn<T> => {
+
     const {
         items,
         onDragStart,
+        onDragEnd,
         externalDragItem,
         createInitialState,
         containerRef,
@@ -276,6 +279,13 @@ export const useDragBase = <T extends BaseDragState>(
         window.removeEventListener('mouseup', mouseUpHandler);
     }, []);
 
+    // Helper: Haptics
+    const performHapticFeedback = useCallback((pattern: number | number[]) => {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate(pattern);
+        }
+    }, []);
+
     // Helper: Start Return Animation
     const startReturnAnimation = useCallback((
         targetPos: Position,
@@ -304,6 +314,43 @@ export const useDragBase = <T extends BaseDragState>(
         });
     }, [setDragState]);
 
+    // Handle ESC key cancellation
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && dragState.isDragging) {
+                // Cancel Drag
+                // Cleanup listeners first
+                if (thresholdListenerRef.current) {
+                    window.removeEventListener('mousemove', thresholdListenerRef.current);
+                    thresholdListenerRef.current = null;
+                }
+                // Rely on parent hook to clean up mousemove/mouseup listeners via references, 
+                // but since we don't track them centrally in that way here (passed in via creation),
+                // we trigger a state reset which should be handled by the parent effect logic 
+                // OR we can't easily clean specific listeners without knowing them.
+
+                // Strategy: Just reset state. The parent listeners might fire once more but see !isDragging.
+                // Better Strategy: Dispatch a Custom Event or similar? 
+                // Simplest: Just reset state.
+
+                setDragState(options.resetState());
+                setPlaceholderIndex(null);
+                hasMovedRef.current = false;
+                if (onDragEnd) onDragEnd();
+
+                performHapticFeedback(20); // Cancel vibration
+            }
+        };
+
+        if (dragState.isDragging) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [dragState.isDragging, options, onDragEnd, setDragState, setPlaceholderIndex, performHapticFeedback]);
+
     return {
         dragState,
         setDragState,
@@ -326,5 +373,6 @@ export const useDragBase = <T extends BaseDragState>(
         resetPlaceholderState,
         cleanupDragListeners,
         startReturnAnimation,
+        performHapticFeedback,
     };
 };

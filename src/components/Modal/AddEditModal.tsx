@@ -28,6 +28,10 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // 只有在打开状态下才更新 state
+    // 避免在关闭动画播放期间（isOpen=false 但组件尚未卸载）清空表单，导致视觉上的闪烁
+    if (!isOpen) return;
+
     if (item) {
       setName(item.name);
       setUrl(item.url || '');
@@ -39,15 +43,43 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
     }
   }, [item, isOpen]);
 
+  // Helper to normalize URL (add protocol if missing)
+  const normalizeUrl = (input: string): string => {
+    const trimmed = input.trim();
+    if (!trimmed) return '';
+    // If starts with http://, https://, or //, return as is
+    if (/^(https?:)?\/\//i.test(trimmed)) return trimmed;
+    // Otherwise assume https://
+    return `https://${trimmed}`;
+  };
+
   const handleUrlChange = async (value: string) => {
     setUrl(value);
-    if (value && !item?.icon) {
+
+    // Auto-fetch icon logic
+    // We used to check !item?.icon to avoid overwriting existing icon, 
+    // but if user changes URL, they probably want new icon? 
+    // The original logic was: if (value && !item?.icon).
+    // Let's stick to original behavior but make it better: 
+    // If user explicitly uploaded an icon (how do we know? icon state), maybe don't overwrite?
+    // But for "Add New", item is null, so !item?.icon is true.
+    // For "Edit", valid point.
+
+    if (value && (!item?.icon || !icon)) {
+      // Debounce could be good here, but for now just eager fetch
+      // Normalize strictly for fetching to ensure URL constructor works
+      const normalized = normalizeUrl(value);
+
+      // Simple check to avoid fetching 'g', 'go', 'goo'... 
+      // check if it has at least one dot or looks valid?
+      if (!normalized.includes('.') && !normalized.includes('localhost')) return;
+
       setIsFetchingIcon(true);
       try {
-        const fetchedIcon = await fetchIcon(value);
+        const fetchedIcon = await fetchIcon(normalized);
         setIcon(fetchedIcon);
       } catch (error) {
-        console.error('Failed to fetch icon:', error);
+        // silent fail
       } finally {
         setIsFetchingIcon(false);
       }
@@ -70,7 +102,7 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
 
     onSave({
       name: name.trim(),
-      url: url.trim(),
+      url: normalizeUrl(url), // Normalize on save
       icon: icon,
     });
   };
@@ -79,7 +111,8 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
     if (!url) return;
     setIsFetchingIcon(true);
     try {
-      const fetchedIcon = await fetchIcon(url);
+      const normalized = normalizeUrl(url);
+      const fetchedIcon = await fetchIcon(normalized);
       setIcon(fetchedIcon);
     } catch (error) {
       console.error('Failed to fetch icon:', error);

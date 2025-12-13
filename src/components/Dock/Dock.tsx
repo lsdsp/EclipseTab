@@ -196,6 +196,7 @@ export const Dock: React.FC<DockProps> = ({
                                 isDragging={isDragging}
                                 staggerIndex={index}
                                 isDropTarget={isMergeTarget}
+                                isMergeTarget={isMergeTarget}
                                 onLongPress={onLongPressEdit}
                                 onMouseDown={e => handleMouseDown(e, item, index)}
                             />

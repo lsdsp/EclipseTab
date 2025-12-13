@@ -13,6 +13,8 @@ import {
     SQUEEZE_ANIMATION_DURATION,
     RETURN_ANIMATION_DURATION,
     FADE_DURATION,
+    DRAG_SCALE,
+    DRAG_Z_INDEX,
 } from '../../constants/layout';
 
 interface DragPreviewProps {
@@ -55,16 +57,26 @@ export const DragPreview: React.FC<DragPreviewProps> = ({
     const getScale = (): string => {
         if (isPreMerge) return 'scale(0.6)';
         if (isDraggingOut) return 'scale(1.0)';
+        // 拖拽过程中默认放大，除非正在归位
+        if (!isAnimatingReturn) return `scale(${DRAG_SCALE})`;
         return 'scale(1.0)';
+    };
+
+    // 计算 shadow
+    const getShadow = (): string => {
+        if (isPreMerge) return 'none'; // 合并时不显示阴影
+        if (!isAnimatingReturn) return '0 16px 32px rgba(0,0,0,0.3)'; // 拖拽时阴影加深
+        return 'none'; // 归位时阴影消失，平滑过渡到静止状态
     };
 
     // 计算 transition
     const getTransition = (): string => {
         if (isAnimatingReturn) {
             // 归位动画：使用 iOS 风格阻尼曲线
-            return `left ${RETURN_ANIMATION_DURATION}ms ${EASE_SPRING}, top ${RETURN_ANIMATION_DURATION}ms ${EASE_SPRING}, transform ${SQUEEZE_ANIMATION_DURATION}ms ease-out`;
+            return `left ${RETURN_ANIMATION_DURATION}ms ${EASE_SPRING}, top ${RETURN_ANIMATION_DURATION}ms ${EASE_SPRING}, transform ${SQUEEZE_ANIMATION_DURATION}ms ease-out, box-shadow ${SQUEEZE_ANIMATION_DURATION}ms ease-out`;
         }
-        return `transform ${FADE_DURATION}ms ${EASE_SMOOTH}`;
+        // 拖拽拾起时，scale 和 box-shadow 需要平滑过渡
+        return `transform ${FADE_DURATION}ms ${EASE_SMOOTH}, box-shadow ${FADE_DURATION}ms ${EASE_SMOOTH}`;
     };
 
     const handleTransitionEnd = (e: React.TransitionEvent) => {
@@ -88,9 +100,10 @@ export const DragPreview: React.FC<DragPreviewProps> = ({
                 width: 64,
                 height: 64,
                 pointerEvents: 'none',
-                zIndex: 9999,
+                zIndex: DRAG_Z_INDEX,
                 transform: getScale(),
-                filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.3))',
+                boxShadow: getShadow(),
+                borderRadius: '16px', // 确保阴影贴合圆角 (假设图标是圆角矩形)
                 transition: getTransition(),
             }}
             onTransitionEnd={handleTransitionEnd}

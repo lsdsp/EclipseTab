@@ -14,6 +14,7 @@ import {
     MERGE_DISTANCE_THRESHOLD,
     HOVER_OPEN_DELAY,
     PRE_MERGE_DELAY,
+    HAPTIC_PATTERNS,
 } from '../constants/layout';
 
 interface UseDragAndDropOptions {
@@ -70,6 +71,7 @@ export const useDragAndDrop = ({
         captureLayoutSnapshot,
         dragElementRef,
         cleanupDragListeners,
+        performHapticFeedback,
     } = useDragBase<DockDragState>({
         items,
         isEditMode,
@@ -113,7 +115,15 @@ export const useDragAndDrop = ({
     useEffect(() => { hoveredFolderRef.current = hoveredFolderId; }, [hoveredFolderId]);
     useEffect(() => { hoveredAppRef.current = hoveredAppId; }, [hoveredAppId]);
     useEffect(() => { mergeTargetRef.current = mergeTargetId; }, [mergeTargetId]);
+    useEffect(() => { mergeTargetRef.current = mergeTargetId; }, [mergeTargetId]);
     useEffect(() => { isPreMergeRef.current = isPreMerge; }, [isPreMerge]);
+
+    // Haptic Feedback for Reordering
+    useEffect(() => {
+        if (placeholderIndex !== null && dragState.isDragging) {
+            performHapticFeedback(HAPTIC_PATTERNS.REORDER);
+        }
+    }, [placeholderIndex, performHapticFeedback, dragState.isDragging]);
 
     // ========================================================================
     // 优化 2: 抽取辅助函数
@@ -233,6 +243,7 @@ export const useDragAndDrop = ({
                     setHoveredFolderId(null);
                     setHoveredAppId(foundTarget.id);
                 }
+                performHapticFeedback(HAPTIC_PATTERNS.MERGE);
             }
         }
         return false;
@@ -251,6 +262,7 @@ export const useDragAndDrop = ({
             const dist = Math.hypot(e.clientX - state.startPosition.x, e.clientY - state.startPosition.y);
             if (dist > DRAG_THRESHOLD) {
                 cacheDockRect();
+                performHapticFeedback(HAPTIC_PATTERNS.PICKUP);
                 startDragging(state.item);
             } else {
                 return;
@@ -474,9 +486,20 @@ export const useDragAndDrop = ({
                 }
 
                 // 现在可以计算基准位置了
-                // firstVisibleRect.left 对应的视觉位置是 firstVisibleVisualIndex
-                // 所以基准位置 baseX = firstVisibleRect.left - firstVisibleVisualIndex * CELL_SIZE
-                const baseX = firstVisibleRect.left - firstVisibleVisualIndex * CELL_SIZE;
+
+                // CRITICAL FIX: Subtract current transform to get the canonical slot position.
+                // firstVisibleRect includes the CSS transform (squeeze), so we must strip it.
+                const currentTransform = strategy.calculateTransform(
+                    firstVisibleIndex,
+                    currentPlaceholder!,
+                    oldIndex,
+                    true
+                ).x;
+                const unshiftedBaseX = firstVisibleRect.left - currentTransform;
+
+                // unshiftedBaseX 对应的视觉位置是 firstVisibleVisualIndex
+                // 所以基准位置 baseX = unshiftedBaseX - firstVisibleVisualIndex * CELL_SIZE
+                const baseX = unshiftedBaseX - firstVisibleVisualIndex * CELL_SIZE;
                 const baseY = firstVisibleRect.top;
 
                 // 目标位置 = 基准位置 + 目标视觉索引 * 单元格尺寸
@@ -604,6 +627,9 @@ export const useDragAndDrop = ({
 
         // 然后执行数据操作
         if (data) {
+            // Success vibration
+            performHapticFeedback(HAPTIC_PATTERNS.DROP);
+
             switch (data.type) {
                 case 'reorder':
                     onReorder(data.newItems);

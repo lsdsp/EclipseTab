@@ -110,6 +110,12 @@
     &.editMode {
         animation: jiggle var(--duration-normal) var(--ease-in-out) infinite;
     }
+
+    /* 脉冲动画 - 用于合并提示 */
+    &.pulse .iconContainer {
+        animation: pulse 1.5s infinite;
+        box-shadow: 0 0 0 4px var(--blue-alpha-50);
+    }
 }
 
 @keyframes jiggle {
@@ -121,5 +127,22 @@
 
     50% {
         transform: rotate(2deg);
+    }
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 var(--blue-alpha-50);
+    }
+
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 6px var(--blue-alpha-20);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 var(--blue-alpha-0);
     }
 }

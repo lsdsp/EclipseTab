@@ -16,6 +16,7 @@ import {
 import {
     FOLDER_COLUMNS,
     FOLDER_CELL_SIZE,
+    HAPTIC_PATTERNS,
 } from '../constants/layout';
 
 export interface UseFolderDragAndDropOptions {
@@ -61,6 +62,7 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
         dragElementRef,
         captureLayoutSnapshot,
         cachedContainerRectRef, // 缓存的容器 Rect
+        performHapticFeedback,
     } = useDragBase<FolderDragState>({
         items,
         isEditMode,
@@ -74,6 +76,13 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
 
     // 创建网格布局策略
     const strategy = useMemo(() => createGridStrategy(FOLDER_COLUMNS), []);
+
+    // Haptic Feedback for Reordering
+    useEffect(() => {
+        if (placeholderIndex !== null && dragState.isDragging) {
+            performHapticFeedback(HAPTIC_PATTERNS.REORDER);
+        }
+    }, [placeholderIndex, performHapticFeedback, dragState.isDragging]);
 
     // ========== 同步文件夹占位符状态到父组件 (Context) ==========
     useEffect(() => {
@@ -204,6 +213,7 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
         // 类型安全的动作处理
         const data = currentDrag.targetActionData;
         if (data) {
+            performHapticFeedback(HAPTIC_PATTERNS.DROP);
             switch (data.type) {
                 case 'reorder':
                     onReorder(data.newItems);
@@ -328,7 +338,10 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
                 index,
                 event: e,
                 setDragState,
-                onDragStart: startDragging,
+                onDragStart: (item) => {
+                    performHapticFeedback(HAPTIC_PATTERNS.PICKUP);
+                    startDragging(item);
+                },
                 handleMouseMove,
                 handleMouseUp,
                 createDragState: (item, index, _rect, startX, startY, offset) => ({

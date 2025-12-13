@@ -94,3 +94,34 @@ export const SQUEEZE_ANIMATION_DURATION = 200;
 /** 淡入淡出时长 (ms) */
 export const FADE_DURATION = 150;
 
+
+// ============================================================================
+// 交互体验
+// ============================================================================
+
+/** 拖拽拾起时的缩放比例 */
+export const DRAG_SCALE = 1.05;
+
+/** 拖拽预览层级 */
+export const DRAG_Z_INDEX = 9999;
+
+/** 滞后阈值 (px) - 用于防止抖动 */
+export const HYSTERESIS_THRESHOLD = 10;
+
+/** 文件夹落点判定阈值 (px) */
+export const FOLDER_DROP_THRESHOLD = 10;
+
+/** 拖出容器检测缓冲区 (px) */
+export const DRAG_OUT_BUFFER = 10;
+
+/**
+ * 震动反馈模式 (毫秒)
+ * 仅在支持 navigator.vibrate 的设备上生效
+ */
+export const HAPTIC_PATTERNS = {
+    PICKUP: 10,        // 拖拽开始
+    REORDER: 5,        // 重排/吸附
+    MERGE: 15,         // 合并/放入文件夹
+    DROP: 10,          // 放下
+    CANCEL: 20,        // 取消
+};
