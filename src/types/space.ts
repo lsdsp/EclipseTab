@@ -45,7 +45,7 @@ export interface SpacesState {
 /**
  * 创建默认空间
  */
-export function createDefaultSpace(name: string = 'MAIN', apps: DockItem[] = []): Space {
+export function createDefaultSpace(name: string = 'Main', apps: DockItem[] = []): Space {
     return {
         id: crypto.randomUUID(),
         name,
@@ -59,7 +59,7 @@ export function createDefaultSpace(name: string = 'MAIN', apps: DockItem[] = [])
  * 创建默认空间状态
  */
 export function createDefaultSpacesState(initialApps: DockItem[] = []): SpacesState {
-    const defaultSpace = createDefaultSpace('MAIN', initialApps);
+    const defaultSpace = createDefaultSpace('Main', initialApps);
     return {
         spaces: [defaultSpace],
         activeSpaceId: defaultSpace.id,

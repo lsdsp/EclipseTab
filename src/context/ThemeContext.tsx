@@ -47,47 +47,54 @@ const isBackgroundLight = (backgroundValue: string): boolean => {
         return true;
     }
 
-    // Extract color from gradient or solid color
-    let color = '';
+    // Extract all colors from the string
+    const colors: string[] = [];
+    const hexRegex = /#[0-9A-Fa-f]{6}/g;
+    const rgbRegex = /rgba?\([^)]+\)/g;
 
-    // For gradients, extract the first color
-    if (backgroundValue.includes('gradient')) {
-        const colorMatch = backgroundValue.match(/#[0-9A-Fa-f]{6}|rgba?\([^)]+\)/);
-        if (colorMatch) {
-            color = colorMatch[0];
+    const hexMatches = backgroundValue.match(hexRegex);
+    if (hexMatches) colors.push(...hexMatches);
+
+    const rgbMatches = backgroundValue.match(rgbRegex);
+    if (rgbMatches) colors.push(...rgbMatches);
+
+    if (colors.length === 0) return false;
+
+    // Calculate luminance for each color
+    let totalLuminance = 0;
+    let maxLuminance = 0;
+
+    colors.forEach(color => {
+        let r = 0, g = 0, b = 0;
+
+        if (color.startsWith('#')) {
+            const hex = color.substring(1);
+            r = parseInt(hex.substring(0, 2), 16);
+            g = parseInt(hex.substring(2, 4), 16);
+            b = parseInt(hex.substring(4, 6), 16);
+        } else if (color.startsWith('rgb')) {
+            const match = color.match(/\d+/g);
+            if (match && match.length >= 3) {
+                r = parseInt(match[0]);
+                g = parseInt(match[1]);
+                b = parseInt(match[2]);
+            }
         }
-    } else {
-        // Solid color
-        color = backgroundValue;
-    }
 
-    if (!color) return false;
-
-    // Convert color to RGB values
-    let r = 0, g = 0, b = 0;
-
-    if (color.startsWith('#')) {
-        // Hex color
-        const hex = color.substring(1);
-        r = parseInt(hex.substring(0, 2), 16);
-        g = parseInt(hex.substring(2, 4), 16);
-        b = parseInt(hex.substring(4, 6), 16);
-    } else if (color.startsWith('rgb')) {
-        // RGB/RGBA color
-        const match = color.match(/\d+/g);
-        if (match && match.length >= 3) {
-            r = parseInt(match[0]);
-            g = parseInt(match[1]);
-            b = parseInt(match[2]);
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        totalLuminance += luminance;
+        if (luminance > maxLuminance) {
+            maxLuminance = luminance;
         }
-    }
+    });
 
-    // Calculate relative luminance using sRGB formula
-    // https://www.w3.org/TR/WCAG20/#relativeluminancedef
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    const averageLuminance = totalLuminance / colors.length;
 
-    // If luminance > 0.5, it's a light background
-    return luminance > 0.5;
+    // Use a combined score: average (overall brightness) + max (brightest spot)
+    // This helps detect gradients that fade to light, ensuring readability on the light parts
+    const score = (averageLuminance + maxLuminance) / 2;
+
+    return score > 0.4;
 };
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

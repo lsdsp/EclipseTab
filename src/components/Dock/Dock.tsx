@@ -68,29 +68,82 @@ export const Dock: React.FC<DockProps> = ({
         deleteSpace,
     } = useSpaces();
 
-    // 动画阶段状态机
-    type AnimationPhase = 'idle' | 'exiting' | 'entering';
+    // 动画阶段状态机: idle → exiting → hidden → entering → idle
+    // hidden 阶段确保新 items 在入场动画开始前是隐藏的
+    type AnimationPhase = 'idle' | 'exiting' | 'hidden' | 'entering';
     const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('idle');
 
-    // 空间切换处理
+    // dockContent ref 用于宽度锁定
+    const dockContentRef = useRef<HTMLDivElement>(null);
+
+    // 空间切换处理 - 包含宽度锁定和动画序列逻辑
     const handleSpaceSwitch = useCallback(() => {
         if (isSwitching || spaces.length <= 1) return;
+
+        // 保存当前宽度（切换前）用于过渡
+        const startWidth = dockContentRef.current
+            ? dockContentRef.current.getBoundingClientRect().width
+            : 0;
+
+        // 锁定当前宽度
+        if (dockContentRef.current && startWidth > 0) {
+            dockContentRef.current.style.width = `${startWidth}px`;
+        }
 
         setIsSwitching(true);
         setAnimationPhase('exiting');
 
-        // 退场动画结束后切换数据
+        // 退场动画结束后：先设为 hidden，再切换数据，最后触发入场动画
         setTimeout(() => {
-            switchToNextSpace();
-            setAnimationPhase('entering');
+            // 1. 设置为 hidden 阶段
+            setAnimationPhase('hidden');
 
-            // 入场动画结束后恢复
-            const enterDuration = 350 + items.length * 30;
+            // 2. 切换数据
+            switchToNextSpace();
+
+            // 3. 等待渲染完成，然后开始宽度过渡和入场动画
             setTimeout(() => {
-                setAnimationPhase('idle');
-                setIsSwitching(false);
-            }, enterDuration);
-        }, 200); // 退场动画 200ms
+                setAnimationPhase('entering');
+
+                // 触发宽度过渡
+                if (dockContentRef.current) {
+                    // 临时移除宽度锁定，获取新的自然宽度
+                    dockContentRef.current.style.width = '';
+                    // 强制回流
+                    const targetWidth = dockContentRef.current.getBoundingClientRect().width;
+
+                    // 只有当宽度有变化时才做过渡动画
+                    if (startWidth > 0 && Math.abs(targetWidth - startWidth) > 1) {
+                        // 立即设置回起始宽度
+                        dockContentRef.current.style.width = `${startWidth}px`;
+                        // 强制回流以应用起始宽度
+                        dockContentRef.current.offsetHeight;
+
+                        // 下一帧设置目标宽度，触发 CSS transition
+                        requestAnimationFrame(() => {
+                            if (dockContentRef.current) {
+                                dockContentRef.current.style.width = `${targetWidth}px`;
+
+                                // 过渡结束后清除固定宽度
+                                setTimeout(() => {
+                                    if (dockContentRef.current) {
+                                        dockContentRef.current.style.width = '';
+                                    }
+                                }, 500); // 与 CSS transition 时长一致
+                            }
+                        });
+                    }
+                    // 如果宽度没变化，不需要额外处理
+                }
+
+                // 入场动画结束后恢复状态
+                const enterDuration = 350 + items.length * 30;
+                setTimeout(() => {
+                    setAnimationPhase('idle');
+                    setIsSwitching(false);
+                }, enterDuration);
+            }, 20);
+        }, 200);
     }, [isSwitching, spaces.length, items.length, switchToNextSpace, setIsSwitching]);
 
     // 空间管理菜单状态
@@ -189,7 +242,7 @@ export const Dock: React.FC<DockProps> = ({
 
     return (
         <header ref={innerRef} className={`${styles.dock} ${isEditMode ? styles.editMode : ''}`}>
-            <div className={styles.dockContent} data-dock-container="true">
+            <div ref={dockContentRef} className={styles.dockContent} data-dock-container="true">
                 <div className={`${styles.editTools} ${isEditMode ? styles.visible : ''}`}>
                     <AddIcon onClick={rect => onItemAdd(rect)} />
                     <div className={styles.divider}>
@@ -207,11 +260,14 @@ export const Dock: React.FC<DockProps> = ({
                     const translateX = getItemTransform(index);
 
                     // 空间切换动画类
-                    const animationClass = animationPhase === 'exiting'
-                        ? styles.itemExiting
-                        : animationPhase === 'entering'
-                            ? styles.itemEntering
-                            : '';
+                    let animationClass = '';
+                    if (animationPhase === 'exiting') {
+                        animationClass = styles.itemExiting;
+                    } else if (animationPhase === 'hidden') {
+                        animationClass = styles.itemHidden;
+                    } else if (animationPhase === 'entering') {
+                        animationClass = styles.itemEntering;
+                    }
 
                     return (
                         <div
@@ -283,25 +339,6 @@ export const Dock: React.FC<DockProps> = ({
                         <line x1="0.5" y1="0" x2="0.5" y2="48" strokeWidth="1" />
                     </svg>
                 </div>
-                {/* DockNavigator - 空间切换器 */}
-                <div
-                    className={styles.dockNavigator}
-                    style={{
-                        transform: `translateX(${getItemTransform(items.length)}px)`,
-                        transition: isInteracting
-                            ? `transform ${SQUEEZE_ANIMATION_DURATION}ms ${EASE_SWIFT}`
-                            : 'none',
-                    }}
-                >
-                    <DockNavigator
-                        currentSpace={currentSpace}
-                        totalSpaces={spaces.length}
-                        currentIndex={currentIndex}
-                        onSwitch={handleSpaceSwitch}
-                        onContextMenu={handleSpaceContextMenu}
-                        disabled={isSwitching}
-                    />
-                </div>
                 {/* 动态占位元素 - 仅当需要扩展时渲染，避免 flex gap 造成多余间距 */}
                 {getItemTransform(items.length) > 0 && (
                     <div
@@ -314,6 +351,19 @@ export const Dock: React.FC<DockProps> = ({
                         }}
                     />
                 )}
+            </div>
+            {/* DockNavigator - 空间切换器，使用绝对定位始终靠右 */}
+            <div
+                className={`${styles.dockNavigator} ${animationPhase === 'exiting' || animationPhase === 'hidden' ? styles.navigatorTransitioning : ''}`}
+            >
+                <DockNavigator
+                    currentSpace={currentSpace}
+                    totalSpaces={spaces.length}
+                    currentIndex={currentIndex}
+                    onSwitch={handleSpaceSwitch}
+                    onContextMenu={handleSpaceContextMenu}
+                    disabled={isSwitching}
+                />
             </div>
             <DragPreview
                 isActive={dragState.isDragging || dragState.isAnimatingReturn}

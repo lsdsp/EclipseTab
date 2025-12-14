@@ -94,7 +94,7 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
     // ============================================================================
 
     const addSpace = useCallback((name?: string) => {
-        const newSpace = createDefaultSpace(name || `SPACE ${spaces.length + 1}`);
+        const newSpace = createDefaultSpace(name || `Space ${spaces.length + 1}`);
 
         setSpacesState(prev => ({
             ...prev,
@@ -133,7 +133,7 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
         setSpacesState(prev => ({
             ...prev,
             spaces: prev.spaces.map(s =>
-                s.id === spaceId ? { ...s, name: newName.trim().toUpperCase() } : s
+                s.id === spaceId ? { ...s, name: newName.trim() } : s
             ),
         }));
     }, []);

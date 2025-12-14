@@ -115,28 +115,80 @@
     background-color: #ff6b6b;
 }
 
-/* 重命名输入框 */
-.renameInput {
-    padding: var(--spacing-padding-extrasmall);
+/* 重命名容器 */
+.renameContainer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-gap-small);
+    padding: 0;
 }
 
-.renameInput input {
-    width: 100%;
-    padding: var(--spacing-padding-extrasmall);
-    background: var(--color-bg-secondary);
-    border: none;
-    border-radius: 8px;
+/* 重命名标签 */
+.renameLabel {
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-small);
+    line-height: var(--line-height-none);
     color: var(--color-text-primary);
+    opacity: 0.6;
+}
+
+/* 重命名输入区域包装 */
+.renameInputWrapper {
+    display: flex;
+    gap: var(--spacing-gap-small);
+    align-items: center;
+}
+
+/* 重命名输入框 */
+.renameInput {
+    flex: 1;
+    padding: var(--spacing-padding-small);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-small);
+    color: var(--color-text-primary);
+    font-family: var(--font-family);
     font-size: var(--font-size-medium);
+    font-weight: var(--font-weight-medium);
     outline: none;
-    transition: background var(--transition-medium);
+    transition: border-color var(--transition-medium), background var(--transition-medium);
     box-sizing: border-box;
 }
 
-.renameInput input:focus {
+.renameInput:focus {
+    background: var(--color-bg-tertiary);
+    border-color: var(--blue-focus);
+}
+
+.renameInput::placeholder {
+    color: var(--color-text-secondary);
+}
+
+/* 确认按钮 */
+.confirmButton {
+    padding: var(--spacing-padding-small);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-small);
+    color: var(--color-text-primary);
+    font-family: var(--font-family);
+    font-size: var(--font-size-medium);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: background var(--transition-medium), opacity var(--transition-medium);
+    white-space: nowrap;
+}
+
+.confirmButton:hover {
     background: var(--color-bg-tertiary);
 }
 
-.renameInput input::placeholder {
-    color: var(--color-text-secondary);
+.confirmButton:active {
+    background: var(--color-bg-primary);
+}
+
+.confirmButton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }

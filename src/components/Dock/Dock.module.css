@@ -13,7 +13,8 @@
     display: inline-block;
     position: relative;
     z-index: 2000;
-    /* 宽度由内部元素决定 */
+    /* 空间切换时宽度平滑过渡 */
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Dock 内容容器 - 图标排列区域 */
@@ -21,12 +22,16 @@
     background: var(--color-bg-secondary);
     border-radius: var(--radius-large);
     padding: var(--spacing-gap-small);
+    /* 右边留出空间给 Navigator (约 136px = 128px Navigator + 8px gap) */
+    padding-right: 144px;
     box-shadow: var(--shadow-small);
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
     gap: 8px;
     /* Fixed gap - items slide using transform for smooth animation */
+    /* 空间切换时平滑过渡宽度 */
+    transition: width 0.5s var(--ease-smooth, ease);
 }
 
 /* Dock 项目包装器 - 控制间距和动画 */
@@ -80,7 +85,7 @@
     width: 128px;
 }
 
-/* 导航器图标（预留） */
+/* 导航器图标 */
 .navigatorIcon {
     flex: 1 0 0;
     background: var(--color-text-tertiary);
@@ -171,21 +176,35 @@
     animation: slideOutUp 0.2s ease-in forwards;
 }
 
+/* 隐藏状态 - 等待入场动画，使用 visibility 确保完全不可见 */
+.itemHidden {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transform: translateY(40px);
+}
+
 /* 应用入场动画 - 带 stagger 效果 */
+/* 使用 both 填充模式：backwards 让延迟期间显示起始帧，forwards 让结束后保持终止帧 */
 .itemEntering {
-    animation: slideInUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    visibility: visible !important;
+    animation: slideInUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     animation-delay: calc(var(--stagger-index, 0) * 30ms);
 }
 
-/* 宽度过渡平滑 */
-.dock {
-    transition: width 0.3s ease;
-}
-
-/* Navigator 容器样式更新 */
+/* Navigator 容器样式 - 使用绝对定位始终靠右 */
 .dockNavigator {
+    position: absolute;
+    right: calc(var(--spacing-border-default) + 8px);
+    top: 50%;
+    transform: translateY(-50%);
     display: flex;
     gap: var(--spacing-gap-small);
     align-items: center;
-    flex: 0 0 auto;
+    /* 空间切换时平滑过渡透明度 */
+    transition: opacity 0.15s ease;
+}
+
+/* Navigator 过渡状态 - 退场/隐藏期间淡出 */
+.navigatorTransitioning {
+    opacity: 0.3;
 }

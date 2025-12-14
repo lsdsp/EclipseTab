@@ -113,17 +113,27 @@ export function SpaceManageMenu({
         <Modal isOpen={isOpen} onClose={onClose} title={undefined} hideHeader anchorRect={anchorRect}>
             <div ref={menuRef} className={styles.menu}>
                 {isRenaming ? (
-                    <div className={styles.renameInput}>
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onKeyDown={handleRenameKeyDown}
-                            onBlur={handleRenameSubmit}
-                            maxLength={10}
-                            placeholder="Input space name"
-                        />
+                    <div className={styles.renameContainer}>
+                        <div className={styles.renameLabel}>Rename Space</div>
+                        <div className={styles.renameInputWrapper}>
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                className={styles.renameInput}
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onKeyDown={handleRenameKeyDown}
+                                maxLength={10}
+                                placeholder="Input space name"
+                            />
+                            <button
+                                className={styles.confirmButton}
+                                onClick={handleRenameSubmit}
+                                disabled={!renameValue.trim() || renameValue.trim() === currentSpace.name}
+                            >
+                                Confirm
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <>
