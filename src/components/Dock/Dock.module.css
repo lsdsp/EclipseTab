@@ -14,7 +14,7 @@
     position: relative;
     z-index: 2000;
     /* 空间切换时宽度平滑过渡 */
-    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Dock 内容容器 - 图标排列区域 */
@@ -31,7 +31,7 @@
     gap: 8px;
     /* Fixed gap - items slide using transform for smooth animation */
     /* 空间切换时平滑过渡宽度 */
-    transition: width 0.5s var(--ease-smooth, ease);
+    transition: width 0.3s var(--ease-smooth, ease);
 }
 
 /* Dock 项目包装器 - 控制间距和动画 */

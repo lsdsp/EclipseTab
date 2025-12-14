@@ -132,7 +132,7 @@
   --transition-slow: var(--duration-slow) var(--ease-out-quint);
   --transition-smooth: var(--duration-normal) var(--ease-smooth);
   --transition-bounce: var(--duration-medium) var(--ease-bounce);
-  --transition-background: background-color 0.5s ease-in-out, background-image 0.5s ease-in-out;
+  --transition-background: background-color 0.3s ease-in-out, background-image 0.3s ease-in-out;
 
   /* ===== 特殊动画效果变量 ===== */
   /* 用于模糊、缩放、平移等动画效果 */
