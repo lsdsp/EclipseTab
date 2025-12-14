@@ -6,6 +6,9 @@ import { exportSpaceToFile, parseAndValidateSpaceFile, SpaceExportData } from '.
 import plusIcon from '../../assets/icons/plus.svg';
 import writeIcon from '../../assets/icons/write.svg';
 import trashIcon from '../../assets/icons/trash.svg';
+import pinIcon from '../../assets/icons/pin.svg';
+import importIcon from '../../assets/icons/import.svg';
+import exportIcon from '../../assets/icons/export.svg';
 import styles from './SpaceManageMenu.module.css';
 
 interface SpaceManageMenuProps {
@@ -190,6 +193,16 @@ export function SpaceManageMenu({
                                 <span className={styles.icon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
                                 <span>Rename</span>
                             </button>
+                            {/* 置顶 */}
+                            <button
+                                className={`${styles.menuItem} ${isFirstSpace ? styles.disabled : ''}`}
+                                onClick={() => { onPin(); onClose(); }}
+                                disabled={isFirstSpace}
+                                title={isFirstSpace ? 'Already at the top' : 'Pin to top'}
+                            >
+                                <span className={styles.icon} style={{ WebkitMaskImage: `url(${pinIcon})`, maskImage: `url(${pinIcon})` }} />
+                                <span>Pin to Top</span>
+                            </button>
                             <button
                                 className={`${styles.menuItem} ${styles.danger} ${isLastSpace ? styles.disabled : ''}`}
                                 onClick={handleDeleteClick}
@@ -199,25 +212,15 @@ export function SpaceManageMenu({
                                 <span className={styles.icon} style={{ WebkitMaskImage: `url(${trashIcon})`, maskImage: `url(${trashIcon})` }} />
                                 <span>Delete space</span>
                             </button>
-                            {/* 置顶 */}
-                            <button
-                                className={`${styles.menuItem} ${isFirstSpace ? styles.disabled : ''}`}
-                                onClick={() => { onPin(); onClose(); }}
-                                disabled={isFirstSpace}
-                                title={isFirstSpace ? 'Already at the top' : 'Pin to top'}
-                            >
-                                <span className={styles.iconEmoji}>📌</span>
-                                <span>Pin to Top</span>
-                            </button>
                             {/* 分隔线 */}
                             <div className={styles.divider} />
                             {/* 导入/导出 */}
                             <button className={styles.menuItem} onClick={handleImportClick}>
-                                <span className={styles.iconEmoji}>📥</span>
+                                <span className={styles.icon} style={{ WebkitMaskImage: `url(${importIcon})`, maskImage: `url(${importIcon})` }} />
                                 <span>Import Space</span>
                             </button>
                             <button className={styles.menuItem} onClick={handleExportClick}>
-                                <span className={styles.iconEmoji}>📤</span>
+                                <span className={styles.icon} style={{ WebkitMaskImage: `url(${exportIcon})`, maskImage: `url(${exportIcon})` }} />
                                 <span>Export current space</span>
                             </button>
                             {/* Hidden file input */}
