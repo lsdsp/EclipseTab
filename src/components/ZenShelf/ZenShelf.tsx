@@ -407,6 +407,10 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ sticker, stickerRect,
 // StickerItem Component - 单个贴纸渲染
 // ============================================================================
 
+// ============================================================================
+// StickerItem Component - 单个贴纸渲染
+// ============================================================================
+
 interface StickerItemProps {
     sticker: Sticker;
     isSelected: boolean;
@@ -438,6 +442,15 @@ const StickerItem: React.FC<StickerItemProps> = ({
     const resizeStartRef = useRef<{ x: number; y: number; startScale: number } | null>(null);
     const [imageNaturalWidth, setImageNaturalWidth] = useState<number>(300);
 
+    // Physics Refs
+    const physicsRef = useRef({
+        rotation: 0,
+        targetRotation: 0,
+        lastX: 0,
+    });
+    const isDraggingRef = useRef(false);
+    const rafRef = useRef<number>();
+
     // Update rect when selected
     useEffect(() => {
         if (isSelected && elementRef.current) {
@@ -454,6 +467,34 @@ const StickerItem: React.FC<StickerItemProps> = ({
         onBringToTop();
     };
 
+    // Physics Animation Loop
+    const updatePhysics = useCallback(() => {
+        const { rotation, targetRotation } = physicsRef.current;
+
+        // Smoothly interpolate rotation (Spring-like effect)
+        // Adjust stiffness (0.15) for responsiveness
+        const diff = targetRotation - rotation;
+        const nextRotation = rotation + diff * 0.15;
+
+        physicsRef.current.rotation = nextRotation;
+
+        if (elementRef.current) {
+            elementRef.current.style.transform = `rotate(${nextRotation.toFixed(2)}deg)`;
+        }
+
+        // Continue loop if dragging or if rotation hasn't settled
+        if (isDraggingRef.current || Math.abs(diff) > 0.05 || Math.abs(nextRotation) > 0.05) {
+            rafRef.current = requestAnimationFrame(updatePhysics);
+        } else {
+            // Settle to exact 0
+            if (elementRef.current) {
+                elementRef.current.style.transform = '';
+            }
+            physicsRef.current.rotation = 0;
+            physicsRef.current.targetRotation = 0;
+        }
+    }, []);
+
     const handleMouseDown = (e: React.MouseEvent) => {
         // Prevent if clicking delete button or resize handle
         if ((e.target as HTMLElement).closest(`.${styles.deleteButton}`)) {
@@ -469,12 +510,22 @@ const StickerItem: React.FC<StickerItemProps> = ({
 
         // Start drag
         setIsDragging(true);
+        isDraggingRef.current = true;
+
         dragStartRef.current = {
             x: e.clientX,
             y: e.clientY,
             stickerX: sticker.x,
             stickerY: sticker.y,
         };
+
+        // Reset Physics
+        physicsRef.current.lastX = e.clientX;
+        physicsRef.current.targetRotation = 0;
+
+        // Start animation loop
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(updatePhysics);
 
         e.preventDefault();
         e.stopPropagation();
@@ -494,11 +545,37 @@ const StickerItem: React.FC<StickerItemProps> = ({
                 dragStartRef.current.stickerX + dx,
                 dragStartRef.current.stickerY + dy
             );
+
+            // Physics Calculation
+            const moveDx = e.clientX - physicsRef.current.lastX;
+            physicsRef.current.lastX = e.clientX;
+
+            // Calculate target rotation based on movement speed
+            // Moving Right (dx > 0) -> Swing Left (Bottom trails) -> Rotate CW (Positive)
+            // Range: -12deg to +12deg
+            const SENSITIVITY = 0.4;
+            const MAX_ROTATION = 12;
+
+            // Note: We use -moveDx because visually if we pull right, the "paper" creates a / shape which is + rotation?
+            // Wait. Top moves right. Bottom stays. Top-Right Bottom-Left. Shape / .
+            // This is clockwise. Positive.
+            // So +dx -> +rotation.
+            // Inverted per user request: +dx -> -rotation
+            let target = -moveDx * SENSITIVITY;
+
+            // Clamp
+            target = Math.max(-MAX_ROTATION, Math.min(MAX_ROTATION, target));
+            physicsRef.current.targetRotation = target;
         };
 
         const handleMouseUp = () => {
             setIsDragging(false);
+            isDraggingRef.current = false;
             dragStartRef.current = null;
+
+            // Reset target to 0 to animte back
+            physicsRef.current.targetRotation = 0;
+            // Loop continues until settled
         };
 
         document.addEventListener('mousemove', handleMouseMove);
@@ -508,7 +585,14 @@ const StickerItem: React.FC<StickerItemProps> = ({
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, onPositionChange]);
+    }, [isDragging, onPositionChange, updatePhysics]); // updatePhysics is stable due to useCallback
+
+    // Cleanup RAF on unmount
+    useEffect(() => {
+        return () => {
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
+    }, []);
 
     // Resize handle start
     const handleResizeStart = (e: React.MouseEvent) => {
@@ -582,6 +666,7 @@ const StickerItem: React.FC<StickerItemProps> = ({
                     left: sticker.x,
                     top: sticker.y,
                     zIndex: sticker.zIndex || 1,
+                    // Note: transform is controlled by physics loop
                 }}
                 onMouseDown={handleMouseDown}
                 onDoubleClick={handleDoubleClick}
