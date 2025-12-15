@@ -9,14 +9,12 @@ import { storage } from '../utils/storage';
 interface ZenShelfContextType {
     // 状态
     stickers: Sticker[];
-    isCreativeMode: boolean;
     selectedStickerId: string | null;
 
     // 操作
     addSticker: (input: StickerInput) => void;
     updateSticker: (id: string, updates: Partial<Sticker>) => void;
     deleteSticker: (id: string) => void;
-    setCreativeMode: (enabled: boolean) => void;
     selectSticker: (id: string | null) => void;
 }
 
@@ -40,7 +38,6 @@ const generateId = (): string => {
 export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // 状态初始化：从 localStorage 加载
     const [stickers, setStickers] = useState<Sticker[]>(() => storage.getStickers());
-    const [isCreativeMode, setIsCreativeMode] = useState(false);
     const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null);
 
     // 持久化：stickers 变化时保存到 localStorage
@@ -48,12 +45,7 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         storage.saveStickers(stickers);
     }, [stickers]);
 
-    // 退出创作模式时取消选中
-    useEffect(() => {
-        if (!isCreativeMode) {
-            setSelectedStickerId(null);
-        }
-    }, [isCreativeMode]);
+
 
     // ========================================================================
     // 操作函数
@@ -81,9 +73,7 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setSelectedStickerId(prev => prev === id ? null : prev);
     }, []);
 
-    const setCreativeMode = useCallback((enabled: boolean) => {
-        setIsCreativeMode(enabled);
-    }, []);
+
 
     const selectSticker = useCallback((id: string | null) => {
         setSelectedStickerId(id);
@@ -95,21 +85,17 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const contextValue: ZenShelfContextType = useMemo(() => ({
         stickers,
-        isCreativeMode,
         selectedStickerId,
         addSticker,
         updateSticker,
         deleteSticker,
-        setCreativeMode,
         selectSticker,
     }), [
         stickers,
-        isCreativeMode,
         selectedStickerId,
         addSticker,
         updateSticker,
         deleteSticker,
-        setCreativeMode,
         selectSticker,
     ]);
 

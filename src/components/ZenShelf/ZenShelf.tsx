@@ -1,8 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useDock } from '../../context/DockContext';
 import { useZenShelf } from '../../context/ZenShelfContext';
 import { Sticker, IMAGE_MAX_WIDTH } from '../../types';
 import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
 import { compressStickerImage } from '../../utils/imageCompression';
+import { copyBlobToClipboard, createImageStickerImage, createTextStickerImage, downloadBlob, imageToBlob } from '../../utils/canvasUtils';
 import styles from './ZenShelf.module.css';
 import plusIcon from '../../assets/icons/plus.svg';
 import writeIcon from '../../assets/icons/write.svg';
@@ -117,7 +120,7 @@ const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialSt
         onCancel();
     };
 
-    return (
+    return createPortal(
         <div
             ref={popupRef}
             className={styles.textInputPopup}
@@ -192,7 +195,8 @@ const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialSt
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
@@ -210,6 +214,7 @@ interface ContextMenuProps {
     onAddSticker: () => void;
     onUploadImage: () => void;
     onToggleEditMode: () => void;
+    isEditMode: boolean;
     onEditSticker?: () => void;
     onDeleteSticker?: () => void;
     onCopyImage?: () => void;
@@ -227,6 +232,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
     onAddSticker,
     onUploadImage,
     onToggleEditMode,
+    isEditMode,
     onEditSticker,
     onDeleteSticker,
     onCopyImage,
@@ -277,7 +283,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
         return () => document.removeEventListener('contextmenu', handleContextMenu);
     }, []);
 
-    return (
+    return createPortal(
         <div
             ref={menuRef}
             className={styles.contextMenu}
@@ -299,7 +305,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
                         </button>
                         <button className={styles.menuItem} onClick={() => { onToggleEditMode(); onClose(); }}>
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${editIcon})`, maskImage: `url(${editIcon})` }} />
-                            <span>Edit Mode</span>
+                            <span>{isEditMode ? 'Quit Edit Mode' : 'Edit Mode'}</span>
                         </button>
                     </>
                 ) : (
@@ -338,7 +344,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
                     </>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 // ============================================================================
@@ -731,15 +738,14 @@ const StickerItem: React.FC<StickerItemProps> = ({
 // ============================================================================
 
 export const ZenShelf: React.FC = () => {
+    const { isEditMode, setIsEditMode } = useDock();
     const {
         stickers,
-        isCreativeMode,
         selectedStickerId,
         addSticker,
         updateSticker,
         deleteSticker,
         selectSticker,
-        setCreativeMode,
     } = useZenShelf();
 
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -809,6 +815,20 @@ export const ZenShelf: React.FC = () => {
         document.addEventListener('contextmenu', handleContextMenu);
         return () => document.removeEventListener('contextmenu', handleContextMenu);
     }, [stickers]);
+
+    // Hotkey: Delete to remove sticker
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectedStickerId) {
+                    deleteSticker(selectedStickerId);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedStickerId, deleteSticker]);
 
     // Handle image file selection
     const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -933,14 +953,14 @@ export const ZenShelf: React.FC = () => {
     return (
         <div
             ref={canvasRef}
-            className={`${styles.canvas} ${isCreativeMode ? styles.creativeMode : ''}`}
+            className={`${styles.canvas} ${isEditMode ? styles.creativeMode : ''}`}
         >
             {stickers.map((sticker) => (
                 <StickerItem
                     key={sticker.id}
                     sticker={sticker}
                     isSelected={selectedStickerId === sticker.id}
-                    isCreativeMode={isCreativeMode}
+                    isCreativeMode={isEditMode}
                     onSelect={() => selectSticker(sticker.id)}
                     onDelete={() => deleteSticker(sticker.id)}
                     onPositionChange={(x, y) => updateSticker(sticker.id, { x, y })}
@@ -1002,8 +1022,9 @@ export const ZenShelf: React.FC = () => {
                         fileInputRef.current?.click();
                     }}
                     onToggleEditMode={() => {
-                        setCreativeMode(!isCreativeMode);
+                        setIsEditMode(!isEditMode);
                     }}
+                    isEditMode={isEditMode}
                     onEditSticker={() => {
                         const sticker = stickers.find(s => s.id === contextMenu.stickerId);
                         if (sticker) {
@@ -1020,138 +1041,26 @@ export const ZenShelf: React.FC = () => {
                         const sticker = stickers.find(s => s.id === contextMenu.stickerId);
                         if (sticker && sticker.type === 'image') {
                             try {
-                                // Convert base64 to blob
-                                const response = await fetch(sticker.content);
-                                const blob = await response.blob();
-
-                                // Create a canvas to convert to PNG
                                 const img = new Image();
                                 img.onload = async () => {
-                                    const canvas = document.createElement('canvas');
-                                    canvas.width = img.width;
-                                    canvas.height = img.height;
-                                    const ctx = canvas.getContext('2d');
-                                    if (ctx) {
-                                        ctx.drawImage(img, 0, 0);
-                                        canvas.toBlob(async (pngBlob) => {
-                                            if (pngBlob) {
-                                                await navigator.clipboard.write([
-                                                    new ClipboardItem({ 'image/png': pngBlob })
-                                                ]);
-                                            }
-                                        }, 'image/png');
+                                    const blob = await imageToBlob(img);
+                                    if (blob) {
+                                        await copyBlobToClipboard(blob);
                                     }
                                 };
-                                img.src = URL.createObjectURL(blob);
+                                img.src = sticker.content;
                             } catch (error) {
                                 console.error('Failed to copy image:', error);
                             }
                         }
                     }}
-                    onExportImage={() => {
+                    onExportImage={async () => {
                         const sticker = stickers.find(s => s.id === contextMenu.stickerId);
                         if (sticker && sticker.type === 'text') {
                             try {
-                                const MIN_HEIGHT = 600;
-                                const BASE_FONT_SIZE = 48;
-                                const PADDING_RATIO = 0.5; // More padding for stroke
-                                const STROKE_RATIO = 0.25;
-
-                                // Create temp canvas for measurement
-                                const measureCanvas = document.createElement('canvas');
-                                const measureCtx = measureCanvas.getContext('2d');
-                                if (!measureCtx) return;
-
-                                measureCtx.font = `500 ${BASE_FONT_SIZE}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
-
-                                // Measure text content
-                                const lines = sticker.content.split('\n');
-                                const lineHeight = BASE_FONT_SIZE * 1.3;
-
-                                // Find max line width
-                                let maxWidth = 0;
-                                for (const line of lines) {
-                                    const metrics = measureCtx.measureText(line);
-                                    maxWidth = Math.max(maxWidth, metrics.width);
-                                }
-
-                                // Calculate content dimensions with extra buffer for stroke
-                                const strokeWidth = BASE_FONT_SIZE * STROKE_RATIO;
-                                const padding = BASE_FONT_SIZE * PADDING_RATIO + strokeWidth;
-                                const contentWidth = maxWidth;
-                                const contentHeight = lineHeight * lines.length;
-                                const baseWidth = contentWidth + padding * 2;
-                                const baseHeight = contentHeight + padding * 2;
-
-                                // Scale to ensure min height while preserving aspect ratio
-                                const scale = baseHeight < MIN_HEIGHT ? MIN_HEIGHT / baseHeight : 1;
-                                const canvasWidth = Math.ceil(baseWidth * scale);
-                                const canvasHeight = Math.ceil(baseHeight * scale);
-                                const fontSize = Math.round(BASE_FONT_SIZE * scale);
-                                const finalPadding = Math.round(padding * scale);
-                                const finalStrokeWidth = Math.round(strokeWidth * scale);
-                                const finalLineHeight = fontSize * 1.3;
-
-                                // Create canvas
-                                const canvas = document.createElement('canvas');
-                                canvas.width = canvasWidth;
-                                canvas.height = canvasHeight;
-                                const ctx = canvas.getContext('2d');
-
-                                if (ctx) {
-                                    // Set text style
-                                    ctx.font = `500 ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
-                                    ctx.textBaseline = 'middle';
-
-                                    // Calculate text position based on alignment
-                                    let textX: number;
-                                    if (sticker.style?.textAlign === 'center') {
-                                        ctx.textAlign = 'center';
-                                        textX = canvasWidth / 2;
-                                    } else if (sticker.style?.textAlign === 'right') {
-                                        ctx.textAlign = 'right';
-                                        textX = canvasWidth - finalPadding;
-                                    } else {
-                                        ctx.textAlign = 'left';
-                                        textX = finalPadding;
-                                    }
-
-                                    // Draw white stroke
-                                    ctx.strokeStyle = 'white';
-                                    ctx.lineWidth = finalStrokeWidth;
-                                    ctx.lineJoin = 'round';
-                                    ctx.miterLimit = 2;
-
-                                    // Calculate vertical center
-                                    const totalTextHeight = finalLineHeight * lines.length;
-                                    let y = (canvasHeight - totalTextHeight) / 2 + finalLineHeight / 2;
-
-                                    for (const line of lines) {
-                                        ctx.strokeText(line, textX, y);
-                                        y += finalLineHeight;
-                                    }
-
-                                    // Draw fill color
-                                    ctx.fillStyle = sticker.style?.color || '#1C1C1E';
-                                    y = (canvasHeight - totalTextHeight) / 2 + finalLineHeight / 2;
-                                    for (const line of lines) {
-                                        ctx.fillText(line, textX, y);
-                                        y += finalLineHeight;
-                                    }
-
-                                    // Download as PNG
-                                    canvas.toBlob((blob) => {
-                                        if (blob) {
-                                            const url = URL.createObjectURL(blob);
-                                            const link = document.createElement('a');
-                                            link.href = url;
-                                            link.download = `sticker-${Date.now()}.png`;
-                                            document.body.appendChild(link);
-                                            link.click();
-                                            document.body.removeChild(link);
-                                            URL.revokeObjectURL(url);
-                                        }
-                                    }, 'image/png');
+                                const blob = await createTextStickerImage(sticker);
+                                if (blob) {
+                                    downloadBlob(blob, `sticker-${Date.now()}.png`);
                                 }
                             } catch (error) {
                                 console.error('Failed to export sticker:', error);
@@ -1164,84 +1073,14 @@ export const ZenShelf: React.FC = () => {
                             navigator.clipboard.writeText(sticker.content);
                         }
                     }}
-                    onExportImageSticker={() => {
+                    onExportImageSticker={async () => {
                         const sticker = stickers.find(s => s.id === contextMenu.stickerId);
                         if (sticker && sticker.type === 'image') {
                             try {
-                                const img = new Image();
-                                img.onload = () => {
-                                    const BORDER_RADIUS = 16;
-                                    const STROKE_WIDTH = 6;
-                                    const SHADOW_BLUR = 12;
-                                    const SHADOW_OFFSET = 6;
-                                    const PADDING = STROKE_WIDTH + SHADOW_BLUR;
-
-                                    // Canvas size includes image + padding for stroke and shadow
-                                    const canvasWidth = img.width + PADDING * 2;
-                                    const canvasHeight = img.height + PADDING * 2 + SHADOW_OFFSET;
-
-                                    const canvas = document.createElement('canvas');
-                                    canvas.width = canvasWidth;
-                                    canvas.height = canvasHeight;
-                                    const ctx = canvas.getContext('2d');
-
-                                    if (ctx) {
-                                        const imgX = PADDING;
-                                        const imgY = PADDING;
-
-                                        // Create rounded rectangle path
-                                        const createRoundedPath = (x: number, y: number, w: number, h: number, r: number) => {
-                                            ctx.beginPath();
-                                            ctx.moveTo(x + r, y);
-                                            ctx.lineTo(x + w - r, y);
-                                            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-                                            ctx.lineTo(x + w, y + h - r);
-                                            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-                                            ctx.lineTo(x + r, y + h);
-                                            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-                                            ctx.lineTo(x, y + r);
-                                            ctx.quadraticCurveTo(x, y, x + r, y);
-                                            ctx.closePath();
-                                        };
-
-                                        // Draw drop shadow
-                                        ctx.save();
-                                        ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
-                                        ctx.shadowBlur = SHADOW_BLUR;
-                                        ctx.shadowOffsetY = SHADOW_OFFSET;
-                                        createRoundedPath(imgX, imgY, img.width, img.height, BORDER_RADIUS);
-                                        ctx.fillStyle = 'white';
-                                        ctx.fill();
-                                        ctx.restore();
-
-                                        // Draw white stroke/outline
-                                        createRoundedPath(imgX, imgY, img.width, img.height, BORDER_RADIUS);
-                                        ctx.strokeStyle = 'white';
-                                        ctx.lineWidth = STROKE_WIDTH * 2; // Double because half is clipped
-                                        ctx.stroke();
-
-                                        // Clip to rounded rectangle and draw image
-                                        ctx.save();
-                                        createRoundedPath(imgX, imgY, img.width, img.height, BORDER_RADIUS);
-                                        ctx.clip();
-                                        ctx.drawImage(img, imgX, imgY);
-                                        ctx.restore();
-
-                                        canvas.toBlob((blob) => {
-                                            if (blob) {
-                                                const url = URL.createObjectURL(blob);
-                                                const link = document.createElement('a');
-                                                link.href = url;
-                                                link.download = `sticker-${Date.now()}.png`;
-                                                document.body.appendChild(link);
-                                                link.click();
-                                                document.body.removeChild(link);
-                                                URL.revokeObjectURL(url);
-                                            }
-                                        }, 'image/png');
-                                    }
-                                };
-                                img.src = sticker.content;
+                                const blob = await createImageStickerImage(sticker);
+                                if (blob) {
+                                    downloadBlob(blob, `sticker-${Date.now()}.png`);
+                                }
                             } catch (error) {
                                 console.error('Failed to export image sticker:', error);
                             }
