@@ -4,7 +4,7 @@
  */
 
 import { Space, DockItem } from '../types';
-import { compressIconsInItems } from './imageCompression';
+import { compressIcon, compressIconsInItems } from './imageCompression';
 
 // ============================================================================
 // 类型定义
@@ -40,9 +40,9 @@ interface ExportedDockItem {
 // ============================================================================
 
 /**
- * 将 DockItem 转换为导出格式
+ * 将 DockItem 转换为导出格式（异步版，压缩图标）
  */
-function convertToExportItem(item: DockItem): ExportedDockItem {
+async function convertToExportItemAsync(item: DockItem): Promise<ExportedDockItem> {
     const exported: ExportedDockItem = {
         title: item.name,
         type: item.type,
@@ -52,12 +52,15 @@ function convertToExportItem(item: DockItem): ExportedDockItem {
         exported.url = item.url;
     }
 
+    // 压缩图标到 500x500 WebP
     if (item.icon) {
-        exported.icon = item.icon;
+        exported.icon = await compressIcon(item.icon);
     }
 
     if (item.type === 'folder' && item.items) {
-        exported.children = item.items.map(convertToExportItem);
+        exported.children = await Promise.all(
+            item.items.map(convertToExportItemAsync)
+        );
     }
 
     return exported;
@@ -65,8 +68,14 @@ function convertToExportItem(item: DockItem): ExportedDockItem {
 
 /**
  * 导出空间到 JSON 文件并触发下载
+ * 导出时会压缩所有图标到 500x500 以减小文件体积
  */
-export function exportSpaceToFile(space: Space): void {
+export async function exportSpaceToFile(space: Space): Promise<void> {
+    // 压缩并转换所有 apps
+    const compressedApps = await Promise.all(
+        space.apps.map(convertToExportItemAsync)
+    );
+
     // 构建导出数据
     const exportData: SpaceExportData = {
         version: '1.0',
@@ -75,7 +84,7 @@ export function exportSpaceToFile(space: Space): void {
             name: space.name,
             iconType: space.iconType,
             iconValue: space.iconValue,
-            apps: space.apps.map(convertToExportItem),
+            apps: compressedApps,
         },
     };
 
