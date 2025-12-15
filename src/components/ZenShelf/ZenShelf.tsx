@@ -211,6 +211,7 @@ interface ContextMenuProps {
     onEditSticker?: () => void;
     onDeleteSticker?: () => void;
     onCopyImage?: () => void;
+    onExportImage?: () => void;
 }
 
 const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -225,6 +226,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
     onEditSticker,
     onDeleteSticker,
     onCopyImage,
+    onExportImage,
 }) => {
     const menuRef = useRef<HTMLDivElement>(null);
     const isClosingRef = useRef(false);
@@ -303,10 +305,16 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
                             </button>
                         )}
                         {!isImageSticker && (
-                            <button className={styles.menuItem} onClick={() => { onEditSticker?.(); onClose(); }}>
-                                <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
-                                <span>Edit Sticker</span>
-                            </button>
+                            <>
+                                <button className={styles.menuItem} onClick={() => { onEditSticker?.(); onClose(); }}>
+                                    <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
+                                    <span>Edit Sticker</span>
+                                </button>
+                                <button className={styles.menuItem} onClick={() => { onExportImage?.(); onClose(); }}>
+                                    <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${exportIcon})`, maskImage: `url(${exportIcon})` }} />
+                                    <span>Export as Image</span>
+                                </button>
+                            </>
                         )}
                         <button className={`${styles.menuItem} ${styles.danger}`} onClick={() => { onDeleteSticker?.(); onClose(); }}>
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${trashIcon})`, maskImage: `url(${trashIcon})` }} />
@@ -923,6 +931,104 @@ export const ZenShelf: React.FC = () => {
                                 img.src = URL.createObjectURL(blob);
                             } catch (error) {
                                 console.error('Failed to copy image:', error);
+                            }
+                        }
+                    }}
+                    onExportImage={() => {
+                        const sticker = stickers.find(s => s.id === contextMenu.stickerId);
+                        if (sticker && sticker.type === 'text') {
+                            try {
+                                const MIN_HEIGHT = 600;
+                                const PADDING = 40;
+
+                                // Create temporary element to measure text
+                                const measureDiv = document.createElement('div');
+                                measureDiv.style.cssText = `
+                                    position: absolute;
+                                    visibility: hidden;
+                                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                    font-size: 32px;
+                                    font-weight: 500;
+                                    white-space: pre-wrap;
+                                    padding: ${PADDING}px;
+                                `;
+                                measureDiv.textContent = sticker.content;
+                                document.body.appendChild(measureDiv);
+
+                                const measuredWidth = measureDiv.offsetWidth;
+                                const measuredHeight = measureDiv.offsetHeight;
+                                document.body.removeChild(measureDiv);
+
+                                // Calculate scale to ensure minimum height
+                                const scale = measuredHeight < MIN_HEIGHT ? MIN_HEIGHT / measuredHeight : 1;
+                                const canvasWidth = Math.ceil(measuredWidth * scale);
+                                const canvasHeight = Math.ceil(measuredHeight * scale);
+                                const fontSize = Math.round(32 * scale);
+                                const padding = Math.round(PADDING * scale);
+                                const strokeWidth = Math.round(12 * scale);
+
+                                // Create canvas
+                                const canvas = document.createElement('canvas');
+                                canvas.width = canvasWidth;
+                                canvas.height = canvasHeight;
+                                const ctx = canvas.getContext('2d');
+
+                                if (ctx) {
+                                    // Transparent background (don't fill)
+
+                                    // Set text style
+                                    ctx.font = `500 ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+                                    ctx.textAlign = (sticker.style?.textAlign as CanvasTextAlign) || 'left';
+                                    ctx.textBaseline = 'top';
+
+                                    // Calculate text position based on alignment
+                                    let textX = padding;
+                                    if (sticker.style?.textAlign === 'center') {
+                                        textX = canvasWidth / 2;
+                                    } else if (sticker.style?.textAlign === 'right') {
+                                        textX = canvasWidth - padding;
+                                    }
+
+                                    // Draw white stroke
+                                    ctx.strokeStyle = 'white';
+                                    ctx.lineWidth = strokeWidth;
+                                    ctx.lineJoin = 'round';
+                                    ctx.miterLimit = 2;
+
+                                    // Draw each line
+                                    const lines = sticker.content.split('\n');
+                                    const lineHeight = fontSize * 1.2;
+                                    let y = padding;
+
+                                    for (const line of lines) {
+                                        ctx.strokeText(line, textX, y);
+                                        y += lineHeight;
+                                    }
+
+                                    // Draw fill color
+                                    ctx.fillStyle = sticker.style?.color || '#1C1C1E';
+                                    y = padding;
+                                    for (const line of lines) {
+                                        ctx.fillText(line, textX, y);
+                                        y += lineHeight;
+                                    }
+
+                                    // Download as PNG
+                                    canvas.toBlob((blob) => {
+                                        if (blob) {
+                                            const url = URL.createObjectURL(blob);
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.download = `sticker-${Date.now()}.png`;
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                            URL.revokeObjectURL(url);
+                                        }
+                                    }, 'image/png');
+                                }
+                            } catch (error) {
+                                console.error('Failed to export sticker:', error);
                             }
                         }
                     }}

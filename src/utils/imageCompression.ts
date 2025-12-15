@@ -11,8 +11,11 @@ const ICON_TARGET_SIZE = 300;
 /** 目标压缩尺寸 - 贴纸图片 */
 const STICKER_TARGET_WIDTH = 400;
 
-/** WebP 压缩质量 */
-const COMPRESSION_QUALITY = 0.8;
+/** WebP 压缩质量 - 图标 (更高压缩) */
+const ICON_COMPRESSION_QUALITY = 0.6;
+
+/** WebP 压缩质量 - 贴纸 */
+const STICKER_COMPRESSION_QUALITY = 0.8;
 
 /**
  * 压缩 Base64 图标到指定尺寸 (300x300)
@@ -59,7 +62,7 @@ export async function compressIcon(dataUrl: string): Promise<string> {
                 ctx.drawImage(img, 0, 0, width, height);
 
                 // 转换为 WebP 格式
-                const compressedDataUrl = canvas.toDataURL('image/webp', COMPRESSION_QUALITY);
+                const compressedDataUrl = canvas.toDataURL('image/webp', ICON_COMPRESSION_QUALITY);
 
                 // 如果压缩后更大（极少数情况），返回原图
                 if (compressedDataUrl.length > dataUrl.length) {
@@ -117,7 +120,7 @@ export async function compressStickerImage(dataUrl: string): Promise<string> {
                 canvas.height = height;
                 ctx.drawImage(img, 0, 0, width, height);
 
-                const compressedDataUrl = canvas.toDataURL('image/webp', COMPRESSION_QUALITY);
+                const compressedDataUrl = canvas.toDataURL('image/webp', STICKER_COMPRESSION_QUALITY);
 
                 if (compressedDataUrl.length > dataUrl.length) {
                     resolve(dataUrl);
