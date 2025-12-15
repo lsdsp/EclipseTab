@@ -42,4 +42,4 @@ export const DEFAULT_TEXT_STYLE: TextStickerStyle = {
 /**
  * 图片贴纸的最大宽度限制
  */
-export const IMAGE_MAX_WIDTH = 300;
+export const IMAGE_MAX_WIDTH = 400;

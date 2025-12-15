@@ -5,14 +5,17 @@
 
 import { DockItem } from '../types';
 
-/** 目标压缩尺寸 */
-const TARGET_SIZE = 500;
+/** 目标压缩尺寸 - 图标 */
+const ICON_TARGET_SIZE = 300;
+
+/** 目标压缩尺寸 - 贴纸图片 */
+const STICKER_TARGET_WIDTH = 400;
 
 /** WebP 压缩质量 */
 const COMPRESSION_QUALITY = 0.8;
 
 /**
- * 压缩 Base64 图标到指定尺寸
+ * 压缩 Base64 图标到指定尺寸 (300x300)
  * @param dataUrl Base64 编码的图片
  * @returns 压缩后的 Base64 图片
  */
@@ -35,17 +38,17 @@ export async function compressIcon(dataUrl: string): Promise<string> {
                     return;
                 }
 
-                // 计算目标尺寸（保持宽高比，最大边为 TARGET_SIZE）
+                // 计算目标尺寸（保持宽高比，最大边为 ICON_TARGET_SIZE）
                 let { width, height } = img;
 
                 // 如果图片已经小于目标尺寸，不需要压缩尺寸，但仍然转换为 WebP 以减小体积
-                if (width > TARGET_SIZE || height > TARGET_SIZE) {
+                if (width > ICON_TARGET_SIZE || height > ICON_TARGET_SIZE) {
                     if (width > height) {
-                        height = Math.round((height * TARGET_SIZE) / width);
-                        width = TARGET_SIZE;
+                        height = Math.round((height * ICON_TARGET_SIZE) / width);
+                        width = ICON_TARGET_SIZE;
                     } else {
-                        width = Math.round((width * TARGET_SIZE) / height);
-                        height = TARGET_SIZE;
+                        width = Math.round((width * ICON_TARGET_SIZE) / height);
+                        height = ICON_TARGET_SIZE;
                     }
                 }
 
@@ -78,6 +81,64 @@ export async function compressIcon(dataUrl: string): Promise<string> {
         img.src = dataUrl;
     });
 }
+
+/**
+ * 压缩贴纸图片到最大宽度 400px（保持比例）
+ * @param dataUrl Base64 编码的图片
+ * @returns 压缩后的 Base64 图片
+ */
+export async function compressStickerImage(dataUrl: string): Promise<string> {
+    if (!dataUrl?.startsWith('data:image')) {
+        return dataUrl;
+    }
+
+    return new Promise((resolve) => {
+        const img = new Image();
+
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                if (!ctx) {
+                    resolve(dataUrl);
+                    return;
+                }
+
+                let { width, height } = img;
+
+                // 只有宽度超过目标尺寸时才压缩
+                if (width > STICKER_TARGET_WIDTH) {
+                    height = Math.round((height * STICKER_TARGET_WIDTH) / width);
+                    width = STICKER_TARGET_WIDTH;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+
+                const compressedDataUrl = canvas.toDataURL('image/webp', COMPRESSION_QUALITY);
+
+                if (compressedDataUrl.length > dataUrl.length) {
+                    resolve(dataUrl);
+                } else {
+                    resolve(compressedDataUrl);
+                }
+            } catch (error) {
+                console.error('Failed to compress sticker image:', error);
+                resolve(dataUrl);
+            }
+        };
+
+        img.onerror = () => {
+            console.error('Failed to load image for sticker compression');
+            resolve(dataUrl);
+        };
+
+        img.src = dataUrl;
+    });
+}
+
 
 /**
  * 递归压缩 DockItem 数组中的所有图标

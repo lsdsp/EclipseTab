@@ -8,6 +8,8 @@
     width: 100%;
     height: 100%;
     z-index: 1;
+    isolation: isolate;
+    /* Ensure stickers stay within this stacking context */
     pointer-events: none;
     /* 默认透传指针事件 */
     overflow: hidden;

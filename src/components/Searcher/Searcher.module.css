@@ -2,6 +2,7 @@
 /* 外层容器 - 玻璃态效果 */
 .searcher {
   position: relative;
+  z-index: 2000;
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   background: var(--color-bg-primary);

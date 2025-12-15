@@ -24,6 +24,8 @@
   width: 100%;
   max-width: var(--container-max-width);
   min-width: var(--container-min-width);
+  z-index: 100;
+  /* Above stickers (canvas z-index: 1) */
 }
 
 /* 设置按钮区域 - 左上角 */
@@ -34,6 +36,8 @@
   width: 140px;
   height: 140px;
   pointer-events: auto;
+  z-index: 100;
+  /* Above stickers */
 }
 
 /* 编辑器按钮区域 - 右上角 */
@@ -44,4 +48,6 @@
   width: 140px;
   height: 140px;
   pointer-events: auto;
+  z-index: 100;
+  /* Above stickers */
 }

@@ -6,6 +6,7 @@
   position: absolute;
   top: 24px;
   right: 24px;
+  z-index: 2000;
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   background: var(--color-bg-primary);

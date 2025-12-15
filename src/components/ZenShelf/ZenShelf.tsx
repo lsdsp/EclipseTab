@@ -1,12 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useZenShelf } from '../../context/ZenShelfContext';
 import { Sticker, IMAGE_MAX_WIDTH } from '../../types';
+import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
+import { compressStickerImage } from '../../utils/imageCompression';
 import styles from './ZenShelf.module.css';
 import plusIcon from '../../assets/icons/plus.svg';
 import writeIcon from '../../assets/icons/write.svg';
 import trashIcon from '../../assets/icons/trash.svg';
 import uploadIcon from '../../assets/icons/upload.svg';
 import editIcon from '../../assets/icons/edit.svg';
+import exportIcon from '../../assets/icons/export.svg';
 
 // ============================================================================
 // Color Palette for Text Stickers
@@ -31,17 +34,22 @@ interface TextInputProps {
     y: number;
     onSubmit: (content: string, style?: { color: string; textAlign: 'left' | 'center' | 'right' }) => void;
     onCancel: () => void;
+    onImagePaste?: (base64: string) => void;
 }
 
-const TextInput: React.FC<TextInputProps> = ({ x, y, onSubmit, onCancel }) => {
+const TextInput: React.FC<TextInputProps> = ({ x, y, onSubmit, onCancel, onImagePaste }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const popupRef = useRef<HTMLDivElement>(null);
     const [value, setValue] = useState('');
     const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('left');
     const [textColor, setTextColor] = useState(TEXT_COLORS[0]);
 
+    // Focus and animation on mount
     useEffect(() => {
         textareaRef.current?.focus();
+        if (popupRef.current) {
+            scaleFadeIn(popupRef.current);
+        }
     }, []);
 
     // Click outside to close
@@ -59,6 +67,30 @@ const TextInput: React.FC<TextInputProps> = ({ x, y, onSubmit, onCancel }) => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);
+
+    // Handle paste for images
+    const handlePaste = async (e: React.ClipboardEvent) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const blob = item.getAsFile();
+                if (!blob) continue;
+
+                const reader = new FileReader();
+                reader.onload = async () => {
+                    const base64 = reader.result as string;
+                    const compressed = await compressStickerImage(base64);
+                    onImagePaste?.(compressed);
+                    onCancel();
+                };
+                reader.readAsDataURL(blob);
+                break;
+            }
+        }
+    };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -99,6 +131,7 @@ const TextInput: React.FC<TextInputProps> = ({ x, y, onSubmit, onCancel }) => {
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
                     placeholder="Type text or paste an image (Ctrl+V)..."
                 />
 
@@ -170,37 +203,64 @@ interface ContextMenuProps {
     y: number;
     type: 'background' | 'sticker';
     stickerId?: string;
+    isImageSticker?: boolean;
     onClose: () => void;
     onAddSticker: () => void;
     onUploadImage: () => void;
     onToggleEditMode: () => void;
     onEditSticker?: () => void;
     onDeleteSticker?: () => void;
+    onCopyImage?: () => void;
 }
 
 const ContextMenu: React.FC<ContextMenuProps> = ({
     x,
     y,
     type,
+    isImageSticker,
     onClose,
     onAddSticker,
     onUploadImage,
     onToggleEditMode,
     onEditSticker,
     onDeleteSticker,
+    onCopyImage,
 }) => {
     const menuRef = useRef<HTMLDivElement>(null);
+    const isClosingRef = useRef(false);
+
+    // Close with animation
+    const handleClose = useCallback(() => {
+        if (isClosingRef.current) return;
+        isClosingRef.current = true;
+
+        if (menuRef.current) {
+            scaleFadeOut(menuRef.current, 200, () => {
+                onClose();
+            });
+        } else {
+            onClose();
+        }
+    }, [onClose]);
+
+    // Animation on mount and when position changes
+    useEffect(() => {
+        isClosingRef.current = false;
+        if (menuRef.current) {
+            scaleFadeIn(menuRef.current);
+        }
+    }, [x, y]);
 
     // Click outside to close
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-                onClose();
+                handleClose();
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [onClose]);
+    }, [handleClose]);
 
     // Prevent default context menu
     useEffect(() => {
@@ -236,10 +296,18 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
                     </>
                 ) : (
                     <>
-                        <button className={styles.menuItem} onClick={() => { onEditSticker?.(); onClose(); }}>
-                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
-                            <span>Edit Sticker</span>
-                        </button>
+                        {isImageSticker && (
+                            <button className={styles.menuItem} onClick={() => { onCopyImage?.(); onClose(); }}>
+                                <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${exportIcon})`, maskImage: `url(${exportIcon})` }} />
+                                <span>Copy Image</span>
+                            </button>
+                        )}
+                        {!isImageSticker && (
+                            <button className={styles.menuItem} onClick={() => { onEditSticker?.(); onClose(); }}>
+                                <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
+                                <span>Edit Sticker</span>
+                            </button>
+                        )}
                         <button className={`${styles.menuItem} ${styles.danger}`} onClick={() => { onDeleteSticker?.(); onClose(); }}>
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${trashIcon})`, maskImage: `url(${trashIcon})` }} />
                             <span>Delete Sticker</span>
@@ -636,25 +704,26 @@ export const ZenShelf: React.FC = () => {
     }, [stickers]);
 
     // Handle image file selection
-    const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = () => {
+        reader.onload = async () => {
             const base64 = reader.result as string;
+            const compressed = await compressStickerImage(base64);
             const img = new Image();
             img.onload = () => {
                 const x = window.innerWidth / 2 - Math.min(img.width, IMAGE_MAX_WIDTH) / 2;
                 const y = window.innerHeight / 2 - (img.height * Math.min(img.width, IMAGE_MAX_WIDTH) / img.width) / 2;
                 addSticker({
                     type: 'image',
-                    content: base64,
+                    content: compressed,
                     x,
                     y,
                 });
             };
-            img.src = base64;
+            img.src = compressed;
         };
         reader.readAsDataURL(file);
 
@@ -686,10 +755,17 @@ export const ZenShelf: React.FC = () => {
         setTextInputPos(null);
     }, []);
 
-    // Handle paste - add image sticker
+    // Handle paste - add image sticker (works globally, except when Searcher is active)
     useEffect(() => {
         const handlePaste = async (e: ClipboardEvent) => {
-            if (!isCreativeMode) return;
+            // Skip if Searcher or any input/textarea is focused
+            const activeElement = document.activeElement;
+            if (activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA') {
+                // Check if it's inside Searcher
+                if (activeElement.closest('[class*="Searcher"]') || activeElement.closest('[class*="textInputPopup"]')) {
+                    return;
+                }
+            }
 
             const items = e.clipboardData?.items;
             if (!items) return;
@@ -702,10 +778,13 @@ export const ZenShelf: React.FC = () => {
 
                     // Convert to base64
                     const reader = new FileReader();
-                    reader.onload = () => {
+                    reader.onload = async () => {
                         const base64 = reader.result as string;
 
-                        // Create image to get dimensions and check size
+                        // Compress the image to max 400px width
+                        const compressed = await compressStickerImage(base64);
+
+                        // Create image to get dimensions
                         const img = new Image();
                         img.onload = () => {
                             // Center of viewport
@@ -714,12 +793,12 @@ export const ZenShelf: React.FC = () => {
 
                             addSticker({
                                 type: 'image',
-                                content: base64,
+                                content: compressed,
                                 x,
                                 y,
                             });
                         };
-                        img.src = base64;
+                        img.src = compressed;
                     };
                     reader.readAsDataURL(blob);
                     break;
@@ -729,7 +808,7 @@ export const ZenShelf: React.FC = () => {
 
         document.addEventListener('paste', handlePaste);
         return () => document.removeEventListener('paste', handlePaste);
-    }, [isCreativeMode, addSticker]);
+    }, [addSticker]);
 
     return (
         <div
@@ -767,6 +846,18 @@ export const ZenShelf: React.FC = () => {
                     y={textInputPos.y}
                     onSubmit={handleTextSubmit}
                     onCancel={handleTextCancel}
+                    onImagePaste={(base64) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            addSticker({
+                                type: 'image',
+                                content: base64,
+                                x: textInputPos.x,
+                                y: textInputPos.y,
+                            });
+                        };
+                        img.src = base64;
+                    }}
                 />
             )}
 
@@ -777,6 +868,10 @@ export const ZenShelf: React.FC = () => {
                     y={contextMenu.y}
                     type={contextMenu.type}
                     stickerId={contextMenu.stickerId}
+                    isImageSticker={(() => {
+                        const sticker = stickers.find(s => s.id === contextMenu.stickerId);
+                        return sticker?.type === 'image';
+                    })()}
                     onClose={() => setContextMenu(null)}
                     onAddSticker={() => {
                         setTextInputPos({ x: contextMenu.x, y: contextMenu.y });
@@ -797,6 +892,38 @@ export const ZenShelf: React.FC = () => {
                     onDeleteSticker={() => {
                         if (contextMenu.stickerId) {
                             deleteSticker(contextMenu.stickerId);
+                        }
+                    }}
+                    onCopyImage={async () => {
+                        const sticker = stickers.find(s => s.id === contextMenu.stickerId);
+                        if (sticker && sticker.type === 'image') {
+                            try {
+                                // Convert base64 to blob
+                                const response = await fetch(sticker.content);
+                                const blob = await response.blob();
+
+                                // Create a canvas to convert to PNG
+                                const img = new Image();
+                                img.onload = async () => {
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = img.width;
+                                    canvas.height = img.height;
+                                    const ctx = canvas.getContext('2d');
+                                    if (ctx) {
+                                        ctx.drawImage(img, 0, 0);
+                                        canvas.toBlob(async (pngBlob) => {
+                                            if (pngBlob) {
+                                                await navigator.clipboard.write([
+                                                    new ClipboardItem({ 'image/png': pngBlob })
+                                                ]);
+                                            }
+                                        }, 'image/png');
+                                    }
+                                };
+                                img.src = URL.createObjectURL(blob);
+                            } catch (error) {
+                                console.error('Failed to copy image:', error);
+                            }
                         }
                     }}
                 />
