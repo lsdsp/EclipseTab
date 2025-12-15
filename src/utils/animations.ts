@@ -26,7 +26,7 @@ export const flip = (
   requestAnimationFrame(() => {
     element.style.transition = 'transform 300ms cubic-bezier(0.23, 1, 0.32, 1)';
     element.style.transform = '';
-    
+
     if (onComplete) {
       setTimeout(onComplete, 300);
     }
@@ -39,7 +39,7 @@ export const flip = (
 export const fadeIn = (element: HTMLElement, duration = 300) => {
   element.style.opacity = '0';
   element.style.transition = `opacity ${duration}ms cubic-bezier(0.23, 1, 0.32, 1)`;
-  
+
   requestAnimationFrame(() => {
     element.style.opacity = '1';
   });
@@ -51,10 +51,10 @@ export const fadeIn = (element: HTMLElement, duration = 300) => {
 export const fadeOut = (element: HTMLElement, duration = 300, onComplete?: () => void) => {
   element.style.opacity = '1';
   element.style.transition = `opacity ${duration}ms cubic-bezier(0.755, 0.05, 0.855, 0.06)`;
-  
+
   requestAnimationFrame(() => {
     element.style.opacity = '0';
-    
+
     if (onComplete) {
       setTimeout(onComplete, duration);
     }
@@ -69,11 +69,18 @@ export const scaleFadeIn = (element: HTMLElement, duration = 300) => {
   element.style.transform = 'scale(0.9)';
   element.style.filter = 'blur(5px)';
   element.style.transition = `opacity ${duration}ms cubic-bezier(0.23, 1, 0.32, 1), transform ${duration}ms cubic-bezier(0.23, 1, 0.32, 1), filter ${duration}ms cubic-bezier(0.23, 1, 0.32, 1)`;
-  
+
   requestAnimationFrame(() => {
     element.style.opacity = '1';
     element.style.transform = 'scale(1)';
     element.style.filter = 'blur(0)';
+
+    // 动画结束后清除内联样式，避免影响子元素定位
+    setTimeout(() => {
+      element.style.transform = '';
+      element.style.filter = '';
+      element.style.transition = '';
+    }, duration);
   });
 };
 
@@ -85,12 +92,12 @@ export const scaleFadeOut = (element: HTMLElement, duration = 300, onComplete?: 
   element.style.transform = 'scale(1)';
   element.style.filter = 'blur(0)';
   element.style.transition = `opacity ${duration}ms cubic-bezier(0.755, 0.05, 0.855, 0.06), transform ${duration}ms cubic-bezier(0.755, 0.05, 0.855, 0.06), filter ${duration}ms cubic-bezier(0.755, 0.05, 0.855, 0.06)`;
-  
+
   requestAnimationFrame(() => {
     element.style.opacity = '0';
     element.style.transform = 'scale(0.9)';
     element.style.filter = 'blur(5px)';
-    
+
     if (onComplete) {
       setTimeout(onComplete, duration);
     }

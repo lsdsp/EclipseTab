@@ -62,6 +62,8 @@
   -ms-user-select: none;
   /* 宽度由内部元素决定 - 匹配 Dock 模式 */
   display: inline-block;
+  vertical-align: top;
+  /* 防止 inline-block 基线对齐问题 */
   height: fit-content;
   overflow: visible;
   /* 容器尺寸平滑过渡 */
