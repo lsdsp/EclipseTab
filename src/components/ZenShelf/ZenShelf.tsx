@@ -290,19 +290,6 @@ export const ZenShelf: React.FC = () => {
                     initialStyle={editingSticker?.style}
                     onSubmit={handleTextSubmit}
                     onCancel={handleTextCancel}
-                    onImagePaste={(base64) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            // Store position in reference coordinate system
-                            addSticker({
-                                type: 'image',
-                                content: base64,
-                                x: textInputPos.x / viewportScale,
-                                y: textInputPos.y / viewportScale,
-                            });
-                        };
-                        img.src = base64;
-                    }}
                 />
             )}
 

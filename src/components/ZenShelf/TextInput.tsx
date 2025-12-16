@@ -1,7 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
-import { compressStickerImage } from '../../utils/imageCompression';
 import { TEXT_COLORS } from './FloatingToolbar';
 import styles from './ZenShelf.module.css';
 
@@ -16,10 +15,9 @@ interface TextInputProps {
     initialStyle?: { color: string; textAlign: 'left' | 'center' | 'right' };
     onSubmit: (content: string, style?: { color: string; textAlign: 'left' | 'center' | 'right' }) => void;
     onCancel: () => void;
-    onImagePaste?: (base64: string) => void;
 }
 
-export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialStyle, onSubmit, onCancel, onImagePaste }) => {
+export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialStyle, onSubmit, onCancel }) => {
     const inputRef = useRef<HTMLDivElement>(null);
     const toolbarRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -86,29 +84,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         };
     }, [textColor, textAlign, onSubmit, onCancel, isExiting, triggerExit]);
 
-    // Handle paste for images
-    const handlePaste = async (e: React.ClipboardEvent) => {
-        const items = e.clipboardData?.items;
-        if (!items) return;
 
-        for (const item of items) {
-            if (item.type.startsWith('image/')) {
-                e.preventDefault();
-                const blob = item.getAsFile();
-                if (!blob) continue;
-
-                const reader = new FileReader();
-                reader.onload = async () => {
-                    const base64 = reader.result as string;
-                    const compressed = await compressStickerImage(base64);
-                    onImagePaste?.(compressed);
-                    triggerExit(onCancel);
-                };
-                reader.readAsDataURL(blob);
-                return;
-            }
-        }
-    };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -157,7 +133,6 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
                 }}
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
                 onClick={(e) => e.stopPropagation()}
                 data-placeholder="Enter text..."
             />
