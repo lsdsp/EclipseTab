@@ -144,6 +144,12 @@ const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialSt
                 <div className={styles.styleOptionsSection}>
                     {/* Alignment */}
                     <div className={styles.alignmentGroup}>
+                        <div
+                            className={styles.highlightBackground}
+                            style={{
+                                transform: `translateX(${['left', 'center', 'right'].indexOf(textAlign) * 100}%)`,
+                            }}
+                        />
                         <button
                             className={`${styles.alignmentButton} ${textAlign === 'left' ? styles.active : ''}`}
                             onClick={() => setTextAlign('left')}
@@ -469,12 +475,7 @@ const StickerItem: React.FC<StickerItemProps> = ({
         }
     }, [isSelected, sticker.x, sticker.y]);
 
-    // Double-click to bring to top
-    const handleDoubleClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onBringToTop();
-    };
+
 
     // Physics Animation Loop
     const updatePhysics = useCallback(() => {
@@ -520,6 +521,9 @@ const StickerItem: React.FC<StickerItemProps> = ({
         if (isCreativeMode && !isEditMode) {
             onSelect();
         }
+
+        // Bring to top on click/press
+        onBringToTop();
 
         // Start drag
         setIsDragging(true);
@@ -682,7 +686,6 @@ const StickerItem: React.FC<StickerItemProps> = ({
                     // Note: transform is controlled by physics loop
                 }}
                 onMouseDown={handleMouseDown}
-                onDoubleClick={handleDoubleClick}
             >
                 {sticker.type === 'text' ? (
                     <div

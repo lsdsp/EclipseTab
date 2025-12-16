@@ -77,7 +77,7 @@
     line-height: 0.9;
     white-space: pre-wrap;
     word-break: break-word;
-    max-width: 600px;
+    max-width: 720px;
     min-width: 60px;
 }
 
@@ -220,7 +220,7 @@
 
 .textInput:focus {
     background: var(--color-bg-tertiary);
-    border-color: var(--blue-focus);
+    border-color: var(--blue-500);
 }
 
 .textInput::placeholder {
@@ -240,8 +240,25 @@
     box-shadow: var(--shadow-small);
     border-radius: var(--radius-small);
     padding: var(--spacing-padding-extrasmall);
-    display: flex;
-    gap: 4px;
+    padding: 4px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    position: relative;
+    isolation: isolate;
+}
+
+.highlightBackground {
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    bottom: 4px;
+    width: calc((100% - 8px) / 3);
+    background: var(--color-bg-primary);
+    border-radius: 4px;
+    transition: transform var(--transition-smooth);
+    z-index: 0;
+    box-shadow: var(--shadow-small);
 }
 
 .alignmentButton {
@@ -257,17 +274,12 @@
     border-radius: var(--radius-small);
     cursor: pointer;
     color: var(--color-text-primary);
-    transition: background var(--transition-fast);
+    transition: color var(--transition-fast);
+    z-index: 1;
 }
 
-.alignmentButton:hover {
-    background: var(--color-bg-primary);
-}
-
-.alignmentButton.active {
-    background: var(--blue-500);
-    color: white;
-}
+/* Active state handled by sliding background */
+/* .alignmentButton.active { } */
 
 /* 颜色选项网格 */
 .colorOptionsGrid {
