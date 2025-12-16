@@ -63,6 +63,13 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         }
     }, [initialText]);
 
+    // Update font size when it changes
+    useEffect(() => {
+        if (inputRef.current) {
+            inputRef.current.style.fontSize = `${fontSize * viewportScale}px`;
+        }
+    }, [fontSize, viewportScale]);
+
     // Trigger exit animation for toolbar only
     const triggerExit = useCallback((callback: () => void) => {
         if (isExiting) return;
@@ -118,6 +125,14 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         }
     };
 
+    // Handle paste - ensure only plain text is pasted to avoid formatting issues
+    const handlePaste = (e: React.ClipboardEvent) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData('text/plain');
+        document.execCommand('insertText', false, text);
+        handleInput();
+    };
+
     const handleSubmit = () => {
         const trimmed = inputRef.current?.innerText?.trim() || '';
         if (trimmed) {
@@ -153,6 +168,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
                 }}
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 onClick={(e) => e.stopPropagation()}
                 data-placeholder="Enter text..."
             />

@@ -560,12 +560,13 @@
 
 /* 可编辑的贴纸预览 */
 .stickerPreviewInput {
-    min-width: 200px;
-    max-width: 600px;
+    max-width: 720px;
+    min-width: 60px;
     padding: var(--spacing-padding-medium) var(--spacing-padding-large);
     background: transparent;
     font-family: var(--font-family);
-    font-size: 40px;
+    font-size: inherit;
+    /* Allow inline style to control font size */
     font-weight: 900;
     line-height: 0.9;
     white-space: pre-wrap;
@@ -581,6 +582,8 @@
     /* 允许在输入框中选择文字 */
     user-select: text;
     -webkit-user-select: text;
+    /* 字体大小变化动画 */
+    transition: font-size var(--transition-smooth);
 }
 
 /* 占位符样式 */
