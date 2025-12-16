@@ -295,7 +295,7 @@
     flex: 1;
     height: 32px;
     border-radius: var(--radius-small);
-    border: 2px solid transparent;
+    border: 1px solid transparent;
     cursor: pointer;
     transition: all var(--transition-fast);
 }
@@ -540,4 +540,173 @@
 
 .menuItem.danger .menuIcon {
     background-color: var(--red-400);
+}
+
+/* ===== 贴纸实时预览模式 ===== */
+
+/* 预览容器 - 包含输入框和工具栏 */
+.stickerPreviewContainer {
+    position: fixed;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: auto;
+}
+
+/* 可编辑的贴纸预览 */
+.stickerPreviewInput {
+    padding: var(--spacing-padding-medium) var(--spacing-padding-large);
+    background: transparent;
+    font-family: var(--font-family);
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 0.9;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-width: 720px;
+    min-width: 120px;
+    min-height: 60px;
+    outline: none;
+    border: none;
+    cursor: text;
+    /* 文字贴纸白色轮廓 */
+    -webkit-text-stroke: 12px white;
+    paint-order: stroke fill;
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
+    /* 允许在输入框中选择文字 */
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+/* 占位符样式 */
+.stickerPreviewInput:empty::before {
+    content: attr(data-placeholder);
+    color: var(--color-text-secondary);
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* ===== 跟随工具栏 ===== */
+
+.stickerToolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--color-bg-primary);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-default);
+    box-shadow: var(--shadow-combined);
+    pointer-events: auto;
+    width: fit-content;
+}
+
+/* 对齐按钮组 */
+.toolbarAlignGroup {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-small);
+    padding: 4px;
+    position: relative;
+    isolation: isolate;
+}
+
+.toolbarHighlight {
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    bottom: 4px;
+    width: calc((100% - 8px) / 3);
+    background: var(--color-bg-primary);
+    border-radius: 4px;
+    transition: transform var(--transition-smooth);
+    z-index: 0;
+    box-shadow: var(--shadow-small);
+}
+
+.toolbarAlignBtn {
+    width: 32px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-small);
+    cursor: pointer;
+    color: var(--color-text-primary);
+    transition: color var(--transition-fast);
+    z-index: 1;
+    font-size: 14px;
+}
+
+.toolbarAlignBtn:hover {
+    color: var(--blue-500);
+}
+
+/* 颜色按钮组 */
+.toolbarColorGroup {
+    display: flex;
+    gap: 4px;
+}
+
+.toolbarColorBtn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.toolbarColorBtn:hover {
+    transform: scale(1.15);
+}
+
+.toolbarColorBtn.active {
+    border-color: var(--blue-500);
+}
+
+/* 操作按钮 */
+.toolbarCancelBtn {
+    padding: 6px 14px;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-small);
+    color: var(--color-text-primary);
+    font-family: var(--font-family);
+    font-size: var(--font-size-medium);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: background var(--transition-medium);
+}
+
+.toolbarCancelBtn:hover {
+    background: var(--color-bg-tertiary);
+}
+
+.toolbarConfirmBtn {
+    padding: 6px 14px;
+    background: var(--blue-500);
+    border: none;
+    border-radius: var(--radius-small);
+    color: white;
+    font-family: var(--font-family);
+    font-size: var(--font-size-medium);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: background var(--transition-medium), opacity var(--transition-medium);
+}
+
+.toolbarConfirmBtn:hover {
+    background: var(--blue-400);
+}
+
+.toolbarConfirmBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }

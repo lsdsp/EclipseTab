@@ -203,6 +203,11 @@ body {
   font-weight: var(--font-weight-medium);
   overflow: hidden;
   background: transparent;
+  /* 禁止全局文字选择，保持界面整洁 */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 /* 亮色主题背景 - 纯色 */

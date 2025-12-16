@@ -9,6 +9,7 @@ export interface TextStickerStyle {
     color: string;                           // 字体颜色
     textAlign: 'left' | 'center' | 'right';  // 文字对齐
     fontSize: number;                        // 字号大小 (px)
+    maxWidth?: number;                       // 最大宽度限制 (px)
 }
 
 /**

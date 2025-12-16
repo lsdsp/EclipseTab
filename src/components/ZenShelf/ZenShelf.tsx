@@ -43,25 +43,61 @@ interface TextInputProps {
 }
 
 const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialStyle, onSubmit, onCancel, onImagePaste }) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const popupRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLDivElement>(null);
+    const toolbarRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const [value, setValue] = useState(initialText);
     const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>(initialStyle?.textAlign || 'left');
     const [textColor, setTextColor] = useState(initialStyle?.color || TEXT_COLORS[0]);
+    const [isExiting, setIsExiting] = useState(false);
 
-    // Focus and animation on mount
+    // Focus on mount and play enter animation
     useEffect(() => {
-        textareaRef.current?.focus();
-        if (popupRef.current) {
-            scaleFadeIn(popupRef.current);
+        if (containerRef.current) {
+            scaleFadeIn(containerRef.current, 200);
         }
-    }, []);
+        if (inputRef.current) {
+            inputRef.current.focus();
+            // Set initial text if editing
+            if (initialText) {
+                inputRef.current.innerText = initialText;
+                // Move cursor to end
+                const range = document.createRange();
+                range.selectNodeContents(inputRef.current);
+                range.collapse(false);
+                const selection = window.getSelection();
+                selection?.removeAllRanges();
+                selection?.addRange(range);
+            }
+        }
+    }, [initialText]);
 
-    // Click outside to close
+    // Trigger exit animation
+    const triggerExit = useCallback((callback: () => void) => {
+        if (isExiting) return;
+        setIsExiting(true);
+        if (containerRef.current) {
+            scaleFadeOut(containerRef.current, 150, callback);
+        } else {
+            callback();
+        }
+    }, [isExiting]);
+
+    // Click outside to close (only if clicking on empty background)
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
-                handleCancel();
+            if (isExiting) return;
+            const target = e.target as HTMLElement;
+            // Check if clicking on the input or toolbar
+            if (inputRef.current?.contains(target) || toolbarRef.current?.contains(target)) {
+                return;
+            }
+            // Submit if has content, otherwise cancel
+            const text = inputRef.current?.innerText?.trim() || '';
+            if (text) {
+                triggerExit(() => onSubmit(text, { color: textColor, textAlign }));
+            } else {
+                triggerExit(onCancel);
             }
         };
         const timer = setTimeout(() => {
@@ -71,7 +107,7 @@ const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialSt
             clearTimeout(timer);
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, []);
+    }, [textColor, textAlign, onSubmit, onCancel, isExiting, triggerExit]);
 
     // Handle paste for images
     const handlePaste = async (e: React.ClipboardEvent) => {
@@ -89,10 +125,10 @@ const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialSt
                     const base64 = reader.result as string;
                     const compressed = await compressStickerImage(base64);
                     onImagePaste?.(compressed);
-                    onCancel();
+                    triggerExit(onCancel);
                 };
                 reader.readAsDataURL(blob);
-                break;
+                return;
             }
         }
     };
@@ -107,104 +143,119 @@ const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialSt
         // Shift+Enter allows newline (default behavior)
     };
 
+    const handleInput = () => {
+        if (inputRef.current) {
+            setValue(inputRef.current.innerText);
+        }
+    };
+
     const handleSubmit = () => {
-        const trimmed = value.trim();
+        const trimmed = inputRef.current?.innerText?.trim() || '';
         if (trimmed) {
-            onSubmit(trimmed, { color: textColor, textAlign });
+            triggerExit(() => onSubmit(trimmed, { color: textColor, textAlign }));
         } else {
-            onCancel();
+            handleCancel();
         }
     };
 
     const handleCancel = () => {
-        onCancel();
+        triggerExit(onCancel);
     };
 
     return createPortal(
         <div
-            ref={popupRef}
-            className={styles.textInputPopup}
+            ref={containerRef}
+            className={`${styles.stickerPreviewContainer} ${isExiting ? styles.exiting : ''}`}
             style={{ left: x, top: y }}
-            onClick={(e) => e.stopPropagation()}
         >
-            <div className={styles.textInputInner}>
-                <div className={styles.textInputLabel}>Add Sticker</div>
+            {/* 实时预览贴纸 - 直接在背景上显示 */}
+            <div
+                ref={inputRef}
+                className={styles.stickerPreviewInput}
+                contentEditable
+                suppressContentEditableWarning
+                style={{
+                    color: textColor,
+                    textAlign: textAlign,
+                }}
+                onInput={handleInput}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                onClick={(e) => e.stopPropagation()}
+                data-placeholder="Enter text..."
+            />
 
-                <textarea
-                    ref={textareaRef}
-                    className={styles.textInput}
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onPaste={handlePaste}
-                    placeholder="Type text or paste an image (Ctrl+V)..."
-                />
-
-                {/* Style Options */}
-                <div className={styles.styleOptionsSection}>
-                    {/* Alignment */}
-                    <div className={styles.alignmentGroup}>
-                        <div
-                            className={styles.highlightBackground}
-                            style={{
-                                transform: `translateX(${['left', 'center', 'right'].indexOf(textAlign) * 100}%)`,
-                            }}
-                        />
-                        <button
-                            className={`${styles.alignmentButton} ${textAlign === 'left' ? styles.active : ''}`}
-                            onClick={() => setTextAlign('left')}
-                            title="Align Left"
-                        >
-                            ←
-                        </button>
-                        <button
-                            className={`${styles.alignmentButton} ${textAlign === 'center' ? styles.active : ''}`}
-                            onClick={() => setTextAlign('center')}
-                            title="Align Center"
-                        >
-                            ↔
-                        </button>
-                        <button
-                            className={`${styles.alignmentButton} ${textAlign === 'right' ? styles.active : ''}`}
-                            onClick={() => setTextAlign('right')}
-                            title="Align Right"
-                        >
-                            →
-                        </button>
-                    </div>
-
-                    {/* Colors */}
-                    <div className={styles.colorOptionsGrid}>
-                        {TEXT_COLORS.map((color) => (
-                            <button
-                                key={color}
-                                className={`${styles.colorOptionBtn} ${textColor === color ? styles.active : ''}`}
-                                style={{ backgroundColor: color }}
-                                onClick={() => setTextColor(color)}
-                                title={color}
-                            />
-                        ))}
-                    </div>
-                </div>
-
-                {/* Actions */}
-                <div className={styles.textInputActions}>
-                    <button className={styles.textInputCancel} onClick={handleCancel}>
-                        Cancel
+            {/* 工具栏 - 跟随在输入区域下方 */}
+            <div
+                ref={toolbarRef}
+                className={styles.stickerToolbar}
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* 对齐选项 */}
+                <div className={styles.toolbarAlignGroup}>
+                    <div
+                        className={styles.toolbarHighlight}
+                        style={{
+                            transform: `translateX(${['left', 'center', 'right'].indexOf(textAlign) * 100}%)`,
+                        }}
+                    />
+                    <button
+                        className={styles.toolbarAlignBtn}
+                        onClick={() => setTextAlign('left')}
+                        title="左对齐"
+                    >
+                        ←
                     </button>
                     <button
-                        className={styles.textInputConfirm}
-                        onClick={handleSubmit}
-                        disabled={!value.trim()}
+                        className={styles.toolbarAlignBtn}
+                        onClick={() => setTextAlign('center')}
+                        title="居中"
                     >
-                        Add
+                        ↔
+                    </button>
+                    <button
+                        className={styles.toolbarAlignBtn}
+                        onClick={() => setTextAlign('right')}
+                        title="右对齐"
+                    >
+                        →
                     </button>
                 </div>
+
+                <div className={styles.toolbarDivider} />
+
+                {/* 颜色选项 */}
+                <div className={styles.toolbarColorGroup}>
+                    {TEXT_COLORS.map((color) => (
+                        <button
+                            key={color}
+                            className={`${styles.toolbarColorBtn} ${textColor === color ? styles.active : ''}`}
+                            style={{ backgroundColor: color }}
+                            onClick={() => setTextColor(color)}
+                            title={color}
+                        />
+                    ))}
+                </div>
+
+                <div className={styles.toolbarDivider} />
+
+                {/* 操作按钮 */}
+                <button className={styles.toolbarCancelBtn} onClick={handleCancel}>
+                    Cancel
+                </button>
+                <button
+                    className={styles.toolbarConfirmBtn}
+                    onClick={handleSubmit}
+                    disabled={!value.trim()}
+                >
+                    Confirm
+                </button>
             </div>
         </div>,
         document.body
     );
 };
+
 
 // ============================================================================
 // ContextMenu Component - Right-click context menu
@@ -851,6 +902,34 @@ export const ZenShelf: React.FC = () => {
         return () => document.removeEventListener('contextmenu', handleContextMenu);
     }, [stickers]);
 
+    // Double-click on background to quickly add sticker
+    useEffect(() => {
+        const handleDoubleClick = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+
+            // Don't trigger on UI elements
+            if (target.closest(UI_SELECTORS)) {
+                return;
+            }
+
+            // Don't trigger on stickers
+            if (target.closest(`.${styles.sticker}`)) {
+                return;
+            }
+
+            // Don't trigger if already in text input mode
+            if (textInputPos) {
+                return;
+            }
+
+            // Open text input at double-click position
+            setTextInputPos({ x: e.clientX, y: e.clientY });
+        };
+
+        document.addEventListener('dblclick', handleDoubleClick);
+        return () => document.removeEventListener('dblclick', handleDoubleClick);
+    }, [textInputPos]);
+
     // Hotkey: Delete to remove sticker
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -990,31 +1069,33 @@ export const ZenShelf: React.FC = () => {
             ref={canvasRef}
             className={`${styles.canvas} ${isEditMode ? styles.creativeMode : ''}`}
         >
-            {stickers.map((sticker) => (
-                <StickerItem
-                    key={sticker.id}
-                    sticker={sticker}
-                    isSelected={selectedStickerId === sticker.id}
-                    isCreativeMode={isEditMode}
-                    onSelect={() => selectSticker(sticker.id)}
-                    onDelete={() => deleteSticker(sticker.id)}
-                    onPositionChange={(x, y) => updateSticker(sticker.id, { x, y })}
-                    onStyleChange={(updates) => {
-                        if (sticker.style) {
-                            updateSticker(sticker.id, { style: { ...sticker.style, ...updates } });
-                        }
-                    }}
-                    onBringToTop={() => {
-                        // Find max zIndex and set this sticker to max + 1
-                        const maxZ = Math.max(...stickers.map(s => s.zIndex || 1), 0);
-                        updateSticker(sticker.id, { zIndex: maxZ + 1 });
-                    }}
-                    onScaleChange={(scale) => {
-                        updateSticker(sticker.id, { scale });
-                    }}
-                    isEditMode={isEditMode}
-                />
-            ))}
+            {stickers
+                .filter((sticker) => !editingSticker || sticker.id !== editingSticker.id)
+                .map((sticker) => (
+                    <StickerItem
+                        key={sticker.id}
+                        sticker={sticker}
+                        isSelected={selectedStickerId === sticker.id}
+                        isCreativeMode={isEditMode}
+                        onSelect={() => selectSticker(sticker.id)}
+                        onDelete={() => deleteSticker(sticker.id)}
+                        onPositionChange={(x, y) => updateSticker(sticker.id, { x, y })}
+                        onStyleChange={(updates) => {
+                            if (sticker.style) {
+                                updateSticker(sticker.id, { style: { ...sticker.style, ...updates } });
+                            }
+                        }}
+                        onBringToTop={() => {
+                            // Find max zIndex and set this sticker to max + 1
+                            const maxZ = Math.max(...stickers.map(s => s.zIndex || 1), 0);
+                            updateSticker(sticker.id, { zIndex: maxZ + 1 });
+                        }}
+                        onScaleChange={(scale) => {
+                            updateSticker(sticker.id, { scale });
+                        }}
+                        isEditMode={isEditMode}
+                    />
+                ))}
 
             {textInputPos && (
                 <TextInput

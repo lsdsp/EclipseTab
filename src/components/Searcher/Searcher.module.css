@@ -146,6 +146,9 @@
   min-width: 0;
   width: 100%;
   height: 100%;
+  /* 允许在输入框中选择文字 */
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* 输入框占位符样式 */
