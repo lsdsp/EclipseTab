@@ -18,6 +18,7 @@ interface StickerItemProps {
     onBringToTop: () => void;
     onScaleChange: (scale: number) => void;
     isEditMode?: boolean;
+    viewportScale: number;
 }
 
 const StickerItemComponent: React.FC<StickerItemProps> = ({
@@ -31,6 +32,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
     onBringToTop,
     onScaleChange,
     isEditMode,
+    viewportScale,
 }) => {
     const elementRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -140,9 +142,10 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             const dy = e.clientY - dragStartRef.current.y;
 
             // RAF 节流 - 保存待处理的位置更新
+            // 将屏幕像素位移转换为原始坐标系
             pendingPosition = {
-                x: dragStartRef.current.stickerX + dx,
-                y: dragStartRef.current.stickerY + dy,
+                x: dragStartRef.current.stickerX + dx / viewportScale,
+                y: dragStartRef.current.stickerY + dy / viewportScale,
             };
 
             if (positionRafId === null) {
@@ -280,10 +283,13 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         isCreativeMode && styles.creativeHover,
     ].filter(Boolean).join(' ');
 
-    // Calculate actual image width based on scale
+    // Calculate actual image width based on scale and viewport scale
     const imageWidth = sticker.type === 'image'
-        ? Math.min(imageNaturalWidth, IMAGE_MAX_WIDTH) * (sticker.scale || 1)
+        ? Math.min(imageNaturalWidth, IMAGE_MAX_WIDTH) * (sticker.scale || 1) * viewportScale
         : undefined;
+
+    // Calculate scaled font size for text stickers
+    const scaledFontSize = (sticker.style?.fontSize || 48) * viewportScale;
 
     return (
         <>
@@ -291,8 +297,8 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 ref={elementRef}
                 className={classNames}
                 style={{
-                    left: sticker.x,
-                    top: sticker.y,
+                    left: sticker.x * viewportScale,
+                    top: sticker.y * viewportScale,
                     zIndex: sticker.zIndex || 1,
                 }}
                 onMouseDown={handleMouseDown}
@@ -303,7 +309,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                         style={{
                             color: sticker.style?.color || '#1C1C1E',
                             textAlign: sticker.style?.textAlign || 'left',
-                            fontSize: sticker.style?.fontSize || 48,
+                            fontSize: scaledFontSize,
                         }}
                     >
                         {sticker.content}
@@ -370,7 +376,8 @@ const arePropsEqual = (prev: StickerItemProps, next: StickerItemProps) => {
         prev.sticker.style?.fontSize === next.sticker.style?.fontSize &&
         prev.isSelected === next.isSelected &&
         prev.isCreativeMode === next.isCreativeMode &&
-        prev.isEditMode === next.isEditMode
+        prev.isEditMode === next.isEditMode &&
+        prev.viewportScale === next.viewportScale
     );
 };
 

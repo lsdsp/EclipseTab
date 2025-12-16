@@ -16,7 +16,7 @@ import styles from './ZenShelf.module.css';
 export const ZenShelf: React.FC = () => {
     const canvasRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { stickers, selectedStickerId, addSticker, updateSticker, deleteSticker, selectSticker, layoutStickers } = useZenShelf();
+    const { stickers, selectedStickerId, addSticker, updateSticker, deleteSticker, selectSticker } = useZenShelf();
     const { isEditMode, setIsEditMode } = useDockUI();
     const [textInputPos, setTextInputPos] = useState<{ x: number; y: number } | null>(null);
     const [contextMenu, setContextMenu] = useState<{
@@ -26,36 +26,21 @@ export const ZenShelf: React.FC = () => {
         stickerId?: string;
     } | null>(null);
 
-    // Refs for tracking window size for responsive layout
-    const prevWidthRef = useRef(window.innerWidth);
-    const prevHeightRef = useRef(window.innerHeight);
+    // Reference width for responsive scaling (1920px as base)
+    const REFERENCE_WIDTH = 1920;
+
+    // Viewport scale for responsive sticker sizing
+    const [viewportScale, setViewportScale] = useState(() => window.innerWidth / REFERENCE_WIDTH);
 
     // Handle window resize for responsive sticker layout
     useEffect(() => {
         const handleResize = () => {
-            const currentWidth = window.innerWidth;
-            const currentHeight = window.innerHeight;
-
-            const prevWidth = prevWidthRef.current;
-            const prevHeight = prevHeightRef.current;
-
-            // Calculate scale factors
-            if (prevWidth > 0 && prevHeight > 0) {
-                const scaleX = currentWidth / prevWidth;
-                const scaleY = currentHeight / prevHeight;
-
-                if (scaleX !== 1 || scaleY !== 1) {
-                    layoutStickers(scaleX, scaleY);
-                }
-            }
-
-            prevWidthRef.current = currentWidth;
-            prevHeightRef.current = currentHeight;
+            setViewportScale(window.innerWidth / REFERENCE_WIDTH);
         };
 
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-    }, [layoutStickers]);
+    }, []);
 
     const [editingSticker, setEditingSticker] = useState<Sticker | null>(null);
 
@@ -164,8 +149,9 @@ export const ZenShelf: React.FC = () => {
             const compressed = await compressStickerImage(base64);
             const img = new Image();
             img.onload = () => {
-                const x = window.innerWidth / 2 - Math.min(img.width, IMAGE_MAX_WIDTH) / 2;
-                const y = window.innerHeight / 2 - (img.height * Math.min(img.width, IMAGE_MAX_WIDTH) / img.width) / 2;
+                // Store position in reference coordinate system (1920px base)
+                const x = (window.innerWidth / 2 - Math.min(img.width, IMAGE_MAX_WIDTH) / 2) / viewportScale;
+                const y = (window.innerHeight / 2 - (img.height * Math.min(img.width, IMAGE_MAX_WIDTH) / img.width) / 2) / viewportScale;
                 addSticker({
                     type: 'image',
                     content: compressed,
@@ -194,11 +180,12 @@ export const ZenShelf: React.FC = () => {
                 } : editingSticker.style,
             });
         } else if (textInputPos) {
+            // Store position in reference coordinate system
             addSticker({
                 type: 'text',
                 content,
-                x: textInputPos.x,
-                y: textInputPos.y,
+                x: textInputPos.x / viewportScale,
+                y: textInputPos.y / viewportScale,
                 style: style ? {
                     color: style.color,
                     textAlign: style.textAlign,
@@ -240,8 +227,9 @@ export const ZenShelf: React.FC = () => {
                         const compressed = await compressStickerImage(base64);
                         const img = new Image();
                         img.onload = () => {
-                            const x = window.innerWidth / 2 - Math.min(img.width, IMAGE_MAX_WIDTH) / 2;
-                            const y = window.innerHeight / 2 - (img.height * Math.min(img.width, IMAGE_MAX_WIDTH) / img.width) / 2;
+                            // Store position in reference coordinate system
+                            const x = (window.innerWidth / 2 - Math.min(img.width, IMAGE_MAX_WIDTH) / 2) / viewportScale;
+                            const y = (window.innerHeight / 2 - (img.height * Math.min(img.width, IMAGE_MAX_WIDTH) / img.width) / 2) / viewportScale;
                             addSticker({
                                 type: 'image',
                                 content: compressed,
@@ -290,6 +278,7 @@ export const ZenShelf: React.FC = () => {
                             updateSticker(sticker.id, { scale });
                         }}
                         isEditMode={isEditMode}
+                        viewportScale={viewportScale}
                     />
                 ))}
 
@@ -304,11 +293,12 @@ export const ZenShelf: React.FC = () => {
                     onImagePaste={(base64) => {
                         const img = new Image();
                         img.onload = () => {
+                            // Store position in reference coordinate system
                             addSticker({
                                 type: 'image',
                                 content: base64,
-                                x: textInputPos.x,
-                                y: textInputPos.y,
+                                x: textInputPos.x / viewportScale,
+                                y: textInputPos.y / viewportScale,
                             });
                         };
                         img.src = base64;

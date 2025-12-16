@@ -19,7 +19,6 @@ interface ZenShelfContextType {
     updateSticker: (id: string, updates: Partial<Sticker>) => void;
     deleteSticker: (id: string) => void;
     selectSticker: (id: string | null) => void;
-    layoutStickers: (scaleX: number, scaleY: number) => void;
 }
 
 const ZenShelfContext = createContext<ZenShelfContextType | undefined>(undefined);
@@ -97,13 +96,6 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setSelectedStickerId(id);
     }, []);
 
-    const layoutStickers = useCallback((scaleX: number, scaleY: number) => {
-        setStickers(prev => prev.map(sticker => ({
-            ...sticker,
-            x: sticker.x * scaleX,
-            y: sticker.y * scaleY,
-        })));
-    }, []);
 
     // ========================================================================
     // Context Value
@@ -116,7 +108,6 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateSticker,
         deleteSticker,
         selectSticker,
-        layoutStickers,
     }), [
         stickers,
         selectedStickerId,
@@ -124,7 +115,6 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateSticker,
         deleteSticker,
         selectSticker,
-        layoutStickers,
     ]);
 
     return (
