@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, lazy, Suspense } from 'react';
 import { DockItem } from './types';
 import { SEARCH_ENGINES } from './constants/searchEngines';
 import { useDockData, useDockUI, useDockDrag } from './context/DockContext';
+import { useThemeData } from './context/ThemeContext';
 import { Searcher } from './components/Searcher/Searcher';
 import { Dock } from './components/Dock/Dock';
 import { Editor } from './components/Editor/Editor';
@@ -48,6 +49,9 @@ function App() {
 
   // 拖拽层 (高频变化) - 仅在拖拽状态变化时重渲染
   const { draggingItem, setDraggingItem, setFolderPlaceholderActive } = useDockDrag();
+
+  // 布局设置
+  const { dockPosition } = useThemeData();
 
   // 计算派生状态
   const openFolder = useMemo(
@@ -120,8 +124,12 @@ function App() {
   return (
     <div className={styles.app}>
       <Background />
-      <ZenShelf />
-      <div className={styles.container}>
+      <ZenShelf onOpenSettings={(pos) => {
+        // Use negative y offset to counteract the +60 in SettingsModal
+        setSettingsAnchor({ left: pos.x, top: pos.y - 60, right: pos.x, bottom: pos.y - 60, width: 0, height: 0, x: pos.x, y: pos.y - 60, toJSON: () => ({}) } as DOMRect);
+        setIsSettingsModalOpen(true);
+      }} />
+      <div className={dockPosition === 'center' ? styles.containerCenter : styles.container}>
         <Searcher
           searchEngine={selectedSearchEngine}
           onSearch={handleSearch}

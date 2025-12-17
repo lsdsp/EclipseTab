@@ -8,6 +8,7 @@ import trashIcon from '../../assets/icons/trash.svg';
 import uploadIcon from '../../assets/icons/upload.svg';
 import editIcon from '../../assets/icons/edit.svg';
 import exportIcon from '../../assets/icons/export.svg';
+import settingsIcon from '../../assets/icons/setting2.svg';
 
 // ============================================================================
 // ContextMenu Component - Right-click context menu
@@ -30,6 +31,7 @@ interface ContextMenuProps {
     onCopyText?: () => void;
     onExportImage?: () => void;
     onExportImageSticker?: () => void;
+    onOpenSettings?: () => void;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -48,6 +50,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     onCopyText,
     onExportImage,
     onExportImageSticker,
+    onOpenSettings,
 }) => {
     const menuRef = useRef<HTMLDivElement>(null);
     const isClosingRef = useRef(false);
@@ -115,6 +118,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                         <button className={styles.menuItem} onClick={() => { onToggleEditMode(); onClose(); }}>
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${editIcon})`, maskImage: `url(${editIcon})` }} />
                             <span>{isEditMode ? 'Quit Edit Mode' : 'Edit Mode'}</span>
+                        </button>
+                        <button className={styles.menuItem} onClick={() => { onOpenSettings?.(); onClose(); }}>
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${settingsIcon})`, maskImage: `url(${settingsIcon})` }} />
+                            <span>Settings</span>
                         </button>
                     </>
                 ) : (

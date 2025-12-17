@@ -26,6 +26,30 @@
   min-width: var(--container-min-width);
   z-index: 100;
   /* Above stickers (canvas z-index: 1) */
+  /* Position transition animation */
+  transition: top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 内容容器 - 屏幕中央定位 */
+.containerCenter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  max-width: var(--container-max-width);
+  min-width: var(--container-min-width);
+  z-index: 100;
+  /* Position transition animation */
+  transition: top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 设置按钮区域 - 左上角 */

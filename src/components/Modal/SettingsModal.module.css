@@ -276,3 +276,77 @@
     text-align: center;
     z-index: 3001;
 }
+
+/* ===== 布局设置区域 ===== */
+/* 布局设置容器 */
+.layoutSection {
+    background: var(--color-bg-secondary);
+    box-shadow: var(--shadow-small);
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* 布局设置行 */
+.layoutRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+/* 布局标签 */
+.layoutLabel {
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+}
+
+/* 布局切换组容器 - 类似主题切换器 */
+.layoutToggleGroup {
+    display: flex;
+    position: relative;
+    background: var(--color-bg-primary);
+    border-radius: 6px;
+    padding: 2px;
+    isolation: isolate;
+}
+
+/* 滑动高亮背景 */
+.layoutHighlight {
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: calc(50% - 2px);
+    height: calc(100% - 4px);
+    background: var(--color-bg-tertiary);
+    border-radius: 4px;
+    transition: transform var(--transition-smooth);
+    z-index: 0;
+}
+
+/* 布局切换选项 */
+.layoutToggleOption {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-regular);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    z-index: 1;
+    transition: color var(--transition-fast);
+}
+
+/* 布局选项悬停效果 */
+.layoutToggleOption:hover {
+    color: var(--color-text-primary);
+}

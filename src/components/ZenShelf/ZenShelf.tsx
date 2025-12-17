@@ -13,7 +13,11 @@ import styles from './ZenShelf.module.css';
 // ZenShelf Main Component
 // ============================================================================
 
-export const ZenShelf: React.FC = () => {
+interface ZenShelfProps {
+    onOpenSettings?: (position: { x: number; y: number }) => void;
+}
+
+export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
     const canvasRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { stickers, selectedStickerId, addSticker, updateSticker, deleteSticker, selectSticker } = useZenShelf();
@@ -376,6 +380,11 @@ export const ZenShelf: React.FC = () => {
                             } catch (error) {
                                 console.error('Failed to export image sticker:', error);
                             }
+                        }
+                    }}
+                    onOpenSettings={() => {
+                        if (contextMenu) {
+                            onOpenSettings?.({ x: contextMenu.x, y: contextMenu.y });
                         }
                     }}
                 />

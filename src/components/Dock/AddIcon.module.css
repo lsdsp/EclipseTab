@@ -3,8 +3,8 @@
 
 /* 添加图标按钮 */
 .addIcon {
-    width: 64px;
-    height: 64px;
+    width: var(--icon-size, 64px);
+    height: var(--icon-size, 64px);
     background: var(--color-bg-tertiary);
     border-radius: var(--radius-default);
     display: flex;
@@ -13,7 +13,9 @@
     cursor: pointer;
     transition: transform var(--transition-medium),
         opacity var(--transition-medium),
-        box-shadow var(--transition-medium);
+        box-shadow var(--transition-medium),
+        width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--shadow-small);
 }
 

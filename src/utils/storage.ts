@@ -14,6 +14,9 @@ const STORAGE_KEYS = {
   SPACES: 'EclipseTab_spaces',
   // Zen Shelf 贴纸
   STICKERS: 'EclipseTab_stickers',
+  // Dock 布局设置
+  DOCK_POSITION: 'EclipseTab_dockPosition',
+  ICON_SIZE: 'EclipseTab_iconSize',
 } as const;
 
 // ============================================================================
@@ -321,6 +324,56 @@ export const storage = {
       memoryCache.stickers = { data: stickers, raw: json };
     } catch (error) {
       console.error('Failed to save stickers:', error);
+    }
+  },
+
+  // ============================================================================
+  // Dock 布局设置
+  // ============================================================================
+
+  /**
+   * 获取 Dock 位置设置
+   */
+  getDockPosition(): 'center' | 'bottom' {
+    try {
+      const value = localStorage.getItem(STORAGE_KEYS.DOCK_POSITION);
+      return value === 'center' ? 'center' : 'bottom';
+    } catch {
+      return 'bottom';
+    }
+  },
+
+  /**
+   * 保存 Dock 位置设置
+   */
+  saveDockPosition(position: 'center' | 'bottom'): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.DOCK_POSITION, position);
+    } catch (error) {
+      console.error('Failed to save dock position:', error);
+    }
+  },
+
+  /**
+   * 获取图标大小设置
+   */
+  getIconSize(): 'large' | 'small' {
+    try {
+      const value = localStorage.getItem(STORAGE_KEYS.ICON_SIZE);
+      return value === 'small' ? 'small' : 'large';
+    } catch {
+      return 'large';
+    }
+  },
+
+  /**
+   * 保存图标大小设置
+   */
+  saveIconSize(size: 'large' | 'small'): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ICON_SIZE, size);
+    } catch (error) {
+      console.error('Failed to save icon size:', error);
     }
   },
 };

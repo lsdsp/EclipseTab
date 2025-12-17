@@ -4,9 +4,12 @@
 /* Dock 项目容器 - 基本布局 */
 .dockItem {
     position: relative;
-    width: 64px;
-    height: 64px;
+    width: var(--icon-size, 64px);
+    height: var(--icon-size, 64px);
     cursor: pointer;
+    /* Smooth size transition */
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     /* 图标容器 - 包裹图标图片 */
     .iconContainer {

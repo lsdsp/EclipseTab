@@ -32,6 +32,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         setGradientId,
         texture,
         setTexture,
+        dockPosition,
+        setDockPosition,
+        iconSize,
+        setIconSize,
     } = useTheme();
 
     const systemTheme = useSystemTheme();
@@ -259,6 +263,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                     {/* Wallpaper Section - Moved to bottom */}
                     <div className={styles.wallpaperSection}>
                         <WallpaperGallery />
+                    </div>
+
+                    {/* Layout Settings Section */}
+                    <div className={styles.layoutSection}>
+                        {/* Dock Position */}
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>Position</span>
+                            <div className={styles.layoutToggleGroup}>
+                                <div
+                                    className={styles.layoutHighlight}
+                                    style={{
+                                        transform: `translateX(${dockPosition === 'center' ? 0 : 100}%)`,
+                                    }}
+                                />
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => setDockPosition('center')}
+                                    title="Center"
+                                >
+                                    Center
+                                </button>
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => setDockPosition('bottom')}
+                                    title="Bottom"
+                                >
+                                    Bottom
+                                </button>
+                            </div>
+                        </div>
+                        {/* Icon Size */}
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>Icon Size</span>
+                            <div className={styles.layoutToggleGroup}>
+                                <div
+                                    className={styles.layoutHighlight}
+                                    style={{
+                                        transform: `translateX(${iconSize === 'large' ? 0 : 100}%)`,
+                                    }}
+                                />
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => setIconSize('large')}
+                                    title="Large"
+                                >
+                                    Large
+                                </button>
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => setIconSize('small')}
+                                    title="Small"
+                                >
+                                    Small
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                 </div>

@@ -8,6 +8,8 @@ import xTextureBg from '../assets/XTextureBG.svg';
 
 export type Theme = 'default' | 'light' | 'dark';
 export type Texture = 'none' | 'point' | 'x';
+export type DockPosition = 'center' | 'bottom';
+export type IconSize = 'large' | 'small';
 
 export const DEFAULT_THEME_COLORS = {
     light: '#f1f1f1',
@@ -27,6 +29,8 @@ interface ThemeDataContextType {
     wallpaperId: string | null;
     backgroundValue: string;
     backgroundBlendMode: string;
+    dockPosition: DockPosition;
+    iconSize: IconSize;
 }
 
 const ThemeDataContext = createContext<ThemeDataContextType | undefined>(undefined);
@@ -42,6 +46,8 @@ interface ThemeActionsContextType {
     setGradientId: (gradientId: string | null) => void;
     setTexture: (texture: Texture) => void;
     setWallpaperId: (id: string) => Promise<void>;
+    setDockPosition: (position: DockPosition) => void;
+    setIconSize: (size: IconSize) => void;
 }
 
 const ThemeActionsContext = createContext<ThemeActionsContextType | undefined>(undefined);
@@ -151,6 +157,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return (storage.getTexture() as Texture) || 'none';
     });
 
+    // Dock layout settings
+    const [dockPosition, setDockPositionState] = useState<DockPosition>(() => {
+        return storage.getDockPosition();
+    });
+
+    const [iconSize, setIconSizeState] = useState<IconSize>(() => {
+        return storage.getIconSize();
+    });
+
     // Computed theme: use system theme if followSystem is enabled
     const theme = followSystem ? systemTheme : manualTheme;
     const isDefaultTheme = manualTheme === 'default' && !followSystem;
@@ -241,6 +256,18 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // But let's leave that to the UI handler or user choice.
     }, []);
 
+    // Update dock position
+    const setDockPosition = useCallback((position: DockPosition) => {
+        setDockPositionState(position);
+        storage.saveDockPosition(position);
+    }, []);
+
+    // Update icon size
+    const setIconSize = useCallback((size: IconSize) => {
+        setIconSizeState(size);
+        storage.saveIconSize(size);
+    }, []);
+
     // Apply theme to document
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
@@ -318,7 +345,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } else {
             root.style.removeProperty('--background-blend-mode');
         }
-    }, [backgroundValue, backgroundBlendMode, isDefaultTheme]);
+
+        // Set icon size CSS variable
+        root.style.setProperty('--icon-size', iconSize === 'small' ? '52px' : '64px');
+    }, [backgroundValue, backgroundBlendMode, isDefaultTheme, iconSize]);
 
     // ========================================================================
     // 性能优化: 分离 data 和 actions context values
@@ -333,7 +363,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         wallpaperId,
         backgroundValue,
         backgroundBlendMode,
-    }), [theme, followSystem, wallpaper, lastWallpaper, gradientId, texture, wallpaperId, backgroundValue, backgroundBlendMode]);
+        dockPosition,
+        iconSize,
+    }), [theme, followSystem, wallpaper, lastWallpaper, gradientId, texture, wallpaperId, backgroundValue, backgroundBlendMode, dockPosition, iconSize]);
 
     const actionsValue: ThemeActionsContextType = useMemo(() => ({
         setTheme,
@@ -343,7 +375,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setGradientId,
         setTexture,
         setWallpaperId,
-    }), [setTheme, setFollowSystem, setWallpaper, uploadWallpaper, setGradientId, setTexture, setWallpaperId]);
+        setDockPosition,
+        setIconSize,
+    }), [setTheme, setFollowSystem, setWallpaper, uploadWallpaper, setGradientId, setTexture, setWallpaperId, setDockPosition, setIconSize]);
 
     return (
         <ThemeDataContext.Provider value={dataValue}>
