@@ -77,9 +77,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         }
     }, [x, y]);
 
-    // Click outside to close
+    // Click outside to close (ignore right-clicks to prevent race condition with new context menu)
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
+            // Ignore right-clicks - they will trigger a new context menu via contextmenu event
+            if (e.button === 2) return;
+
             if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
                 handleClose();
             }
@@ -95,11 +98,37 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         return () => document.removeEventListener('contextmenu', handleContextMenu);
     }, []);
 
+    // Adjust position to stay within viewport
+    const menuWidth = 180;
+    const menuHeight = type === 'background' ? 180 : 200; // Approximate menu heights
+    const padding = 10;
+
+    // Calculate adjusted position, ensuring menu stays within viewport on all edges
+    let adjustedX = x;
+    let adjustedY = y;
+
+    // Right edge
+    if (x + menuWidth + padding > window.innerWidth) {
+        adjustedX = window.innerWidth - menuWidth - padding;
+    }
+    // Left edge
+    if (adjustedX < padding) {
+        adjustedX = padding;
+    }
+    // Bottom edge  
+    if (y + menuHeight + padding > window.innerHeight) {
+        adjustedY = window.innerHeight - menuHeight - padding;
+    }
+    // Top edge
+    if (adjustedY < padding) {
+        adjustedY = padding;
+    }
+
     return createPortal(
         <div
             ref={menuRef}
             className={styles.contextMenu}
-            style={{ left: x, top: y }}
+            style={{ left: adjustedX, top: adjustedY }}
             onClick={(e) => e.stopPropagation()}
         >
             <div className={styles.menuLabel}>EclipseTab</div>

@@ -206,6 +206,7 @@ function App() {
             onDragEnd={() => { setDraggingItem(null); setDraggingFromFolder(false); }}
             externalDragItem={draggingFromFolder ? null : draggingItem}
             onFolderPlaceholderChange={setFolderPlaceholderActive}
+            onToggleEditMode={() => setIsEditMode(!isEditMode)}
           />
         </Suspense>
       )}

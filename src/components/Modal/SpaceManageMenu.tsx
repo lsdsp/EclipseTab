@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Space } from '../../types';
 import { Modal } from './Modal';
-import { scaleFadeIn } from '../../utils/animations';
 import { exportSpaceToFile, parseAndValidateSpaceFile, SpaceExportData } from '../../utils/spaceExportImport';
 import plusIcon from '../../assets/icons/plus.svg';
 import writeIcon from '../../assets/icons/write.svg';
@@ -77,13 +76,6 @@ export function SpaceManageMenu({
     const menuRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    // 打开时应用动画
-    useEffect(() => {
-        if (isOpen && menuRef.current) {
-            scaleFadeIn(menuRef.current);
-        }
-    }, [isOpen]);
 
     // 重命名模式时自动聚焦
     useEffect(() => {

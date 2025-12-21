@@ -1,0 +1,117 @@
+/* ===== Dock 右键菜单样式 ===== */
+/* 复用 ZenShelf ContextMenu 样式模式 */
+
+.contextMenu {
+    position: fixed;
+    z-index: 3000;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-default);
+    padding: var(--spacing-padding-small);
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+    gap: 0;
+    pointer-events: auto;
+    box-shadow: var(--shadow-combined);
+}
+
+/* 菜单标签 */
+.menuLabel {
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-small);
+    padding: var(--spacing-padding-extrasmall);
+    line-height: var(--line-height-none);
+    color: var(--color-text-primary);
+    opacity: 0.6;
+    white-space: nowrap;
+    margin: 0;
+}
+
+/* 菜单分隔线 */
+.menuDivider {
+    width: 100%;
+    height: 0;
+    padding: var(--spacing-padding-extrasmall);
+    position: relative;
+    margin: 0;
+}
+
+.menuDivider::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: var(--color-border);
+}
+
+/* 菜单选项容器 */
+.menuOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+/* 菜单项 */
+.menuItem {
+    background: none;
+    border: none;
+    padding: var(--spacing-padding-small);
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-medium);
+    line-height: var(--line-height-none);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-gap-small);
+    text-align: left;
+    white-space: nowrap;
+    transition: opacity var(--transition-medium), background var(--transition-medium);
+    opacity: 1;
+    margin: 0;
+    border-radius: var(--radius-small);
+}
+
+.menuItem:hover {
+    opacity: 0.8;
+    background: var(--color-bg-secondary);
+}
+
+.menuItem:active {
+    background: var(--color-bg-tertiary);
+}
+
+/* 危险操作 (删除) */
+.menuItem.danger {
+    color: var(--red-400);
+}
+
+.menuItem.danger:hover {
+    background: rgba(255, 107, 107, 0.1);
+}
+
+/* 菜单图标 */
+.menuIcon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    background-color: var(--color-text-primary);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+.menuItem.danger .menuIcon {
+    background-color: var(--red-400);
+}

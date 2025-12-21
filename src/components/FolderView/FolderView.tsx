@@ -1,8 +1,9 @@
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { DockItem } from '../../types';
 import { DockItem as DockItemComponent } from '../Dock/DockItem';
+import { DockContextMenu } from '../Dock/DockContextMenu';
 import { DragPreview } from '../DragPreview';
 import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
 import { useFolderDragAndDrop } from '../../hooks/useFolderDragAndDrop';
@@ -33,6 +34,8 @@ interface FolderViewProps {
   onDragEnd?: () => void;
   /** 占位符状态变化回调 - 用于同步到 Context */
   onFolderPlaceholderChange?: (active: boolean) => void;
+  /** 切换编辑模式 */
+  onToggleEditMode?: () => void;
 }
 
 // Layout Constants (imported from shared constants)
@@ -57,9 +60,22 @@ export const FolderView: React.FC<FolderViewProps> = ({
   onDragStart,
   onDragEnd,
   onFolderPlaceholderChange,
+  onToggleEditMode,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+
+  // 右键菜单状态
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    item: DockItem;
+    rect: DOMRect;
+  } | null>(null);
+
+  const handleItemContextMenu = useCallback((item: DockItem, x: number, y: number, rect: DOMRect) => {
+    setContextMenu({ x, y, item, rect });
+  }, []);
 
   const {
     dragState,
@@ -279,8 +295,9 @@ export const FolderView: React.FC<FolderViewProps> = ({
                     onEdit={(rect) => onItemEdit(item, rect)}
                     onDelete={() => onItemDelete(item)}
                     isDragging={isDraggingSource}
-                    staggerIndex={index} // Maybe use visualIndex for stagger delay?
+                    staggerIndex={index}
                     onMouseDown={(e) => handleMouseDown(e, item, index)}
+                    onContextMenu={(x, y, rect) => handleItemContextMenu(item, x, y, rect)}
                   />
                 </div>
               );
@@ -298,6 +315,19 @@ export const FolderView: React.FC<FolderViewProps> = ({
         dragElementRef={dragElementRef}
         isDraggingOut={isDraggingOut}
       />
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <DockContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          item={contextMenu.item}
+          isEditMode={isEditMode}
+          onClose={() => setContextMenu(null)}
+          onEdit={() => onItemEdit(contextMenu.item, contextMenu.rect)}
+          onToggleEditMode={() => onToggleEditMode?.()}
+          onDelete={() => onItemDelete(contextMenu.item)}
+        />
+      )}
     </>
     , document.body);
 };

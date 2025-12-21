@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SearchEngine } from '../../types';
 import { Modal } from './Modal';
-import { scaleFadeIn } from '../../utils/animations';
 import styles from './SearchEngineModal.module.css';
 
 interface SearchEngineModalProps {
@@ -30,13 +29,6 @@ export const SearchEngineModal: React.FC<SearchEngineModalProps> = ({
     }
     setActiveIndex(Math.max(0, engines.findIndex(e => e.id === selectedEngine.id)));
   }, [isOpen, engines, selectedEngine]);
-
-  // Apply animation when opening
-  useEffect(() => {
-    if (isOpen && listRef.current) {
-      scaleFadeIn(listRef.current);
-    }
-  }, [isOpen]);
 
   const handleSelect = useCallback((engine: SearchEngine) => {
     onSelect(engine);

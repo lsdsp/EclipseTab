@@ -3,6 +3,7 @@ import { DockItem as DockItemType } from '../../types';
 import { DockItem } from './DockItem';
 import { AddIcon } from './AddIcon';
 import { DockNavigator } from './DockNavigator';
+import { DockContextMenu } from './DockContextMenu';
 import { SpaceManageMenu } from '../Modal/SpaceManageMenu';
 import { DragPreview } from '../DragPreview';
 
@@ -163,6 +164,18 @@ export const Dock: React.FC<DockProps> = ({
     const handleSpaceContextMenu = useCallback((e: React.MouseEvent) => {
         setSpaceMenuAnchor((e.currentTarget as HTMLElement).getBoundingClientRect());
         setShowSpaceMenu(true);
+    }, []);
+
+    // Dock 图标右键菜单状态
+    const [contextMenu, setContextMenu] = useState<{
+        x: number;
+        y: number;
+        item: DockItemType;
+        rect: DOMRect;
+    } | null>(null);
+
+    const handleItemContextMenu = useCallback((item: DockItemType, x: number, y: number, rect: DOMRect) => {
+        setContextMenu({ x, y, item, rect });
     }, []);
 
     // Sync ref for access in drag callbacks
@@ -352,6 +365,7 @@ export const Dock: React.FC<DockProps> = ({
                                 isMergeTarget={isMergeTarget}
                                 onLongPress={onLongPressEdit}
                                 onMouseDown={e => handleMouseDown(e, item, index)}
+                                onContextMenu={(x, y, rect) => handleItemContextMenu(item, x, y, rect)}
                             />
                         </div>
                     );
@@ -437,6 +451,19 @@ export const Dock: React.FC<DockProps> = ({
                 isEditMode={isEditMode}
                 onToggleEditMode={() => setIsEditMode(!isEditMode)}
             />
+            {/* Dock 图标右键菜单 */}
+            {contextMenu && (
+                <DockContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    item={contextMenu.item}
+                    isEditMode={isEditMode}
+                    onClose={() => setContextMenu(null)}
+                    onEdit={() => onItemEdit(contextMenu.item, contextMenu.rect)}
+                    onToggleEditMode={() => setIsEditMode(!isEditMode)}
+                    onDelete={() => onItemDelete(contextMenu.item)}
+                />
+            )}
         </header>
     );
 };

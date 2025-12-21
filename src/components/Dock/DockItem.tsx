@@ -16,6 +16,8 @@ interface DockItemProps {
   isMergeTarget?: boolean;
   onLongPress?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
+  /** 右键菜单回调，传递位置和元素rect */
+  onContextMenu?: (x: number, y: number, rect: DOMRect) => void;
 }
 
 const DockItemComponent: React.FC<DockItemProps> = ({
@@ -30,6 +32,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
   isMergeTarget = false,
   onLongPress,
   onMouseDown,
+  onContextMenu,
 }) => {
   // ... (existing state)
   const [isHovered, setIsHovered] = useState(false);
@@ -112,6 +115,16 @@ const DockItemComponent: React.FC<DockItemProps> = ({
     }
   };
 
+  // Handle right-click context menu
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onContextMenu && rootRef.current) {
+      const rect = rootRef.current.getBoundingClientRect();
+      onContextMenu(e.clientX, e.clientY, rect);
+    }
+  };
+
   // Generate a stable random delay based on item ID to desynchronize shake animation
   const animationDelay = React.useMemo(() => {
     let hash = 0;
@@ -127,6 +140,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
       className={`${styles.dockItem} ${isEditMode ? styles.editMode : ''} ${isDragging ? styles.dragging : ''} ${isDropTarget ? styles.dropTarget : ''} ${isMergeTarget ? styles.pulse : ''}`}
       style={{ animationDelay }}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       ref={rootRef}

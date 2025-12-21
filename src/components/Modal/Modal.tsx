@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
 import styles from './Modal.module.css';
@@ -26,21 +26,27 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   const [isVisible, setIsVisible] = useState(isOpen);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isClosingRef = useRef(false);
 
+  // Handle open
   useEffect(() => {
     if (isOpen) {
+      isClosingRef.current = false;
       setIsVisible(true);
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    if (isOpen && isVisible && containerRef.current) {
+  // Enter animation - use useLayoutEffect to ensure it runs synchronously before paint
+  useLayoutEffect(() => {
+    if (isOpen && isVisible && containerRef.current && !isClosingRef.current) {
       scaleFadeIn(containerRef.current);
     }
   }, [isOpen, isVisible]);
 
+  // Exit animation - triggered by parent setting isOpen=false
   useEffect(() => {
-    if (!isOpen && isVisible) {
+    if (!isOpen && isVisible && !isClosingRef.current) {
+      isClosingRef.current = true;
       if (containerRef.current) {
         scaleFadeOut(containerRef.current, 300, () => setIsVisible(false));
       } else {
@@ -55,8 +61,20 @@ export const Modal: React.FC<ModalProps> = ({
     }
   };
 
+  // Handle close with animation
   const handleClose = () => {
-    onClose();
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+
+    if (containerRef.current) {
+      scaleFadeOut(containerRef.current, 300, () => {
+        setIsVisible(false);
+        onClose();
+      });
+    } else {
+      setIsVisible(false);
+      onClose();
+    }
   };
 
   if (!isVisible) return null;
