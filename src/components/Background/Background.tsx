@@ -64,9 +64,9 @@ export const Background: React.FC = () => {
                     style={{
                         background: bg1,
                         backgroundBlendMode: blendMode1,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        backgroundRepeat: 'no-repeat',
+                        backgroundSize: 'var(--background-size, cover)',
+                        backgroundPosition: 'var(--background-position, center)',
+                        backgroundRepeat: 'var(--background-repeat, no-repeat)',
                         opacity: activeLayer === 1 ? 1 : 0,
                         zIndex: activeLayer === 1 ? 2 : 1,
                     }}
@@ -91,9 +91,9 @@ export const Background: React.FC = () => {
                     style={{
                         background: bg2,
                         backgroundBlendMode: blendMode2,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        backgroundRepeat: 'no-repeat',
+                        backgroundSize: 'var(--background-size, cover)',
+                        backgroundPosition: 'var(--background-position, center)',
+                        backgroundRepeat: 'var(--background-repeat, no-repeat)',
                         opacity: activeLayer === 2 ? 1 : 0,
                         zIndex: activeLayer === 2 ? 2 : 1,
                     }}

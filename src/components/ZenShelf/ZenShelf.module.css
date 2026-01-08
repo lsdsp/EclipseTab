@@ -41,10 +41,42 @@
     contain: layout style;
 }
 
-/* 文字贴纸的白色轮廓 - 通过 text-stroke 实现 */
+/* 文字贴纸的白色轮廓 - 使用多层 text-shadow 模拟圆角描边 */
+/* 解决 Chromium 浏览器 -webkit-text-stroke 描边没有圆角的问题 */
 .textSticker {
-    -webkit-text-stroke: 12px white;
-    paint-order: stroke fill;
+    /* 12px 粗描边：使用 16 个方向的阴影叠加实现圆角效果 */
+    text-shadow:
+        /* 8 个主方向 - 6px 距离 */
+        0 -6px 0 white,
+        /* 上 */
+        6px 0 0 white,
+        /* 右 */
+        0 6px 0 white,
+        /* 下 */
+        -6px 0 0 white,
+        /* 左 */
+        /* 4 个对角线 - 约 4.24px (6 * 0.707) ≈ 4px */
+        4px -4px 0 white,
+        /* 右上 */
+        4px 4px 0 white,
+        /* 右下 */
+        -4px 4px 0 white,
+        /* 左下 */
+        -4px -4px 0 white,
+        /* 左上 */
+        /* 额外 8 个方向补充，确保描边连续 */
+        0 -5px 0 white,
+        5px 0 0 white,
+        0 5px 0 white,
+        -5px 0 0 white,
+        3px -5px 0 white,
+        5px -3px 0 white,
+        5px 3px 0 white,
+        3px 5px 0 white,
+        -3px 5px 0 white,
+        -5px 3px 0 white,
+        -5px -3px 0 white,
+        -3px -5px 0 white;
 }
 
 /* 图片贴纸的白色轮廓 - 通过 outline 实现 */
@@ -86,11 +118,27 @@
     font-family: var(--font-family);
     font-size: 40px;
     font-weight: 900;
+    /* 紧凑行间距 */
     line-height: 0.9;
+    /* 紧凑字间距 (0.9 效果) */
+    letter-spacing: -0.05em;
     white-space: pre-wrap;
     word-break: break-word;
     max-width: 720px;
     min-width: 60px;
+    /* Firefox 文本渲染优化 */
+    text-rendering: geometricPrecision;
+    -moz-text-size-adjust: none;
+    -webkit-text-size-adjust: none;
+    text-size-adjust: none;
+}
+
+/* Firefox 专用样式 - 使用 -moz-appearance 检测 Firefox */
+@supports (-moz-appearance: none) {
+    .textSticker {
+        -webkit-text-stroke: 0.3px currentColor;
+        line-height: 0.8;
+    }
 }
 
 /* ===== 图片贴纸 ===== */
@@ -519,7 +567,7 @@
 }
 
 .menuItem:hover {
-    opacity: 0.8;
+    opacity: 0.85;
     background: var(--color-bg-secondary);
 }
 
@@ -576,22 +624,59 @@
     font-size: inherit;
     /* Allow inline style to control font size */
     font-weight: 900;
+    /* 紧凑行间距 */
     line-height: 0.9;
+    /* 紧凑字间距 (0.9 效果) */
+    letter-spacing: -0.05em;
     white-space: pre-wrap;
     word-break: break-word;
     outline: none;
     border: none;
     cursor: text;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    /* 文字贴纸白色轮廓 */
-    -webkit-text-stroke: 12px white;
-    paint-order: stroke fill;
+    /* Firefox 文本渲染优化 */
+    text-rendering: geometricPrecision;
+    -moz-text-size-adjust: none;
+    -webkit-text-size-adjust: none;
+    text-size-adjust: none;
+    /* 文字贴纸白色轮廓 - 使用多层 text-shadow 模拟圆角描边 */
+    text-shadow:
+        /* 8 个主方向 - 6px 距离 */
+        0 -6px 0 white,
+        6px 0 0 white,
+        0 6px 0 white,
+        -6px 0 0 white,
+        /* 4 个对角线 */
+        4px -4px 0 white,
+        4px 4px 0 white,
+        -4px 4px 0 white,
+        -4px -4px 0 white,
+        /* 额外 8 个方向补充 */
+        0 -5px 0 white,
+        5px 0 0 white,
+        0 5px 0 white,
+        -5px 0 0 white,
+        3px -5px 0 white,
+        5px -3px 0 white,
+        5px 3px 0 white,
+        3px 5px 0 white,
+        -3px 5px 0 white,
+        -5px 3px 0 white,
+        -5px -3px 0 white,
+        -3px -5px 0 white;
     filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
     /* 允许在输入框中选择文字 */
     user-select: text;
     -webkit-user-select: text;
     /* 字体大小变化动画 */
     transition: font-size var(--transition-smooth);
+}
+
+/* Firefox 专用样式 */
+@supports (-moz-appearance: none) {
+    .stickerPreviewInput {
+        -webkit-text-stroke: 0.3px currentColor;
+        line-height: 0.8;
+    }
 }
 
 /* 占位符样式 */

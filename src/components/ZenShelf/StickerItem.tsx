@@ -191,43 +191,92 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 cancelAnimationFrame(positionRafId);
             }
 
-            // Boundary protection - check if sticker is in a UI zone
-            // Use screen pixel coordinates for detection
-            const screenX = (pendingPosition?.x ?? sticker.x) * viewportScale;
-            const screenY = (pendingPosition?.y ?? sticker.y) * viewportScale;
+            // Get sticker element bounds for overlap detection
+            const stickerEl = elementRef.current;
+            if (!stickerEl) {
+                setIsDragging(false);
+                isDraggingRef.current = false;
+                dragStartRef.current = null;
+                return;
+            }
+
+            // Calculate final position from pending or current
             let finalX = pendingPosition?.x ?? sticker.x;
             let finalY = pendingPosition?.y ?? sticker.y;
             const windowWidth = window.innerWidth;
             const windowHeight = window.innerHeight;
             let needsAdjustment = false;
 
-            // Check bottom zone (Dock/Searcher area) - screen coordinates
-            const bottomZoneY = windowHeight - UI_ZONES.BOTTOM_MARGIN;
-            if (screenY > bottomZoneY) {
-                finalY = (bottomZoneY - 50) / viewportScale;
-                needsAdjustment = true;
+            // Get sticker dimensions (approximate from current element)
+            const stickerRect = stickerEl.getBoundingClientRect();
+            const stickerWidth = stickerRect.width;
+            const stickerHeight = stickerRect.height;
+
+            // Calculate sticker screen bounds
+            const screenX = finalX * viewportScale;
+            const screenY = finalY * viewportScale;
+            const stickerScreenRect = {
+                left: screenX,
+                top: screenY,
+                right: screenX + stickerWidth,
+                bottom: screenY + stickerHeight,
+            };
+
+            // Helper function to check rectangle overlap
+            const rectsOverlap = (r1: typeof stickerScreenRect, r2: DOMRect) => {
+                return !(r1.right < r2.left || r1.left > r2.right ||
+                    r1.bottom < r2.top || r1.top > r2.bottom);
+            };
+
+            // Check overlap with bottom zone (Searcher + Dock container)
+            const bottomZone = document.querySelector('[data-ui-zone="bottom"]');
+            if (bottomZone) {
+                const bottomRect = bottomZone.getBoundingClientRect();
+                if (rectsOverlap(stickerScreenRect, bottomRect)) {
+                    // Calculate minimum escape distances for each direction
+                    const escapeUp = stickerScreenRect.bottom - bottomRect.top + UI_ZONES.EDGE_MARGIN;
+                    const escapeLeft = stickerScreenRect.right - bottomRect.left + UI_ZONES.EDGE_MARGIN;
+                    const escapeRight = bottomRect.right - stickerScreenRect.left + UI_ZONES.EDGE_MARGIN;
+
+                    // Check if escaping left/right is valid (sticker won't go off screen)
+                    const canEscapeLeft = (stickerScreenRect.left - escapeLeft) >= UI_ZONES.EDGE_MARGIN;
+                    const canEscapeRight = (stickerScreenRect.right + escapeRight) <= (windowWidth - UI_ZONES.EDGE_MARGIN);
+
+                    // Find minimum valid escape distance
+                    let minEscape = escapeUp;
+                    let escapeDirection: 'up' | 'left' | 'right' = 'up';
+
+                    if (canEscapeLeft && escapeLeft < minEscape) {
+                        minEscape = escapeLeft;
+                        escapeDirection = 'left';
+                    }
+                    if (canEscapeRight && escapeRight < minEscape) {
+                        minEscape = escapeRight;
+                        escapeDirection = 'right';
+                    }
+
+                    // Apply escape based on direction
+                    switch (escapeDirection) {
+                        case 'up':
+                            finalY = (bottomRect.top - stickerHeight - UI_ZONES.EDGE_MARGIN) / viewportScale;
+                            break;
+                        case 'left':
+                            finalX = (bottomRect.left - stickerWidth - UI_ZONES.EDGE_MARGIN) / viewportScale;
+                            break;
+                        case 'right':
+                            finalX = (bottomRect.right + UI_ZONES.EDGE_MARGIN) / viewportScale;
+                            break;
+                    }
+                    needsAdjustment = true;
+                }
             }
 
-            // Check top-left zone (Settings area) - screen coordinates
-            if (screenX < UI_ZONES.TOP_LEFT.width && screenY < UI_ZONES.TOP_LEFT.height) {
-                // Move to just outside the zone
-                finalX = (UI_ZONES.TOP_LEFT.width + 20) / viewportScale;
-                finalY = Math.max(finalY, (UI_ZONES.TOP_LEFT.height + 20) / viewportScale);
-                needsAdjustment = true;
-            }
-
-            // Check top-right zone (Editor area) - screen coordinates
-            const topRightThreshold = windowWidth - UI_ZONES.TOP_RIGHT.width;
-            if (screenX > topRightThreshold && screenY < UI_ZONES.TOP_RIGHT.height) {
-                // Move to just outside the zone
-                finalX = (topRightThreshold - 20) / viewportScale;
-                finalY = Math.max(finalY, (UI_ZONES.TOP_RIGHT.height + 20) / viewportScale);
-                needsAdjustment = true;
-            }
+            // Note: Top-left and top-right zones no longer trigger bounce-away
+            // Stickers can now be placed in these areas freely
 
             // Ensure sticker stays within screen bounds
-            const maxX = (windowWidth - UI_ZONES.EDGE_MARGIN) / viewportScale;
-            const maxY = (bottomZoneY - 50) / viewportScale;
+            const maxX = (windowWidth - stickerWidth - UI_ZONES.EDGE_MARGIN) / viewportScale;
+            const maxY = (windowHeight - stickerHeight - UI_ZONES.EDGE_MARGIN) / viewportScale;
             finalX = Math.max(UI_ZONES.EDGE_MARGIN / viewportScale, Math.min(maxX, finalX));
             finalY = Math.max(UI_ZONES.EDGE_MARGIN / viewportScale, Math.min(maxY, finalY));
 
@@ -251,12 +300,15 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             physicsRef.current.targetRotation = 0;
         };
 
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
+        // Use capture phase to ensure drag events work through all UI layers
+        document.addEventListener('mousemove', handleMouseMove, { capture: true });
+        // Use capture phase for mouseup to ensure we get the event even when
+        // mouse is released over Searcher/Dock which might stop propagation
+        document.addEventListener('mouseup', handleMouseUp, { capture: true });
 
         return () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
+            document.removeEventListener('mousemove', handleMouseMove, { capture: true });
+            document.removeEventListener('mouseup', handleMouseUp, { capture: true });
             if (positionRafId !== null) {
                 cancelAnimationFrame(positionRafId);
             }

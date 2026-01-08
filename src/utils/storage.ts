@@ -102,9 +102,11 @@ export const storage = {
   getFollowSystem(): boolean {
     try {
       const value = localStorage.getItem(STORAGE_KEYS.FOLLOW_SYSTEM);
+      // First-time users: default to follow system
+      if (value === null) return true;
       return value === 'true';
     } catch {
-      return false;
+      return true;
     }
   },
 
@@ -200,9 +202,12 @@ export const storage = {
 
   getTexture(): string | null {
     try {
-      return localStorage.getItem(STORAGE_KEYS.TEXTURE);
+      const value = localStorage.getItem(STORAGE_KEYS.TEXTURE);
+      // First-time users: default to 'point' texture
+      if (value === null) return 'point';
+      return value;
     } catch {
-      return null;
+      return 'point';
     }
   },
 

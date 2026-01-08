@@ -63,7 +63,8 @@
   left: 0;
   width: 140px;
   height: 140px;
-  pointer-events: auto;
+  /* 让鼠标穿透到贴纸，悬停检测由 JS 处理 */
+  pointer-events: none;
   z-index: 100;
   /* Above stickers */
 }
@@ -75,7 +76,8 @@
   right: 0;
   width: 140px;
   height: 140px;
-  pointer-events: auto;
+  /* 让鼠标穿透到贴纸，悬停检测由 JS 处理 */
+  pointer-events: none;
   z-index: 100;
   /* Above stickers */
 }

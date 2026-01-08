@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useState, useMemo, useCallback, lazy, Suspense, useEffect, useRef } from 'react';
 import { DockItem } from './types';
 import { SEARCH_ENGINES } from './constants/searchEngines';
 import { useDockData, useDockUI, useDockDrag } from './context/DockContext';
@@ -91,6 +91,33 @@ function App() {
   // 跟踪拖拽来源，用于区分内部拖拽和外部拖拽
   const [draggingFromFolder, setDraggingFromFolder] = useState(false);
 
+  // Refs for hover zone detection
+  const settingsAreaRef = useRef<HTMLDivElement>(null);
+  const editorAreaRef = useRef<HTMLDivElement>(null);
+
+  // Use global mousemove to detect hover on zones (allows pointer-events: none)
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      // Check settings area (top-left)
+      if (settingsAreaRef.current) {
+        const rect = settingsAreaRef.current.getBoundingClientRect();
+        const inSettingsZone = e.clientX >= rect.left && e.clientX <= rect.right &&
+          e.clientY >= rect.top && e.clientY <= rect.bottom;
+        setShowSettings(inSettingsZone);
+      }
+      // Check editor area (top-right)
+      if (editorAreaRef.current) {
+        const rect = editorAreaRef.current.getBoundingClientRect();
+        const inEditorZone = e.clientX >= rect.left && e.clientX <= rect.right &&
+          e.clientY >= rect.top && e.clientY <= rect.bottom;
+        setShowEditor(inEditorZone);
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    return () => document.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   const handleSearch = (query: string) => {
     const searchUrl = `${selectedSearchEngine.url}${encodeURIComponent(query)}`;
     window.open(searchUrl, '_blank');
@@ -131,7 +158,10 @@ function App() {
         setSettingsAnchor({ left: pos.x, top: pos.y - 60, right: pos.x, bottom: pos.y - 60, width: 0, height: 0, x: pos.x, y: pos.y - 60, toJSON: () => ({}) } as DOMRect);
         setIsSettingsModalOpen(true);
       }} />
-      <div className={dockPosition === 'center' ? styles.containerCenter : styles.container}>
+      <div
+        className={dockPosition === 'center' ? styles.containerCenter : styles.container}
+        data-ui-zone="bottom"
+      >
         <Searcher
           searchEngine={selectedSearchEngine}
           onSearch={handleSearch}
@@ -164,9 +194,9 @@ function App() {
       </div>
       {/* 左上角触发热点：悬停显示设置按钮 */}
       <div
+        ref={settingsAreaRef}
         className={styles.settingsArea}
-        onMouseEnter={() => setShowSettings(true)}
-        onMouseLeave={() => setShowSettings(false)}
+        data-ui-zone="top-left"
       >
         <Settings
           visible={showSettings}
@@ -180,9 +210,9 @@ function App() {
       </div>
       {/* 右上角触发热点：悬停显示编辑按钮 */}
       <div
+        ref={editorAreaRef}
         className={styles.editorArea}
-        onMouseEnter={() => setShowEditor(true)}
-        onMouseLeave={() => setShowEditor(false)}
+        data-ui-zone="top-right"
       >
         <Editor
           visible={showEditor || isEditMode}

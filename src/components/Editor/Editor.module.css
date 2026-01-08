@@ -19,12 +19,6 @@
   pointer-events: none;
 }
 
-/* 鼠标移入父元素时显示编辑器 */
-.editorArea:hover .editor {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 /* 编辑器悬停放大效果 */
 .editor:hover {
   transform: scale(1.05);

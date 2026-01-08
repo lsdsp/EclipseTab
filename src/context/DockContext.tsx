@@ -71,8 +71,8 @@ interface DockContextType extends DockDataContextType, DockUIContextType, DockDr
 // ============================================================================
 
 export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // 从 SpacesContext 获取当前空间的 apps 和空间列表
-    const { currentSpace, updateCurrentSpaceApps, spaces } = useSpaces();
+    // 从 SpacesContext 获取当前空间的 apps
+    const { currentSpace, updateCurrentSpaceApps } = useSpaces();
 
     // 数据状态: dockItems 来自当前 Space
     const [dockItems, setDockItemsInternal] = useState<DockItem[]>(currentSpace.apps);
@@ -108,54 +108,27 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const hasLoadedDefaultsRef = React.useRef(false);
 
     useEffect(() => {
-        // 只在首次运行且是应用的首个空间为空时初始化默认数据
+        // 只在首次运行且当前空间为空时初始化默认数据
         // 使用 hasLoadedDefaultsRef 确保只加载一次
         if (
             !hasLoadedDefaultsRef.current &&
             currentSpace.apps.length === 0 &&
             dockItems.length === 0 &&
-            spaces.length === 1 // 只在只有一个空间时（首次安装）才加载默认数据
+            currentSpace.name === 'Main' // 只在 Main 空间为空时加载默认数据
         ) {
             hasLoadedDefaultsRef.current = true;
 
-            // 默认常用网站
+            // 默认常用网站 - Main 空间
             const defaults: DockItem[] = [
                 { id: 'bilibili', name: 'Bilibili', url: 'https://www.bilibili.com/', type: 'app' },
-                { id: 'xiaohongshu', name: '小红书', url: 'https://www.xiaohongshu.com/', type: 'app' },
                 { id: 'notion', name: 'Notion', url: 'https://www.notion.so/', type: 'app' },
+                { id: 'notion-calendar', name: 'NotionCalendar', url: 'https://calendar.notion.so/', type: 'app' },
                 { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com/app', type: 'app' },
-                {
-                    id: 'folder-design',
-                    name: 'Design',
-                    type: 'folder',
-                    items: [
-                        { id: 'behance', name: 'Behance', url: 'https://www.behance.net/', type: 'app' },
-                        { id: 'pinterest', name: 'Pinterest', url: 'https://pinterest.com/', type: 'app' },
-                        { id: 'iconfont', name: 'Iconfont', url: 'https://www.iconfont.cn/', type: 'app' },
-                        { id: 'dribbble', name: 'Dribble', url: 'https://dribbble.com', type: 'app' },
-                        { id: 'x', name: 'X', url: 'https://x.com/', type: 'app' },
-                    ]
-                },
-                {
-                    id: 'folder-ai',
-                    name: 'AI',
-                    type: 'folder',
-                    items: [
-                        { id: 'ai-studio', name: 'AI studio', url: 'https://aistudio.google.com/prompts/new_chat', type: 'app' },
-                        { id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com/', type: 'app' },
-                        { id: 'kimi', name: 'Kimi', url: 'https://kimi.moonshot.cn/', type: 'app' },
-                    ]
-                },
-                {
-                    id: 'folder-tools',
-                    name: 'Tools',
-                    type: 'folder',
-                    items: [
-                        { id: 'keep', name: 'Keep', url: 'https://keep.google.com/', type: 'app' },
-                        { id: 'gmail', name: 'Gmail', url: 'https://mail.google.com/', type: 'app' },
-                        { id: 'github', name: 'Github', url: 'https://github.com/', type: 'app' },
-                    ]
-                },
+                { id: 'jike', name: '即刻', url: 'https://web.okjike.com', type: 'app' },
+                { id: 'behance', name: 'Behance', url: 'https://www.behance.net/', type: 'app' },
+                { id: 'x', name: 'X', url: 'https://x.com/', type: 'app' },
+                { id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com/', type: 'app' },
+                { id: 'claude', name: 'Claude', url: 'https://claude.ai/new', type: 'app' },
             ];
 
             // Generate icons for folders

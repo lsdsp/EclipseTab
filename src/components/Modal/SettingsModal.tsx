@@ -46,12 +46,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     // Logic to determine if we are in "Default" mode or "Light/Dark" mode
     const isDefaultTheme = theme === 'default' && !followSystem;
 
-    // Reset texture if switching to Default theme
-    useEffect(() => {
-        if (isDefaultTheme && texture !== 'none') {
-            setTexture('none');
-        }
-    }, [isDefaultTheme, texture, setTexture]);
+    // Note: Texture is only displayed when not in default theme (handled in ThemeContext)
+    // We no longer reset texture when switching to default theme so it's remembered
 
     // Animation effects - open
     useEffect(() => {
@@ -244,8 +240,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
 
                             if (isThemeDefault) {
                                 displayColor = 'var(--color-bg-secondary)';
+                            } else if (isDefaultTheme) {
+                                displayColor = preset.gradient;
                             } else {
-                                displayColor = isDefaultTheme ? preset.gradient : preset.solid;
+                                // 对于非默认主题，根据是否为深色模式选择solid或solidDark
+                                const isDarkTheme = theme === 'dark' || (followSystem && systemTheme === 'dark');
+                                displayColor = isDarkTheme && 'solidDark' in preset ? preset.solidDark : preset.solid;
                             }
 
                             // 当使用壁纸时，不显示颜色选项的选中状态
