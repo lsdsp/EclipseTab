@@ -70,6 +70,7 @@ export const Dock: React.FC<DockProps> = ({
         renameSpace,
         deleteSpace,
         importSpace,
+        importMultipleSpaces,
         pinSpace,
     } = useSpaces();
 
@@ -425,6 +426,7 @@ export const Dock: React.FC<DockProps> = ({
                 isOpen={showSpaceMenu}
                 anchorRect={spaceMenuAnchor}
                 currentSpace={currentSpace}
+                allSpaces={spaces}
                 isLastSpace={spaces.length <= 1}
                 onClose={() => setShowSpaceMenu(false)}
                 onAdd={() => {
@@ -441,6 +443,10 @@ export const Dock: React.FC<DockProps> = ({
                 }}
                 onImport={(data) => {
                     importSpace(data);
+                    setShowSpaceMenu(false);
+                }}
+                onImportMultiple={(data) => {
+                    importMultipleSpaces(data);
                     setShowSpaceMenu(false);
                 }}
                 onPin={() => {

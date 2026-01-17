@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Space } from '../../types';
 import { Modal } from './Modal';
-import { exportSpaceToFile, parseAndValidateSpaceFile, SpaceExportData } from '../../utils/spaceExportImport';
+import { exportSpaceToFile, exportAllSpacesToFile, parseAndValidateImportFile, SpaceExportData, MultiSpaceExportData } from '../../utils/spaceExportImport';
 import plusIcon from '../../assets/icons/plus.svg';
 import writeIcon from '../../assets/icons/write.svg';
 import trashIcon from '../../assets/icons/trash.svg';
@@ -21,6 +21,9 @@ interface SpaceManageMenuProps {
     /** 当前空间 */
     currentSpace: Space;
 
+    /** 所有空间 (用于导出所有) */
+    allSpaces: Space[];
+
     /** 是否只剩一个空间 (禁用删除) */
     isLastSpace: boolean;
 
@@ -36,8 +39,11 @@ interface SpaceManageMenuProps {
     /** 删除 */
     onDelete: () => void;
 
-    /** 导入空间 */
+    /** 导入单个空间 */
     onImport: (data: SpaceExportData) => void;
+
+    /** 导入多个空间 */
+    onImportMultiple: (data: MultiSpaceExportData) => void;
 
     /** 置顶空间 */
     onPin: () => void;
@@ -60,12 +66,14 @@ export function SpaceManageMenu({
     isOpen,
     anchorRect,
     currentSpace,
+    allSpaces,
     isLastSpace,
     onClose,
     onAdd,
     onRename,
     onDelete,
     onImport,
+    onImportMultiple,
     onPin,
     isFirstSpace,
     isEditMode,
@@ -132,6 +140,11 @@ export function SpaceManageMenu({
         onClose();
     };
 
+    const handleExportAllClick = () => {
+        exportAllSpacesToFile(allSpaces);
+        onClose();
+    };
+
     const handleImportClick = () => {
         fileInputRef.current?.click();
     };
@@ -141,8 +154,12 @@ export function SpaceManageMenu({
         if (!file) return;
 
         try {
-            const data = await parseAndValidateSpaceFile(file);
-            onImport(data);
+            const result = await parseAndValidateImportFile(file);
+            if (result.type === 'multi') {
+                onImportMultiple(result.data);
+            } else {
+                onImport(result.data);
+            }
             onClose();
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
@@ -227,6 +244,10 @@ export function SpaceManageMenu({
                             <button className={styles.menuItem} onClick={handleExportClick}>
                                 <span className={styles.icon} style={{ WebkitMaskImage: `url(${exportIcon})`, maskImage: `url(${exportIcon})` }} />
                                 <span>Export current space</span>
+                            </button>
+                            <button className={styles.menuItem} onClick={handleExportAllClick}>
+                                <span className={styles.icon} style={{ WebkitMaskImage: `url(${exportIcon})`, maskImage: `url(${exportIcon})` }} />
+                                <span>Export All Space</span>
                             </button>
                             {/* Hidden file input */}
                             <input

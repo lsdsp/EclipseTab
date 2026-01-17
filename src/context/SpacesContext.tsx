@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Space, SpacesState, DockItem, createDefaultSpace } from '../types';
 import { storage } from '../utils/storage';
-import { SpaceExportData, createSpaceFromImport } from '../utils/spaceExportImport';
+import { SpaceExportData, MultiSpaceExportData, createSpaceFromImport, createSpacesFromMultiImport } from '../utils/spaceExportImport';
 
 // ============================================================================
 // 数据层 Context 类型定义 (低频变化)
@@ -32,6 +32,7 @@ interface SpacesActionsContextType {
     renameSpace: (spaceId: string, newName: string) => void;
     updateCurrentSpaceApps: (apps: DockItem[]) => void;
     importSpace: (data: SpaceExportData) => void;
+    importMultipleSpaces: (data: MultiSpaceExportData) => void;
     pinSpace: (spaceId: string) => void;
     setIsSwitching: (value: boolean) => void;
 }
@@ -194,6 +195,21 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
         return newSpace;
     }, [spaces]);
 
+    const importMultipleSpaces = useCallback(async (data: MultiSpaceExportData) => {
+        // 创建多个空间
+        const newSpaces = await createSpacesFromMultiImport(data, spaces);
+
+        if (newSpaces.length > 0) {
+            setSpacesState(prev => ({
+                ...prev,
+                spaces: [...prev.spaces, ...newSpaces],
+                activeSpaceId: newSpaces[0].id, // 自动跳转到第一个导入的空间
+            }));
+        }
+
+        return newSpaces;
+    }, [spaces]);
+
     // ============================================================================
     // 置顶空间
     // ============================================================================
@@ -250,6 +266,7 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
         renameSpace,
         updateCurrentSpaceApps,
         importSpace,
+        importMultipleSpaces,
         pinSpace,
         setIsSwitching,
     }), [
@@ -260,6 +277,7 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
         renameSpace,
         updateCurrentSpaceApps,
         importSpace,
+        importMultipleSpaces,
         pinSpace,
     ]);
 

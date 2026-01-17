@@ -16,33 +16,74 @@ const extractUrl = (bgValue: string): string | null => {
     return match ? match[1] : null;
 };
 
+// Helper function to compute background properties based on background value
+// Returns the appropriate size, position, and repeat values
+const getBackgroundProps = (bgValue: string) => {
+    // Check if background has multiple layers (contains comma)
+    const hasMultipleLayers = bgValue.includes(',');
+    if (hasMultipleLayers) {
+        // Multi-layer background (texture + color): both layers use cover
+        return {
+            backgroundSize: 'cover, cover',
+            backgroundPosition: 'center, center',
+            backgroundRepeat: 'no-repeat, no-repeat',
+        };
+    }
+    // Single layer background
+    return {
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+    };
+};
+
+interface LayerState {
+    bg: string;
+    blendMode: string;
+    bgProps: ReturnType<typeof getBackgroundProps>;
+}
+
 export const Background: React.FC = () => {
     const { backgroundValue, backgroundBlendMode } = useThemeData();
-    const [bg1, setBg1] = useState(backgroundValue);
-    const [bg2, setBg2] = useState('');
+
+    // Store complete layer state including background properties
+    const [layer1, setLayer1] = useState<LayerState>({
+        bg: backgroundValue,
+        blendMode: backgroundBlendMode,
+        bgProps: getBackgroundProps(backgroundValue),
+    });
+    const [layer2, setLayer2] = useState<LayerState>({
+        bg: '',
+        blendMode: backgroundBlendMode,
+        bgProps: getBackgroundProps(''),
+    });
     const [activeLayer, setActiveLayer] = useState<1 | 2>(1);
-    const [blendMode1, setBlendMode1] = useState(backgroundBlendMode);
-    const [blendMode2, setBlendMode2] = useState(backgroundBlendMode);
 
     useEffect(() => {
         if (activeLayer === 1) {
-            if (bg1 !== backgroundValue) {
-                setBg2(backgroundValue);
-                setBlendMode2(backgroundBlendMode);
+            if (layer1.bg !== backgroundValue) {
+                setLayer2({
+                    bg: backgroundValue,
+                    blendMode: backgroundBlendMode,
+                    bgProps: getBackgroundProps(backgroundValue),
+                });
                 setActiveLayer(2);
             }
         } else {
-            if (bg2 !== backgroundValue) {
-                setBg1(backgroundValue);
-                setBlendMode1(backgroundBlendMode);
+            if (layer2.bg !== backgroundValue) {
+                setLayer1({
+                    bg: backgroundValue,
+                    blendMode: backgroundBlendMode,
+                    bgProps: getBackgroundProps(backgroundValue),
+                });
                 setActiveLayer(1);
             }
         }
-    }, [backgroundValue, backgroundBlendMode, activeLayer, bg1, bg2]);
+    }, [backgroundValue, backgroundBlendMode, activeLayer, layer1.bg, layer2.bg]);
 
     // Extract URLs if backgrounds are wallpapers
-    const url1 = extractUrl(bg1);
-    const url2 = extractUrl(bg2);
+    const url1 = extractUrl(layer1.bg);
+    const url2 = extractUrl(layer2.bg);
 
     return (
         <div className={styles.container}>
@@ -53,7 +94,7 @@ export const Background: React.FC = () => {
                     alt=""
                     className={styles.layer}
                     style={{
-                        mixBlendMode: blendMode1 as any,
+                        mixBlendMode: layer1.blendMode as any,
                         opacity: activeLayer === 1 ? 1 : 0,
                         zIndex: activeLayer === 1 ? 2 : 1,
                     }}
@@ -62,11 +103,11 @@ export const Background: React.FC = () => {
                 <div
                     className={styles.layer}
                     style={{
-                        background: bg1,
-                        backgroundBlendMode: blendMode1,
-                        backgroundSize: 'var(--background-size, cover)',
-                        backgroundPosition: 'var(--background-position, center)',
-                        backgroundRepeat: 'var(--background-repeat, no-repeat)',
+                        background: layer1.bg,
+                        backgroundBlendMode: layer1.blendMode,
+                        backgroundSize: layer1.bgProps.backgroundSize,
+                        backgroundPosition: layer1.bgProps.backgroundPosition,
+                        backgroundRepeat: layer1.bgProps.backgroundRepeat as any,
                         opacity: activeLayer === 1 ? 1 : 0,
                         zIndex: activeLayer === 1 ? 2 : 1,
                     }}
@@ -80,7 +121,7 @@ export const Background: React.FC = () => {
                     alt=""
                     className={styles.layer}
                     style={{
-                        mixBlendMode: blendMode2 as any,
+                        mixBlendMode: layer2.blendMode as any,
                         opacity: activeLayer === 2 ? 1 : 0,
                         zIndex: activeLayer === 2 ? 2 : 1,
                     }}
@@ -89,11 +130,11 @@ export const Background: React.FC = () => {
                 <div
                     className={styles.layer}
                     style={{
-                        background: bg2,
-                        backgroundBlendMode: blendMode2,
-                        backgroundSize: 'var(--background-size, cover)',
-                        backgroundPosition: 'var(--background-position, center)',
-                        backgroundRepeat: 'var(--background-repeat, no-repeat)',
+                        background: layer2.bg,
+                        backgroundBlendMode: layer2.blendMode,
+                        backgroundSize: layer2.bgProps.backgroundSize,
+                        backgroundPosition: layer2.bgProps.backgroundPosition,
+                        backgroundRepeat: layer2.bgProps.backgroundRepeat as any,
                         opacity: activeLayer === 2 ? 1 : 0,
                         zIndex: activeLayer === 2 ? 2 : 1,
                     }}
