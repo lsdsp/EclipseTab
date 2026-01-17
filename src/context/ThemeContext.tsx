@@ -337,8 +337,21 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         // Set CSS variables
         root.style.setProperty('--background-custom', backgroundValue);
-        root.style.setProperty('--background-size', 'cover');
-        root.style.setProperty('--background-position', 'center');
+
+        // 统一使用 cover 填充方式
+        // 纹理和背景都使用 cover，保持宽高比完全覆盖容器
+        const hasTexture = !isDefaultTheme && texture !== 'none' && !wallpaper;
+        if (hasTexture) {
+            // 多层背景：两层都使用 cover
+            root.style.setProperty('--background-size', 'cover, cover');
+            root.style.setProperty('--background-position', 'center, center');
+            root.style.setProperty('--background-repeat', 'no-repeat, no-repeat');
+        } else {
+            // 单层背景
+            root.style.setProperty('--background-size', 'cover');
+            root.style.setProperty('--background-position', 'center');
+            root.style.setProperty('--background-repeat', 'no-repeat');
+        }
 
         if (backgroundBlendMode !== 'normal') {
             root.style.setProperty('--background-blend-mode', backgroundBlendMode);
@@ -348,7 +361,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         // Set icon size CSS variable
         root.style.setProperty('--icon-size', iconSize === 'small' ? '52px' : '64px');
-    }, [backgroundValue, backgroundBlendMode, isDefaultTheme, iconSize]);
+    }, [backgroundValue, backgroundBlendMode, isDefaultTheme, iconSize, texture, wallpaper]);
 
     // ========================================================================
     // 性能优化: 分离 data 和 actions context values

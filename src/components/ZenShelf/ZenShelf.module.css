@@ -31,9 +31,8 @@
     pointer-events: auto;
     cursor: grab;
     user-select: none;
-    /* 贴纸效果：使用伪元素实现白色描边 */
-    /* 阴影使用 box-shadow */
-    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
+    /* 默认投影 - 较浅 */
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.08));
     transition: filter var(--transition-fast);
     /* GPU 加速提示 */
     will-change: transform;
@@ -41,43 +40,8 @@
     contain: layout style;
 }
 
-/* 文字贴纸的白色轮廓 - 使用多层 text-shadow 模拟圆角描边 */
-/* 解决 Chromium 浏览器 -webkit-text-stroke 描边没有圆角的问题 */
-.textSticker {
-    /* 12px 粗描边：使用 16 个方向的阴影叠加实现圆角效果 */
-    text-shadow:
-        /* 8 个主方向 - 6px 距离 */
-        0 -6px 0 white,
-        /* 上 */
-        6px 0 0 white,
-        /* 右 */
-        0 6px 0 white,
-        /* 下 */
-        -6px 0 0 white,
-        /* 左 */
-        /* 4 个对角线 - 约 4.24px (6 * 0.707) ≈ 4px */
-        4px -4px 0 white,
-        /* 右上 */
-        4px 4px 0 white,
-        /* 右下 */
-        -4px 4px 0 white,
-        /* 左下 */
-        -4px -4px 0 white,
-        /* 左上 */
-        /* 额外 8 个方向补充，确保描边连续 */
-        0 -5px 0 white,
-        5px 0 0 white,
-        0 5px 0 white,
-        -5px 0 0 white,
-        3px -5px 0 white,
-        5px -3px 0 white,
-        5px 3px 0 white,
-        3px 5px 0 white,
-        -3px 5px 0 white,
-        -5px 3px 0 white,
-        -5px -3px 0 white,
-        -3px -5px 0 white;
-}
+/* 文字贴纸的白色轮廓 - 使用 SVG filter 实现平滑描边 */
+/* 见下方 .textSticker 样式定义 */
 
 /* 图片贴纸的白色轮廓 - 通过 outline 实现 */
 .imageSticker {
@@ -85,11 +49,19 @@
     outline-offset: 0;
 }
 
-/* 拖拽中的样式 */
-.sticker.dragging {
+/* 拖拽/按下中的样式 - 文字贴纸 */
+.textSticker.dragging {
     cursor: grabbing;
-    filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.25));
-    /* 拖拽时额外提示 position 变化 */
+    /* 保留 SVG 描边 + 加深阴影，增大模糊值 */
+    filter: url(#text-sticker-stroke) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.2));
+    will-change: transform, left, top;
+}
+
+/* 拖拽/按下中的样式 - 图片贴纸 */
+.imageSticker.dragging {
+    cursor: grabbing;
+    /* 加深阴影，增大模糊值 */
+    filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.2));
     will-change: transform, left, top;
 }
 
@@ -99,9 +71,14 @@
         top 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* 创作模式下悬停效果 */
-.sticker.creativeHover:hover {
-    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
+/* 创作模式下悬停效果 - 文字贴纸 */
+.textSticker.creativeHover:hover {
+    filter: url(#text-sticker-stroke) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.12));
+}
+
+/* 创作模式下悬停效果 - 图片贴纸 */
+.imageSticker.creativeHover:hover {
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.12));
 }
 
 /* 选中态 */
@@ -131,6 +108,8 @@
     -moz-text-size-adjust: none;
     -webkit-text-size-adjust: none;
     text-size-adjust: none;
+    /* SVG filter 描边 + 默认浅投影 */
+    filter: url(#text-sticker-stroke) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.08));
 }
 
 /* Firefox 专用样式 - 使用 -moz-appearance 检测 Firefox */
@@ -638,32 +617,8 @@
     -moz-text-size-adjust: none;
     -webkit-text-size-adjust: none;
     text-size-adjust: none;
-    /* 文字贴纸白色轮廓 - 使用多层 text-shadow 模拟圆角描边 */
-    text-shadow:
-        /* 8 个主方向 - 6px 距离 */
-        0 -6px 0 white,
-        6px 0 0 white,
-        0 6px 0 white,
-        -6px 0 0 white,
-        /* 4 个对角线 */
-        4px -4px 0 white,
-        4px 4px 0 white,
-        -4px 4px 0 white,
-        -4px -4px 0 white,
-        /* 额外 8 个方向补充 */
-        0 -5px 0 white,
-        5px 0 0 white,
-        0 5px 0 white,
-        -5px 0 0 white,
-        3px -5px 0 white,
-        5px -3px 0 white,
-        5px 3px 0 white,
-        3px 5px 0 white,
-        -3px 5px 0 white,
-        -5px 3px 0 white,
-        -5px -3px 0 white,
-        -3px -5px 0 white;
-    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
+    /* 文字贴纸白色轮廓 - 使用 SVG filter + 浅投影 */
+    filter: url(#text-sticker-stroke) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.08));
     /* 允许在输入框中选择文字 */
     user-select: text;
     -webkit-user-select: text;

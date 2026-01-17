@@ -425,7 +425,11 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             >
                 {sticker.type === 'text' ? (
                     <div
-                        className={styles.textSticker}
+                        className={[
+                            styles.textSticker,
+                            isDragging && styles.dragging,
+                            isCreativeMode && styles.creativeHover,
+                        ].filter(Boolean).join(' ')}
                         style={{
                             color: sticker.style?.color || '#1C1C1E',
                             textAlign: sticker.style?.textAlign || 'left',
@@ -439,7 +443,11 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                         <img
                             src={sticker.content}
                             alt="sticker"
-                            className={styles.imageSticker}
+                            className={[
+                                styles.imageSticker,
+                                isDragging && styles.dragging,
+                                isCreativeMode && styles.creativeHover,
+                            ].filter(Boolean).join(' ')}
                             style={{ width: imageWidth }}
                             draggable={false}
                             onLoad={handleImageLoad}
