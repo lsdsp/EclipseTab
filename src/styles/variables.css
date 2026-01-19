@@ -29,6 +29,7 @@
 
   /* 灰度色阶 - 从浅到深 */
   --gray-100: #fafafa;
+  --gray-100-alpha-85: rgba(250, 250, 250, 0.8);
   --gray-200: #E8E8ED;
   --gray-300: #D1D1D6;
   --gray-400: #AEAEB2;
@@ -37,6 +38,7 @@
   --gray-700: #3A3A3C;
   --gray-750: #38383A;
   --gray-800: #2C2C2E;
+  --gray-800-alpha-85: rgba(44, 44, 46, 0.8);
   --gray-900: #1C1C1E;
   --gray-950: #1D1D1F;
 
@@ -57,6 +59,7 @@
   --white-alpha-20: rgba(255, 255, 255, 0.20);
   --white-alpha-36: rgba(255, 255, 255, 0.36);
   --white-alpha-60: rgba(255, 255, 255, 0.60);
+  --white-alpha-70: rgba(255, 255, 255, 0.7);
   --white-alpha-85: rgba(255, 255, 255, 0.85);
 
   /* 黑色透明度变量 - 用于阴影和遮罩 */
@@ -76,6 +79,7 @@
   --color-text-primary: var(--white);
   --color-text-secondary: var(--white-alpha-85);
   --color-text-tertiary: var(--gray-600);
+  --color-sticker-stroke: var(--white-alpha-70);
 
   /* ===== 阴影变量 ===== */
   /* 用于创建层次感和深度 */
@@ -157,6 +161,7 @@
   --color-text-primary: var(--gray-950);
   --color-text-secondary: var(--gray-600);
   --color-text-tertiary: var(--gray-600);
+  --color-sticker-stroke: var(--gray-100);
 
   /* 亮色主题阴影 - 比默认主题更明显 */
   --shadow-small: 0px 0px 4px 0px rgba(0, 0, 0, 0.1);
@@ -177,6 +182,7 @@
   --color-text-primary: var(--gray-100);
   --color-text-secondary: var(--gray-300);
   --color-text-tertiary: var(--gray-300);
+  --color-sticker-stroke: var(--gray-750);
 
   /* 暗色主题阴影 - 更深更柔和 */
   --shadow-small: 0px 0px 8px 0px rgba(0, 0, 0, 0.4);

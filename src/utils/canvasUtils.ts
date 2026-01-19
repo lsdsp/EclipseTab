@@ -60,6 +60,10 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
             return;
         }
 
+        // Get stroke color from CSS variable
+        const strokeColor = getComputedStyle(document.documentElement)
+            .getPropertyValue('--color-sticker-stroke').trim() || 'white';
+
         const MIN_HEIGHT = 600;
         const BASE_FONT_SIZE = 48;
         // const PADDING_RATIO = 0.5; // Removed: unused
@@ -141,8 +145,8 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
                 textX = finalPaddingX;
             }
 
-            // Draw white stroke
-            ctx.strokeStyle = 'white';
+            // Draw stroke using --color-sticker-stroke
+            ctx.strokeStyle = strokeColor;
             ctx.lineWidth = finalStrokeWidth;
             ctx.lineJoin = 'round';
             ctx.miterLimit = 2;
@@ -187,6 +191,10 @@ export function createImageStickerImage(sticker: Sticker): Promise<Blob | null> 
 
         const img = new Image();
         img.onload = () => {
+            // Get stroke color from CSS variable
+            const strokeColor = getComputedStyle(document.documentElement)
+                .getPropertyValue('--color-sticker-stroke').trim() || 'white';
+
             const BORDER_RADIUS = 16;
             const STROKE_WIDTH = 6;
             const SHADOW_BLUR = 12;
@@ -231,9 +239,9 @@ export function createImageStickerImage(sticker: Sticker): Promise<Blob | null> 
                 ctx.fill();
                 ctx.restore();
 
-                // Draw white stroke/outline
+                // Draw stroke/outline using --color-sticker-stroke
                 createRoundedPath(imgX, imgY, img.width, img.height, BORDER_RADIUS);
-                ctx.strokeStyle = 'white';
+                ctx.strokeStyle = strokeColor;
                 ctx.lineWidth = STROKE_WIDTH * 2; // Double because half is clipped
                 ctx.stroke();
 

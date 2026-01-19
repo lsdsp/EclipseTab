@@ -1,7 +1,30 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Sticker, IMAGE_MAX_WIDTH } from '../../types';
 import { FloatingToolbar } from './FloatingToolbar';
+import { useThemeData } from '../../context/ThemeContext';
 import styles from './ZenShelf.module.css';
+
+// ============================================================================
+// Theme-aware color inversion for text stickers
+// ============================================================================
+const BLACK_COLOR = '#1C1C1E';
+const WHITE_COLOR = '#FFFFFF';
+
+/**
+ * Inverts black/white colors in dark theme for better readability
+ */
+const getThemeAwareColor = (color: string, theme: string): string => {
+    if (theme !== 'dark') return color;
+
+    const upperColor = color.toUpperCase();
+    if (upperColor === BLACK_COLOR.toUpperCase() || upperColor === '#1C1C1E') {
+        return WHITE_COLOR;
+    }
+    if (upperColor === WHITE_COLOR.toUpperCase() || upperColor === '#FFF') {
+        return BLACK_COLOR;
+    }
+    return color;
+};
 
 // ============================================================================
 // UI Boundary Constants - Areas where stickers should not be placed
@@ -48,6 +71,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
     isEditMode,
     viewportScale,
 }) => {
+    const { theme } = useThemeData();
     const elementRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
@@ -434,6 +458,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
 
     const classNames = [
         styles.sticker,
+        sticker.type === 'text' && styles.stickerText,
         isDragging && styles.dragging,
         isBouncing && styles.bounceBack,
         isSelected && styles.selected,
@@ -470,7 +495,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                             isCreativeMode && styles.creativeHover,
                         ].filter(Boolean).join(' ')}
                         style={{
-                            color: sticker.style?.color || '#1C1C1E',
+                            color: getThemeAwareColor(sticker.style?.color || '#1C1C1E', theme),
                             textAlign: sticker.style?.textAlign || 'left',
                             fontSize: scaledFontSize,
                         }}

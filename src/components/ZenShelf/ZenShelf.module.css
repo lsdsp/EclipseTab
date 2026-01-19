@@ -31,31 +31,47 @@
     pointer-events: auto;
     cursor: grab;
     user-select: none;
-    /* 默认投影 - 较浅 */
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.08));
-    transition: filter var(--transition-fast);
     /* GPU 加速提示 */
     will-change: transform;
     /* 性能优化：限制布局和样式计算范围 */
     contain: layout style;
 }
 
-/* 文字贴纸的白色轮廓 - 使用 SVG filter 实现平滑描边 */
-/* 见下方 .textSticker 样式定义 */
-
-/* 图片贴纸的白色轮廓 - 通过 outline 实现 */
-.imageSticker {
-    outline: 6px solid white;
-    outline-offset: 0;
+/* 文字贴纸外层容器 - 用于阴影动画 */
+/* 阴影放在外层是因为 CSS filter 的 url() 无法与 drop-shadow() 一起动画 */
+.stickerText {
+    /* 默认投影 - 较浅 */
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.08));
     /* 阴影平滑过渡 */
     transition: filter var(--transition-smooth);
 }
 
-/* 拖拽/按下中的样式 - 文字贴纸 */
+/* 文字贴纸外层 - 拖拽/按下中的阴影 */
+.stickerText.dragging {
+    filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.2));
+}
+
+/* 创作模式下悬停效果 - 文字贴纸外层 */
+.stickerText.creativeHover:hover {
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.12));
+}
+
+/* 文字贴纸的白色轮廓 - 使用 SVG filter 实现平滑描边 */
+/* 见下方 .textSticker 样式定义 */
+
+/* 图片贴纸的轮廓 - 通过 outline 实现，颜色与文字贴纸描边一致 */
+.imageSticker {
+    outline: 6px solid var(--color-sticker-stroke);
+    outline-offset: 0;
+    /* 默认投影 - 较浅 */
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.08));
+    /* 阴影平滑过渡 */
+    transition: filter var(--transition-smooth), outline-color var(--transition-smooth);
+}
+
+/* 拖拽/按下中的样式 - 文字贴纸内层只保留描边 */
 .textSticker.dragging {
     cursor: grabbing;
-    /* 保留 SVG 描边 + 加深阴影，增大模糊值 */
-    filter: url(#text-sticker-stroke) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.2));
     will-change: transform, left, top;
 }
 
@@ -64,7 +80,9 @@
     cursor: grabbing;
     /* 加深阴影，增大模糊值 */
     filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.2));
-    will-change: transform, left, top;
+    /* 保持阴影过渡动画 */
+    transition: filter var(--transition-smooth);
+    will-change: transform, left, top, filter;
 }
 
 /* 回弹动画 - 贴纸从UI区域弹回安全区域 */
@@ -73,10 +91,8 @@
         top 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* 创作模式下悬停效果 - 文字贴纸 */
-.textSticker.creativeHover:hover {
-    filter: url(#text-sticker-stroke) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.12));
-}
+/* 创作模式下悬停效果 - 文字贴纸内层不需要修改 */
+/* 阴影变化由外层 .stickerText.creativeHover:hover 处理 */
 
 /* 创作模式下悬停效果 - 图片贴纸 */
 .imageSticker.creativeHover:hover {
@@ -110,10 +126,8 @@
     -moz-text-size-adjust: none;
     -webkit-text-size-adjust: none;
     text-size-adjust: none;
-    /* SVG filter 描边 + 默认浅投影 */
-    filter: url(#text-sticker-stroke) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.08));
-    /* 阴影平滑过渡 */
-    transition: filter var(--transition-smooth);
+    /* SVG filter 描边 (阴影由外层 .stickerText 处理) */
+    filter: url(#text-sticker-stroke);
 }
 
 /* Firefox 专用样式 - 使用 -moz-appearance 检测 Firefox */

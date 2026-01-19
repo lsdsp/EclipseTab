@@ -1,11 +1,34 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
+import { useThemeData } from '../../context/ThemeContext';
 import alignLeftIcon from '../../assets/icons/align-left.svg';
 import alignCenterIcon from '../../assets/icons/align-center.svg';
 import alignRightIcon from '../../assets/icons/align-right.svg';
 import { TEXT_COLORS } from './FloatingToolbar';
 import styles from './ZenShelf.module.css';
+
+// ============================================================================
+// Theme-aware color inversion for text stickers
+// ============================================================================
+const BLACK_COLOR = '#1C1C1E';
+const WHITE_COLOR = '#FFFFFF';
+
+/**
+ * Inverts black/white colors in dark theme for better readability
+ */
+const getThemeAwareColor = (color: string, theme: string): string => {
+    if (theme !== 'dark') return color;
+
+    const upperColor = color.toUpperCase();
+    if (upperColor === BLACK_COLOR.toUpperCase() || upperColor === '#1C1C1E') {
+        return WHITE_COLOR;
+    }
+    if (upperColor === WHITE_COLOR.toUpperCase() || upperColor === '#FFF') {
+        return BLACK_COLOR;
+    }
+    return color;
+};
 
 // ============================================================================
 // TextInput Component - Enhanced popup with style options
@@ -31,6 +54,7 @@ interface TextInputProps {
 }
 
 export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialStyle, onSubmit, onCancel, viewportScale }) => {
+    const { theme } = useThemeData();
     const inputRef = useRef<HTMLDivElement>(null);
     const toolbarRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -162,7 +186,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
                 contentEditable
                 suppressContentEditableWarning
                 style={{
-                    color: textColor,
+                    color: getThemeAwareColor(textColor, theme),
                     textAlign: textAlign,
                     fontSize: `${fontSize * viewportScale}px`,
                 }}

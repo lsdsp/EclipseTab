@@ -150,25 +150,57 @@ function App() {
     handleItemEdit(item, rect);
   }, []);
 
+  // Update SVG filter stroke color based on CSS variable
+  useEffect(() => {
+    const updateStrokeColor = () => {
+      const strokeColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--color-sticker-stroke').trim();
+
+      const floodElement = document.querySelector('#text-sticker-stroke feFlood');
+      if (floodElement && strokeColor) {
+        floodElement.setAttribute('flood-color', strokeColor);
+      }
+    };
+
+    // Update on mount
+    updateStrokeColor();
+
+    // Update when theme changes (observe data-theme attribute)
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+          updateStrokeColor();
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme']
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className={styles.app}>
       {/* SVG 滤镜定义 - 用于文字贴纸的平滑描边效果 */}
       <svg width="0" height="0" style={{ position: 'absolute', visibility: 'hidden' }}>
         <defs>
-          {/* 白色圆角描边滤镜：使用 feMorphology dilate + 模糊 + 锐化实现圆角效果 */}
+          {/* 圆角描边滤镜：使用 feMorphology dilate + 模糊 + 锐化实现圆角效果 */}
           <filter id="text-sticker-stroke" x="-25%" y="-25%" width="150%" height="150%">
             {/* 步骤1: 扩展原始图形轮廓 */}
             <feMorphology in="SourceAlpha" operator="dilate" radius="4.5" result="dilated" />
             {/* 步骤2: 轻微模糊使边缘变圆滑 */}
             <feGaussianBlur in="dilated" stdDeviation="2" result="blurred" />
-            {/* 步骤3: 使用 feComponentTransfer 锐化边缘，将模糊重新变成实心 */}
+            {/* 步骤3: 使用 feComponentTransfer 锐化边缘,将模糊重新变成实心 */}
             <feComponentTransfer in="blurred" result="rounded">
               <feFuncA type="table" tableValues="0 0 0.5 1 1 1 1 1" />
             </feComponentTransfer>
-            {/* 步骤4: 将圆角轮廓填充为白色 */}
+            {/* 步骤4: 将圆角轮廓填充为 --color-sticker-stroke (动态更新) */}
             <feFlood floodColor="white" result="white" />
             <feComposite in="white" in2="rounded" operator="in" result="stroke" />
-            {/* 步骤5: 将白色描边放在原始图形下方 */}
+            {/* 步骤5: 将描边放在原始图形下方 */}
             <feMerge>
               <feMergeNode in="stroke" />
               <feMergeNode in="SourceGraphic" />
@@ -279,18 +311,16 @@ function App() {
           />
         </Suspense>
       )}
-      {isSearchEngineModalOpen && (
-        <Suspense fallback={null}>
-          <SearchEngineModal
-            isOpen={isSearchEngineModalOpen}
-            selectedEngine={selectedSearchEngine}
-            engines={SEARCH_ENGINES}
-            onClose={() => setIsSearchEngineModalOpen(false)}
-            onSelect={setSelectedSearchEngine}
-            anchorRect={searchEngineAnchor}
-          />
-        </Suspense>
-      )}
+      <Suspense fallback={null}>
+        <SearchEngineModal
+          isOpen={isSearchEngineModalOpen}
+          selectedEngine={selectedSearchEngine}
+          engines={SEARCH_ENGINES}
+          onClose={() => setIsSearchEngineModalOpen(false)}
+          onSelect={setSelectedSearchEngine}
+          anchorRect={searchEngineAnchor}
+        />
+      </Suspense>
       {isSettingsModalOpen && (
         <Suspense fallback={null}>
           <SettingsModal

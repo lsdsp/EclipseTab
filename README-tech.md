@@ -66,15 +66,25 @@ Zen Shelf 将你的新标签页变成一个自由的创意空间，支持文字�
   - 点击拖动贴纸到任意位置
   - 拖拽时带有轻微旋转物理效果（-3° ~ +3°）
   - 模拟纸张飘动的真实感
+  - 使用 RAF（requestAnimationFrame）优化拖拽性能
+- **物理动画**：
+  - 点击时阴影收缩动画（按压反馈）
+  - 拖拽时平滑的阴影过渡
+  - 释放时弹性回弹效果
+  - 基于速度的旋转角度计算
 - **智能边界**：
   - 文字贴纸靠近边缘时自动换行
   - 左右边界均有动态宽度限制
+  - 自动检测与 Dock/Searcher 的碰撞
+  - 智能选择最短逃逸路径（上/左/右）
 - **层级管理**：
-  - 双击贴纸置顶
-  - 自动管理 z-index
+  - 点击贴纸自动置顶
+  - 拖拽时 z-index 提升至 3000
+  - 自动管理贴纸层级关系
 - **响应式布局**：
   - 基于 1920px 参考宽度的坐标系统
   - 窗口缩放时贴纸位置自适应
+  - viewport scale 动态计算
 
 **🎯 创意模式（Edit Mode）**
 - **开启方式**：右键菜单 → Toggle Edit Mode
@@ -541,6 +551,14 @@ src/
 │   │   ├── AddIcon.tsx              # 编辑模式下的 + 按钮
 │   │   └── *.module.css             # 抖动动画、间隙动画、样式
 │   │
+│   ├── ZenShelf/          # 灵感白板组件
+│   │   ├── ZenShelf.tsx             # 主容器，管理贴纸状态和交互
+│   │   ├── StickerItem.tsx          # 单个贴纸渲染和物理动画
+│   │   ├── TextInput.tsx            # 文字贴纸输入框
+│   │   ├── FloatingToolbar.tsx      # 浮动工具栏（样式编辑）
+│   │   ├── ContextMenu.tsx          # 右键菜单
+│   │   └── ZenShelf.module.css      # 贴纸样式和动画
+│   │
 │   ├── DragPreview/       # 拖拽预览组件
 │   │   ├── DragPreview.tsx          # 统一的拖拽预览 Portal 组件
 │   │   │                            # Dock 和 FolderView 共享预览逻辑
@@ -786,12 +804,26 @@ src/
 
 ### 5. 架构设计
 
-- ✅ **三层 Context 架构**：精细化状态管理，减少 70% 的不必要重渲染
-- ✅ **DragPreview 组件复用**：Dock 和 Folder 共享预览逻辑，减少代码重复
-- ✅ **布局常量统一管理**：layout.ts 集中管理所有尺寸、阈值、动画参数
-- ✅ **拖拽策略模式**：封装 Dock 和 Folder 的差异化逻辑，易于扩展
-- ✅ **滞后机制**：applyHysteresis 防止拖拽时的抖动和误触发
-- ✅ **类型安全**：完整的 TypeScript 类型定义，编译时错误检查
+- ✅ **三层 Context 架构**:精细化状态管理,减少 70% 的不必要重渲染
+- ✅ **DragPreview 组件复用**:Dock 和 Folder 共享预览逻辑,减少代码重复
+- ✅ **布局常量统一管理**:layout.ts 集中管理所有尺寸、阈值、动画参数
+- ✅ **拖拽策略模式**:封装 Dock 和 Folder 的差异化逻辑,易于扩展
+- ✅ **滞后机制**:applyHysteresis 防止拖拽时的抖动和误触发
+- ✅ **类型安全**:完整的 TypeScript 类型定义,编译时错误检查
+
+### 6. Zen Shelf 性能优化
+
+- ✅ **RAF 节流优化**:拖拽和缩放使用 requestAnimationFrame 节流,避免频繁重渲染
+- ✅ **React.memo 优化**:StickerItem 使用自定义比较函数,仅在必要时重渲染
+- ✅ **物理动画系统**:
+  - 独立的 RAF 动画循环,不影响 React 渲染
+  - 基于速度的旋转角度计算,模拟真实物理效果
+  - 平滑插值算法(Spring-like effect)
+- ✅ **智能碰撞检测**:
+  - 实时检测与 UI 区域的重叠
+  - 计算最短逃逸路径,优化用户体验
+  - 使用 data-ui-zone 属性标记 UI 区域
+- ✅ **双缓冲机制**:拖拽时使用 pendingPosition 缓存,确保最终位置准确更新
 
 ---
 
