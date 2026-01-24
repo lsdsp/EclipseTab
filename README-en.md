@@ -184,7 +184,7 @@ Focus Spaces lets you create independent workspaces for different scenarios, eac
 
 - **Multi-Engine Support** - Google, Bing, Baidu, DuckDuckGo
 - **Quick Switch** - Click icon to switch search engines
-- **Real-time Suggestions** - Auto-display search suggestions while typing
+- **Optional Real-time Suggestions** - Auto-display suggestions after enabling optional permissions
 - **Keyboard Navigation** - Arrow keys to select, Enter to confirm
 
 ### 🎨 Beautiful Themes
@@ -199,9 +199,9 @@ Focus Spaces lets you create independent workspaces for different scenarios, eac
 
 **Custom Backgrounds**
 - Rich gradient and solid color selections
-- Texture overlay effects (Point, X textures)
-- Upload custom wallpapers (supports 10MB+ high-res images)
-- Wallpaper history for quick switching
+- **Texture overlay effects** - Dynamic texture colors adapting to background (Point, X textures)
+- **Upload custom wallpapers** - Supports 10MB+ high-res images with auto-compression
+- **Wallpaper history** - Save last 7 wallpapers for quick switching
 
 **Smart Adaptation**
 - Auto-adjust text colors to ensure readability

@@ -25,6 +25,7 @@ interface SettingsModalProps {
 const PermissionToggle: React.FC = () => {
     const [enabled, setEnabled] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [initialCheckDone, setInitialCheckDone] = useState(false);
 
     useEffect(() => {
         // Check initial permission status
@@ -33,7 +34,11 @@ const PermissionToggle: React.FC = () => {
                 origins: ['https://suggestqueries.google.com/*']
             }, (result) => {
                 setEnabled(result);
+                // Set timeout to ensure state update has processed before enabling transitions
+                setTimeout(() => setInitialCheckDone(true), 50);
             });
+        } else {
+            setInitialCheckDone(true);
         }
     }, []);
 
@@ -41,32 +46,33 @@ const PermissionToggle: React.FC = () => {
         if (loading) return;
         setLoading(true);
 
+        // Dev mode fallback: if chrome API is missing, simulate toggle
+        if (typeof chrome === 'undefined' || !chrome.permissions) {
+            setTimeout(() => {
+                setEnabled(!enabled);
+                setLoading(false);
+            }, 300);
+            return;
+        }
+
         const origins = ['https://suggestqueries.google.com/*', 'https://www.google.com/*', 'https://suggestion.baidu.com/*'];
 
         if (enabled) {
             // Remove permission
-            if (typeof chrome !== 'undefined' && chrome.permissions) {
-                chrome.permissions.remove({ origins }, (removed) => {
-                    if (removed) {
-                        setEnabled(false);
-                    }
-                    setLoading(false);
-                });
-            } else {
+            chrome.permissions.remove({ origins }, (removed) => {
+                if (removed) {
+                    setEnabled(false);
+                }
                 setLoading(false);
-            }
+            });
         } else {
             // Request permission
-            if (typeof chrome !== 'undefined' && chrome.permissions) {
-                chrome.permissions.request({ origins }, (granted) => {
-                    if (granted) {
-                        setEnabled(true);
-                    }
-                    setLoading(false);
-                });
-            } else {
+            chrome.permissions.request({ origins }, (granted) => {
+                if (granted) {
+                    setEnabled(true);
+                }
                 setLoading(false);
-            }
+            });
         }
     };
 
@@ -76,6 +82,7 @@ const PermissionToggle: React.FC = () => {
                 className={styles.layoutHighlight}
                 style={{
                     transform: `translateX(${enabled ? 0 : 100}%)`,
+                    transition: initialCheckDone ? undefined : 'none',
                 }}
             />
             <button
@@ -83,7 +90,7 @@ const PermissionToggle: React.FC = () => {
                 onClick={enabled ? undefined : handleToggle}
                 title="Enable"
             >
-                {loading ? '...' : 'On'}
+                On
             </button>
             <button
                 className={styles.layoutToggleOption}
@@ -200,14 +207,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         top: `${anchorPosition.y + 60}px`,
     };
 
-    // Highlight index: 0 = light, 1 = dark, 2 = auto
+    // Highlight index: 0 = auto, 1 = light, 2 = dark
     let activeIndex = -1;
     if (followSystem) {
-        activeIndex = 2;
-    } else if (theme === 'light') {
         activeIndex = 0;
-    } else if (theme === 'dark') {
+    } else if (theme === 'light') {
         activeIndex = 1;
+    } else if (theme === 'dark') {
+        activeIndex = 2;
     }
 
     const highlightStyle: React.CSSProperties = {
@@ -238,17 +245,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                 <div className={styles.innerContainer}>
                     {/* Theme Section */}
                     <div className={styles.iconContainer}>
-                        {/* Default Theme Button */}
-                        <button
-                            className={`${styles.defaultTheme} ${isDefaultTheme ? styles.defaultThemeActive : ''}`}
-                            onClick={() => handleThemeSelect('default')}
-                            title="Default Theme"
-                        >
-                            <img src={defaultIcon} alt="Default Theme" width={24} height={24} />
-                        </button>
-                        {/* Theme Group (Light / Dark / Auto) */}
+                        {/* Theme Group (Auto / Light / Dark) */}
                         <div className={styles.themeGroupContainer}>
                             <div className={styles.highlightBackground} style={highlightStyle} />
+                            <button
+                                className={styles.themeGroupOption}
+                                onClick={handleToggleFollowSystem}
+                                title="Follow System"
+                            >
+                                <img src={autoIcon} alt="Follow System" width={24} height={24} />
+                            </button>
                             <button
                                 className={styles.themeGroupOption}
                                 onClick={() => handleThemeSelect('light')}
@@ -263,14 +269,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                             >
                                 <img src={darkIcon} alt="Dark Theme" width={24} height={24} />
                             </button>
-                            <button
-                                className={styles.themeGroupOption}
-                                onClick={handleToggleFollowSystem}
-                                title="Follow System"
-                            >
-                                <img src={autoIcon} alt="Follow System" width={24} height={24} />
-                            </button>
                         </div>
+                        {/* Default Theme Button */}
+                        <button
+                            className={`${styles.defaultTheme} ${isDefaultTheme ? styles.defaultThemeActive : ''}`}
+                            onClick={() => handleThemeSelect('default')}
+                            title="Default Theme"
+                        >
+                            <img src={defaultIcon} alt="Default Theme" width={24} height={24} />
+                        </button>
                     </div>
 
                     {/* Texture Section - Animated Wrapper */}

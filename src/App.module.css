@@ -24,13 +24,13 @@
   /* 宽度适应内容 */
   width: auto;
   max-width: var(--container-max-width);
-  min-width: var(--container-min-width);
+  /* 移除 min-width 以支持响应式缩放 */
   z-index: 100;
   /* Above stickers (canvas z-index: 1) */
-  /* Position transition animation */
+  /* Position transition animation + scale transition */
   transition: top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
     bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
     width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -47,12 +47,12 @@
   /* 宽度适应内容 */
   width: auto;
   max-width: var(--container-max-width);
-  min-width: var(--container-min-width);
+  /* 移除 min-width 以支持响应式缩放 */
   z-index: 100;
-  /* Position transition animation */
+  /* Position transition animation + scale transition */
   transition: top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
     bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
     width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

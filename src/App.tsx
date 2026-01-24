@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, lazy, Suspense, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, lazy, Suspense, useEffect, useRef, useLayoutEffect } from 'react';
 import { DockItem } from './types';
 import { SEARCH_ENGINES } from './constants/searchEngines';
 import { useDockData, useDockUI, useDockDrag } from './context/DockContext';
@@ -88,6 +88,35 @@ function App() {
   const [showEditor, setShowEditor] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [dockWidth, setDockWidth] = useState<number | null>(null);
+
+  // ============================================================================
+  // 响应式缩放: 当窗口宽度接近容器宽度时，缩放底部容器
+  // ============================================================================
+  const SCALE_PADDING = 48; // 左右各留 24px 边距
+  const MIN_SCALE = 0.5; // 最小缩放比例
+
+  const [containerScale, setContainerScale] = useState(1);
+
+  useLayoutEffect(() => {
+    const calculateScale = () => {
+      const windowWidth = window.innerWidth;
+      // 使用实际的 dockWidth 作为阈值基准，如果还没有测量到则使用默认值 640
+      const containerWidth = dockWidth ?? 640;
+      const scaleThreshold = containerWidth + SCALE_PADDING;
+
+      if (windowWidth >= scaleThreshold) {
+        setContainerScale(1);
+      } else {
+        // 计算缩放比例: 窗口宽度 / 阈值宽度
+        const scale = Math.max(MIN_SCALE, windowWidth / scaleThreshold);
+        setContainerScale(scale);
+      }
+    };
+
+    calculateScale();
+    window.addEventListener('resize', calculateScale);
+    return () => window.removeEventListener('resize', calculateScale);
+  }, [dockWidth]);
   // 跟踪拖拽来源，用于区分内部拖拽和外部拖拽
   const [draggingFromFolder, setDraggingFromFolder] = useState(false);
 
@@ -217,6 +246,12 @@ function App() {
       <div
         className={dockPosition === 'center' ? styles.containerCenter : styles.container}
         data-ui-zone="bottom"
+        style={containerScale < 1 ? {
+          transform: dockPosition === 'center'
+            ? `translate(-50%, -50%) scale(${containerScale})`
+            : `translateX(-50%) scale(${containerScale})`,
+          transformOrigin: dockPosition === 'center' ? 'center center' : 'bottom center',
+        } : undefined}
       >
         <Searcher
           searchEngine={selectedSearchEngine}
