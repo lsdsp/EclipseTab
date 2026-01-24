@@ -27,17 +27,27 @@ const PermissionToggle: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [initialCheckDone, setInitialCheckDone] = useState(false);
 
+    // Define all required origins consistently
+    const REQUIRED_ORIGINS = [
+        'https://suggestqueries.google.com/*',
+        'https://www.google.com/*',
+        'https://suggestion.baidu.com/*'
+    ];
+
     useEffect(() => {
         // Check initial permission status
         if (typeof chrome !== 'undefined' && chrome.permissions) {
             chrome.permissions.contains({
-                origins: ['https://suggestqueries.google.com/*']
+                origins: REQUIRED_ORIGINS
             }, (result) => {
                 setEnabled(result);
                 // Set timeout to ensure state update has processed before enabling transitions
                 setTimeout(() => setInitialCheckDone(true), 50);
             });
         } else {
+            // Dev mode fallback - check local storage
+            const savedState = localStorage.getItem('search_suggestions_enabled');
+            setEnabled(savedState === 'true');
             setInitialCheckDone(true);
         }
     }, []);
@@ -46,20 +56,20 @@ const PermissionToggle: React.FC = () => {
         if (loading) return;
         setLoading(true);
 
-        // Dev mode fallback: if chrome API is missing, simulate toggle
+        // Dev mode fallback: if chrome API is missing, simulate toggle and save to local storage
         if (typeof chrome === 'undefined' || !chrome.permissions) {
             setTimeout(() => {
-                setEnabled(!enabled);
+                const newState = !enabled;
+                setEnabled(newState);
+                localStorage.setItem('search_suggestions_enabled', String(newState));
                 setLoading(false);
             }, 300);
             return;
         }
 
-        const origins = ['https://suggestqueries.google.com/*', 'https://www.google.com/*', 'https://suggestion.baidu.com/*'];
-
         if (enabled) {
             // Remove permission
-            chrome.permissions.remove({ origins }, (removed) => {
+            chrome.permissions.remove({ origins: REQUIRED_ORIGINS }, (removed) => {
                 if (removed) {
                     setEnabled(false);
                 }
@@ -67,7 +77,7 @@ const PermissionToggle: React.FC = () => {
             });
         } else {
             // Request permission
-            chrome.permissions.request({ origins }, (granted) => {
+            chrome.permissions.request({ origins: REQUIRED_ORIGINS }, (granted) => {
                 if (granted) {
                     setEnabled(true);
                 }
