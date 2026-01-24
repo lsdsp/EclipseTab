@@ -24,9 +24,8 @@ interface SettingsModalProps {
 
 // Simple permission toggle component
 const PermissionToggle: React.FC = () => {
-    const [enabled, setEnabled] = useState(false);
+    const [enabled, setEnabled] = useState<boolean | null>(null);
     const [loading, setLoading] = useState(false);
-    const [initialCheckDone, setInitialCheckDone] = useState(false);
     const { t } = useLanguage();
 
     // Define all required origins consistently
@@ -43,19 +42,16 @@ const PermissionToggle: React.FC = () => {
                 origins: REQUIRED_ORIGINS
             }, (result) => {
                 setEnabled(result);
-                // Set timeout to ensure state update has processed before enabling transitions
-                setTimeout(() => setInitialCheckDone(true), 50);
             });
         } else {
             // Dev mode fallback - check local storage
             const savedState = localStorage.getItem('search_suggestions_enabled');
             setEnabled(savedState === 'true');
-            setInitialCheckDone(true);
         }
     }, []);
 
     const handleToggle = () => {
-        if (loading) return;
+        if (loading || enabled === null) return;
         setLoading(true);
 
         // Dev mode fallback: if chrome API is missing, simulate toggle and save to local storage
@@ -90,23 +86,24 @@ const PermissionToggle: React.FC = () => {
 
     return (
         <div className={styles.layoutToggleGroup}>
-            <div
-                className={styles.layoutHighlight}
-                style={{
-                    transform: `translateX(${enabled ? 0 : 100}%)`,
-                    transition: initialCheckDone ? undefined : 'none',
-                }}
-            />
+            {enabled !== null && (
+                <div
+                    className={styles.layoutHighlight}
+                    style={{
+                        transform: `translateX(${enabled ? 0 : 100}%)`,
+                    }}
+                />
+            )}
             <button
                 className={styles.layoutToggleOption}
-                onClick={enabled ? undefined : handleToggle}
+                onClick={enabled === true ? undefined : handleToggle}
                 title={t.settings.on}
             >
                 {t.settings.on}
             </button>
             <button
                 className={styles.layoutToggleOption}
-                onClick={enabled ? handleToggle : undefined}
+                onClick={enabled === false ? undefined : handleToggle}
                 title={t.settings.off}
             >
                 {t.settings.off}
@@ -477,6 +474,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                         </div>
                     </div>
 
+
+                    {/* Footer - GitHub Link */}
+                    <div className={styles.footer}>
+                        <a
+                            href="https://github.com/ENCRE0520/EclipseTab"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.githubLink}
+                            title="View on GitHub"
+                        >
+                            <span>GitHub</span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </>

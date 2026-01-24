@@ -73,7 +73,11 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
             scaleFadeIn(toolbarRef.current, 200);
         }
         if (inputWrapperRef.current) {
-            scaleFadeIn(inputWrapperRef.current, 200);
+            // Only animate input entrance if we are adding new text (empty initialText)
+            // If editing, the text is already visible on canvas, so no entrance animation needed for the input itself.
+            if (!initialText) {
+                scaleFadeIn(inputWrapperRef.current, 200);
+            }
         }
         if (inputRef.current) {
             inputRef.current.focus();
