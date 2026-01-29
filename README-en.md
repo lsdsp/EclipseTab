@@ -36,40 +36,13 @@ Eclipse Tab is a powerful browser new tab extension, centered around **Zen Shelf
 
 ## ✨ Product Overview
 
-<table>
-<tr>
-<td width="50%">
+Eclipse Tab transforms your browser's new tab page into a powerful workspace:
 
-### ✏️ Zen Shelf
-**Creative Canvas**
-
-Capture inspiration anytime, anywhere with text and image stickers
-
-</td>
-<td width="50%">
-
-### 🌐 Focus Spaces
-**Multiple Workspaces**
-
-Create independent workspaces for different scenarios
-
-</td>
-</tr>
-<tr>
-<td>
-
-### 🚀 Dock App Bar
-macOS-style app management, elegant and efficient
-
-</td>
-<td>
-
-### 🔍 Smart Search
-Multi-engine support with real-time suggestions
-
-</td>
-</tr>
-</table>
+- ✏️ **Zen Shelf (Creative Canvas)** - Capture inspiration anytime, anywhere with text and image stickers
+- 🌐 **Focus Spaces (Multiple Workspaces)** - Create independent workspaces for different scenarios
+- 🚀 **Dock App Bar** - macOS-style app management, elegant and efficient
+- 🔍 **Smart Search** - Multi-engine support with real-time suggestions
+- 🎨 **Beautiful Themes** - Multiple theme modes with custom wallpapers
 
 <br>
 
@@ -77,15 +50,11 @@ Multi-engine support with real-time suggestions
 
 ### 🎯 Install from Extension Stores (Recommended)
 
-<div align="center">
-
 | Browser | Install Link |
-|:---:|:---|
+|:---|:---|
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_48x48.png" width="24" /> **Chrome** | [Chrome Web Store](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp?utm_source=ext_app_menu) |
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_48x48.png" width="24" /> **Edge** | [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/eclipse-tab/omlbmhdkajhbcdhjdgjalelbbmjoekfj?hl=zh-cn) |
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox_48x48.png" width="24" /> **Firefox** | [Firefox Add-ons](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/) |
-
-</div>
 
 ### 🛠️ Manual Installation
 

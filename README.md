@@ -36,40 +36,13 @@ Eclipse Tab 是一款功能强大的浏览器新标签页扩展，以 **Zen Shel
 
 ## ✨ 产品简介
 
-<table>
-<tr>
-<td width="50%">
+Eclipse Tab 将你的浏览器新标签页变成一个强大的工作台：
 
-### ✏️ Zen Shelf
-**灵感白板**
-
-随时随地记录灵感，支持文字和图片贴纸
-
-</td>
-<td width="50%">
-
-### 🌐 Focus Spaces
-**多重空间**
-
-为不同场景创建独立工作空间
-
-</td>
-</tr>
-<tr>
-<td>
-
-### 🚀 Dock 应用栏
-macOS 风格的应用管理，优雅高效
-
-</td>
-<td>
-
-### 🔍 智能搜索
-多引擎支持，实时搜索建议
-
-</td>
-</tr>
-</table>
+- ✏️ **Zen Shelf（灵感白板）** - 随时随地记录灵感，支持文字和图片贴纸
+- 🌐 **Focus Spaces（多重空间）** - 为不同场景创建独立工作空间
+- 🚀 **Dock 应用栏** - macOS 风格的应用管理，优雅高效
+- 🔍 **智能搜索** - 多引擎支持，实时搜索建议
+- 🎨 **精美主题** - 多种主题模式，自定义壁纸
 
 <br>
 
@@ -77,15 +50,11 @@ macOS 风格的应用管理，优雅高效
 
 ### 🎯 从扩展商店安装（推荐）
 
-<div align="center">
-
 | 浏览器 | 安装链接 |
-|:---:|:---|
+|:---|:---|
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_48x48.png" width="24" /> **Chrome** | [Chrome 扩展商店](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp?utm_source=ext_app_menu) |
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_48x48.png" width="24" /> **Edge** | [Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/eclipse-tab/omlbmhdkajhbcdhjdgjalelbbmjoekfj?hl=zh-cn) |
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox_48x48.png" width="24" /> **Firefox** | [Firefox 扩展商店](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/) |
-
-</div>
 
 ### 🛠️ 手动安装
 
