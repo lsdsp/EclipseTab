@@ -1,20 +1,29 @@
-# Eclipse Tab - Next-Gen Browser New Tab Extension
+<div align="center">
+
+# 🌟 Eclipse Tab
+
+### Next-Gen Browser New Tab Extension
+
+[![Chrome Web Store](https://img.shields.io/badge/Chrome-Available-brightgreen?logo=googlechrome)](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp)
+[![Edge Add-ons](https://img.shields.io/badge/Edge-Available-blue?logo=microsoftedge)](https://microsoftedge.microsoft.com/addons/detail/eclipse-tab/omlbmhdkajhbcdhjdgjalelbbmjoekfj)
+[![Firefox Add-ons](https://img.shields.io/badge/Firefox-Available-orange?logo=firefox)](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/)
+[![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
 
 English | [简体中文](README.md)
 
-<div align="center">
-
 <img width="2940" height="1846" alt="图片" src="https://github.com/user-attachments/assets/19ba09a7-3917-4110-a9f7-10622905a06d" />
 
-**Creative Canvas · Multiple Spaces · Beautiful & Efficient**
+**✨ Creative Canvas · 🌐 Multiple Spaces · 🎨 Beautiful & Efficient**
 
 </div>
 
-> 💡 This project is 90% developed using AI-assisted coding (VibeCoding)
+<br>
+
+> 💡 **AI-Powered Development** - This project is 90% developed using AI-assisted coding (VibeCoding)
 
 Eclipse Tab is a powerful browser new tab extension, centered around **Zen Shelf (Creative Canvas)** and **Focus Spaces (Multiple Workspaces)**, transforming your browser into a creative workstation and productivity hub.
 
----
+<br>
 
 ## 📖 Table of Contents
 
@@ -23,32 +32,67 @@ Eclipse Tab is a powerful browser new tab extension, centered around **Zen Shelf
 - [🎯 Core Features](#-core-features)
 - [🌟 Additional Features](#-additional-features)
 
----
+<br>
 
 ## ✨ Product Overview
 
-Eclipse Tab transforms your browser's new tab page into a powerful workspace:
+<table>
+<tr>
+<td width="50%">
 
-- ✏️ **Zen Shelf (Creative Canvas)** - Capture inspiration anytime, anywhere with text and image stickers
-- 🌐 **Focus Spaces (Multiple Workspaces)** - Create independent workspaces for different scenarios
-- 🚀 **Dock App Bar** - macOS-style app management, elegant and efficient
-- 🔍 **Smart Search** - Multi-engine support with real-time suggestions
-- 🎨 **Beautiful Themes** - Multiple theme modes with custom wallpapers
+### ✏️ Zen Shelf
+**Creative Canvas**
 
----
+Capture inspiration anytime, anywhere with text and image stickers
+
+</td>
+<td width="50%">
+
+### 🌐 Focus Spaces
+**Multiple Workspaces**
+
+Create independent workspaces for different scenarios
+
+</td>
+</tr>
+<tr>
+<td>
+
+### 🚀 Dock App Bar
+macOS-style app management, elegant and efficient
+
+</td>
+<td>
+
+### 🔍 Smart Search
+Multi-engine support with real-time suggestions
+
+</td>
+</tr>
+</table>
+
+<br>
 
 ## 📦 Installation & Usage
 
-### Install from Extension Stores (Recommended)
+### 🎯 Install from Extension Stores (Recommended)
 
-- **Chrome** - [Chrome Web Store](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp?utm_source=ext_app_menu)
-- **Edge** - [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/eclipse-tab/omlbmhdkajhbcdhjdgjalelbbmjoekfj?hl=zh-cn)
-- **Firefox** - [Firefox Add-ons](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/)
+<div align="center">
 
-### Manual Installation
+| Browser | Install Link |
+|:---:|:---|
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_48x48.png" width="24" /> **Chrome** | [Chrome Web Store](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp?utm_source=ext_app_menu) |
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_48x48.png" width="24" /> **Edge** | [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/eclipse-tab/omlbmhdkajhbcdhjdgjalelbbmjoekfj?hl=zh-cn) |
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox_48x48.png" width="24" /> **Firefox** | [Firefox Add-ons](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/) |
+
+</div>
+
+### 🛠️ Manual Installation
 
 <details>
-<summary>Click to expand manual installation steps</summary>
+<summary>📋 Click to expand manual installation steps</summary>
+
+<br>
 
 **Chrome / Edge**
 1. Download and build the project (`npm run build`)
@@ -62,59 +106,70 @@ Eclipse Tab transforms your browser's new tab page into a powerful workspace:
 
 </details>
 
-### Getting Started
+### 🚀 Getting Started
 
 After installation, open a new tab:
 
-1. **Add Apps** - Click edit button to add websites
-2. **Create Spaces** - Right-click Navigator to create workspaces
-3. **Capture Ideas** - Double-click to add stickers
-4. **Personalize** - Set themes and wallpapers
+```
+1️⃣ Add Apps → Click edit button to add websites
+2️⃣ Create Spaces → Right-click Navigator to create workspaces
+3️⃣ Capture Ideas → Double-click to add stickers
+4️⃣ Personalize → Set themes and wallpapers
+```
 
----
+<br>
 
 ## 🎯 Core Features
 
-### Zen Shelf - Creative Canvas
+<table>
+<tr>
+<td width="50%" valign="top">
 
-Transform your new tab into a free creative space, like sticky notes and photo walls on your desk for capturing inspiration anytime.
+### ✏️ Zen Shelf - Creative Canvas
 
-**Text Stickers**
-- Double-click page or use right-click menu to create
-- Customize font color, alignment, and size
-- Edit and export as images
+> Transform your new tab into a free creative space, like sticky notes and photo walls on your desk for capturing inspiration anytime.
 
-**Image Stickers**
-- Upload, paste (Ctrl+V), or drag-and-drop to add
-- Resize with mouse wheel
-- Copy to clipboard or export as PNG
+#### 📝 Text Stickers
+- ⚡ Double-click page or use right-click menu to create
+- 🎨 Customize font color, alignment, and size
+- 💾 Edit and export as images
 
-**Interactive Features**
-- Free dragging with auto-avoidance of UI elements
-- Creative mode hides all UI for focused work
-- Shortcuts: Double-click to add, Ctrl+V to paste, Delete to remove
+#### 🖼️ Image Stickers
+- 📤 Upload, paste (Ctrl+V), or drag-and-drop to add
+- 🔍 Resize with mouse wheel
+- 📋 Copy to clipboard or export as PNG
 
----
+#### ⚡ Interactive Features
+- 🖱️ Free dragging with auto-avoidance of UI elements
+- 🎭 Creative mode hides all UI for focused work
+- ⌨️ Shortcuts: Double-click to add, Ctrl+V to paste, Delete to remove
 
-### Focus Spaces - Multiple Workspaces
+</td>
+<td width="50%" valign="top">
 
-Create independent workspaces for different scenarios, each with its own app list, achieving true separation of work, study, and entertainment.
+### 🌐 Focus Spaces - Multiple Workspaces
 
-**Space Management**
-- Right-click Navigator to create new spaces
-- Customize names and pin frequently used spaces
-- Import/export space configurations (JSON format)
+> Create independent workspaces for different scenarios, each with its own app list, achieving true separation of work, study, and entertainment.
 
-**Quick Switching**
-- Click Navigator to cycle through spaces
-- Smooth transition animations
+#### 🗂️ Space Management
+- ➕ Right-click Navigator to create new spaces
+- ✏️ Customize names and pin frequently used spaces
+- 💾 Import/export space configurations (JSON format)
 
-**Use Cases**
-- Work: Email, project management, development tools
-- Study: Online courses, notes, documentation
-- Entertainment: Videos, music, social media
+#### 🔄 Quick Switching
+- 🖱️ Click Navigator to cycle through spaces
+- ✨ Smooth transition animations
 
----
+#### 🎯 Use Cases
+- 💼 **Work**: Email, project management, development tools
+- 📚 **Study**: Online courses, notes, documentation
+- 🎮 **Entertainment**: Videos, music, social media
+
+</td>
+</tr>
+</table>
+
+<br>
 
 ## 🌟 Additional Features
 

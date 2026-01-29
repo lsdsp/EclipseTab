@@ -1,20 +1,29 @@
-# Eclipse Tab - 新一代浏览器新标签页扩展
+<div align="center">
+
+# 🌟 Eclipse Tab
+
+### 新一代浏览器新标签页扩展
+
+[![Chrome Web Store](https://img.shields.io/badge/Chrome-Available-brightgreen?logo=googlechrome)](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp)
+[![Edge Add-ons](https://img.shields.io/badge/Edge-Available-blue?logo=microsoftedge)](https://microsoftedge.microsoft.com/addons/detail/eclipse-tab/omlbmhdkajhbcdhjdgjalelbbmjoekfj)
+[![Firefox Add-ons](https://img.shields.io/badge/Firefox-Available-orange?logo=firefox)](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/)
+[![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
 
 [English](README-en.md) | 简体中文
 
-<div align="center">
-
 ![Eclipse Tab 预览](https://github.com/user-attachments/assets/f7674f4f-3830-43bc-8ac4-00fdc0ceec7d)
 
-**灵感白板 · 多重空间 · 美观高效**
+**✨ 灵感白板 · 🌐 多重空间 · 🎨 美观高效**
 
 </div>
 
-> 💡 本项目 90% 使用 AI 辅助编码（VibeCoding）开发
+<br>
+
+> 💡 **AI 驱动开发** - 本项目 90% 使用 AI 辅助编码（VibeCoding）开发
 
 Eclipse Tab 是一款功能强大的浏览器新标签页扩展，以 **Zen Shelf（灵感白板）** 和 **Focus Spaces（多重空间）** 为核心，让你的浏览器成为创意工作站和效率中心。
 
----
+<br>
 
 ## 📖 目录
 
@@ -23,32 +32,67 @@ Eclipse Tab 是一款功能强大的浏览器新标签页扩展，以 **Zen Shel
 - [🎯 核心功能](#-核心功能)
 - [🌟 更多功能](#-更多功能)
 
----
+<br>
 
 ## ✨ 产品简介
 
-Eclipse Tab 将你的浏览器新标签页变成一个强大的工作台：
+<table>
+<tr>
+<td width="50%">
 
-- ✏️ **Zen Shelf（灵感白板）** - 随时随地记录灵感，支持文字和图片贴纸
-- 🌐 **Focus Spaces（多重空间）** - 为不同场景创建独立工作空间
-- 🚀 **Dock 应用栏** - macOS 风格的应用管理，优雅高效
-- 🔍 **智能搜索** - 多引擎支持，实时搜索建议
-- 🎨 **精美主题** - 多种主题模式，自定义壁纸
+### ✏️ Zen Shelf
+**灵感白板**
 
----
+随时随地记录灵感，支持文字和图片贴纸
+
+</td>
+<td width="50%">
+
+### 🌐 Focus Spaces
+**多重空间**
+
+为不同场景创建独立工作空间
+
+</td>
+</tr>
+<tr>
+<td>
+
+### 🚀 Dock 应用栏
+macOS 风格的应用管理，优雅高效
+
+</td>
+<td>
+
+### 🔍 智能搜索
+多引擎支持，实时搜索建议
+
+</td>
+</tr>
+</table>
+
+<br>
 
 ## 📦 安装使用
 
-### 从扩展商店安装（推荐）
+### 🎯 从扩展商店安装（推荐）
 
-- **Chrome 浏览器** - [Chrome 扩展商店](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp?utm_source=ext_app_menu)
-- **Edge 浏览器** - [Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/eclipse-tab/omlbmhdkajhbcdhjdgjalelbbmjoekfj?hl=zh-cn)
-- **Firefox 浏览器** - [Firefox 扩展商店](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/)
+<div align="center">
 
-### 手动安装
+| 浏览器 | 安装链接 |
+|:---:|:---|
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_48x48.png" width="24" /> **Chrome** | [Chrome 扩展商店](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp?utm_source=ext_app_menu) |
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_48x48.png" width="24" /> **Edge** | [Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/eclipse-tab/omlbmhdkajhbcdhjdgjalelbbmjoekfj?hl=zh-cn) |
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox_48x48.png" width="24" /> **Firefox** | [Firefox 扩展商店](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/) |
+
+</div>
+
+### 🛠️ 手动安装
 
 <details>
-<summary>点击展开手动安装步骤</summary>
+<summary>📋 点击展开手动安装步骤</summary>
+
+<br>
 
 **Chrome / Edge**
 1. 下载项目并构建（`npm run build`）
@@ -62,59 +106,70 @@ Eclipse Tab 将你的浏览器新标签页变成一个强大的工作台：
 
 </details>
 
-### 开始使用
+### 🚀 开始使用
 
 安装后打开新标签页：
 
-1. **添加应用** - 点击编辑按钮添加常用网站
-2. **创建空间** - 右键 Navigator 创建工作空间
-3. **记录灵感** - 双击页面添加贴纸
-4. **个性化** - 设置主题和壁纸
+```
+1️⃣ 添加应用 → 点击编辑按钮添加常用网站
+2️⃣ 创建空间 → 右键 Navigator 创建工作空间
+3️⃣ 记录灵感 → 双击页面添加贴纸
+4️⃣ 个性化 → 设置主题和壁纸
+```
 
----
+<br>
 
 ## 🎯 核心功能
 
-### Zen Shelf - 灵感白板
+<table>
+<tr>
+<td width="50%" valign="top">
 
-将新标签页变成自由的创意空间，像桌面便签纸和照片墙一样随时记录灵感。
+### ✏️ Zen Shelf - 灵感白板
 
-**文字贴纸**
-- 双击页面或右键菜单快速创建
-- 自定义字体颜色、对齐方式、字号
-- 支持编辑和导出为图片
+> 将新标签页变成自由的创意空间，像桌面便签纸和照片墙一样随时记录灵感。
 
-**图片贴纸**
-- 支持上传、粘贴（Ctrl+V）、拖拽添加
-- 鼠标滚轮缩放大小
-- 可复制到剪贴板或导出 PNG
+#### 📝 文字贴纸
+- ⚡ 双击页面或右键菜单快速创建
+- 🎨 自定义字体颜色、对齐方式、字号
+- 💾 支持编辑和导出为图片
 
-**交互特性**
-- 自由拖拽，自动避让界面元素
-- 创意模式隐藏所有 UI，专注创作
-- 快捷键：双击添加、Ctrl+V 粘贴、Delete 删除
+#### 🖼️ 图片贴纸
+- 📤 支持上传、粘贴（Ctrl+V）、拖拽添加
+- 🔍 鼠标滚轮缩放大小
+- 📋 可复制到剪贴板或导出 PNG
 
----
+#### ⚡ 交互特性
+- 🖱️ 自由拖拽，自动避让界面元素
+- 🎭 创意模式隐藏所有 UI，专注创作
+- ⌨️ 快捷键：双击添加、Ctrl+V 粘贴、Delete 删除
 
-### Focus Spaces - 多重空间
+</td>
+<td width="50%" valign="top">
 
-为不同场景创建独立工作空间，每个空间有独立的应用列表，实现工作、学习、娱乐的完美分离。
+### 🌐 Focus Spaces - 多重空间
 
-**空间管理**
-- 右键 Navigator 按钮创建新空间
-- 自定义空间名称，置顶常用空间
-- 支持导入导出空间配置（JSON 格式）
+> 为不同场景创建独立工作空间，每个空间有独立的应用列表，实现工作、学习、娱乐的完美分离。
 
-**快速切换**
-- 点击 Navigator 循环切换空间
-- 流畅的切换动画
+#### 🗂️ 空间管理
+- ➕ 右键 Navigator 按钮创建新空间
+- ✏️ 自定义空间名称，置顶常用空间
+- 💾 支持导入导出空间配置（JSON 格式）
 
-**使用场景**
-- 工作：邮箱、项目管理、开发工具
-- 学习：在线课程、笔记、文档
-- 娱乐：视频、音乐、社交媒体
+#### 🔄 快速切换
+- 🖱️ 点击 Navigator 循环切换空间
+- ✨ 流畅的切换动画
 
----
+#### 🎯 使用场景
+- 💼 **工作**：邮箱、项目管理、开发工具
+- 📚 **学习**：在线课程、笔记、文档
+- 🎮 **娱乐**：视频、音乐、社交媒体
+
+</td>
+</tr>
+</table>
+
+<br>
 
 ## 🌟 更多功能
 
