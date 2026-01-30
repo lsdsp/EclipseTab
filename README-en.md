@@ -50,6 +50,11 @@ Eclipse Tab transforms your browser's new tab page into a powerful workspace:
 
 ### 🎯 Install from Extension Stores (Recommended)
 
+<<<<<<< HEAD
+=======
+<div align="left">
+
+>>>>>>> 1404110d2391785e104a45e84dde2462893cef9d
 | Browser | Install Link |
 |:---|:---|
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_48x48.png" width="24" /> **Chrome** | [Chrome Web Store](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp?utm_source=ext_app_menu) |

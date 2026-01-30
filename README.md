@@ -50,6 +50,11 @@ Eclipse Tab 将你的浏览器新标签页变成一个强大的工作台：
 
 ### 🎯 从扩展商店安装（推荐）
 
+<<<<<<< HEAD
+=======
+<div align="left">
+
+>>>>>>> 1404110d2391785e104a45e84dde2462893cef9d
 | 浏览器 | 安装链接 |
 |:---|:---|
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_48x48.png" width="24" /> **Chrome** | [Chrome 扩展商店](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp?utm_source=ext_app_menu) |
