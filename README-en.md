@@ -41,8 +41,6 @@ Eclipse Tab transforms your browser's new tab page into a powerful workspace:
 
 - ✏️ **Zen Shelf (Creative Canvas)** - Capture inspiration anytime, anywhere with text and image stickers
 - 🌐 **Focus Spaces (Multiple Workspaces)** - Create independent workspaces for different scenarios
-- 🚀 **Dock App Bar** - macOS-style app management, elegant and efficient
-- 🔍 **Smart Search** - Multi-engine support with real-time suggestions
 - 🎨 **Beautiful Themes** - Multiple theme modes with custom wallpapers
 
 <br>
@@ -73,14 +71,24 @@ Eclipse Tab transforms your browser's new tab page into a powerful workspace:
 **Firefox**
 1. Download the `.xpi` file from [Releases](../../releases)
 2. Drag into Firefox browser window and confirm installation
+</details>
 
-**Zen Browser**
-1. Install the extension following the Firefox method
-2. Open a new tab and enter `about:config`
+### 🦊 Zen Browser Setup
+
+<details>
+<summary>📋 Click to expand Zen Browser configuration steps</summary>
+
+<br>
+
+Zen Browser is based on Firefox and requires additional configuration to use Eclipse Tab properly:
+
+1. Install the extension following the Firefox method above
+2. Open a new tab and enter `about:config` in the address bar
 3. Search for `zen.urlbar.replace-newtab`
 4. Set this option to `false` (disable)
 5. Reopen a new tab to use Eclipse Tab
 
+> 💡 **Tip**: This setting disables Zen Browser's built-in new tab popup, allowing Eclipse Tab to display properly.
 
 </details>
 
@@ -119,7 +127,7 @@ After installation, open a new tab:
 > Create independent workspaces for different scenarios, achieving true separation of work, study, and entertainment.
 
 - 🗂️ **Multi-Space Management** - Create, switch, import/export spaces
-- 📱 **Independent App Lists** - Each space has its own apps
+- 📋 **Independent App Lists** - Each space has its own apps
 - 💼 **Scenario-Based** - Work, study, entertainment stay separate
 
 </td>
@@ -137,14 +145,6 @@ After installation, open a new tab:
 
 </td>
 <td width="50%" valign="top">
-
-### 🔍 Smart Search
-
-> Efficient search experience with multi-engine support.
-
-- 🌐 **Multi-Engine** - Google, Bing, Baidu, DuckDuckGo
-- 💡 **Real-time Suggestions** - Optional search suggestion feature
-- ⌨️ **Keyboard Friendly** - Supports quick keyboard operations
 
 </td>
 </tr>
@@ -215,34 +215,10 @@ After installation, open a new tab:
 ### 💾 Backup & Restore
 
 **How to backup data?**
-1. **Space Configurations**: Right-click the space switcher button on the far right of the Dock → Select "Export Space" → Save JSON file
-2. **Sticker Content**:
-   - Text stickers: Right-click sticker → "Export as Image"
-   - Image stickers: Right-click sticker → "Copy Image" or "Export PNG"
-3. **Wallpapers**: Keep original files of uploaded wallpapers
+- **Space Configurations**: Right-click the space switcher button on the far right of the Dock → Select "Export Space" → Save JSON file
 
 **How to restore data?**
-1. **Space Configurations**: Right-click the space switcher button on the far right of the Dock → Select "Import Space" → Choose previously exported JSON file
-2. **Sticker Content**: Use `Ctrl+V` to paste previously saved images
-3. **Wallpapers**: Re-upload wallpapers in settings
-
-### ⚙️ Permissions
-
-**Why is "Host permissions" needed?**
-- Search suggestion feature requires access to search engine APIs (e.g., Google Suggest)
-- This is an optional permission; all other features work normally without it
-- How to enable: Browser extension management page → Eclipse Tab → Permissions → Enable "Host permissions"
-
-### 📊 Usage Limits
-
-**Are there image size limits?**
-- Sticker images: Recommended maximum 5MB per image; larger sizes may affect performance
-- Wallpapers: Supports 10MB+ high-resolution images with automatic compression
-- Supported formats: JPG, PNG, GIF, WebP
-
-**Are there sticker quantity limits?**
-- No hard limit, but we recommend not exceeding 50 stickers
-- Too many stickers may affect page performance
+- **Space Configurations**: Right-click the space switcher button on the far right of the Dock → Select "Import Space" → Choose previously exported JSON file
 
 ---
 
