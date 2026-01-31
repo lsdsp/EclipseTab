@@ -147,11 +147,6 @@ Zen Browser 基于 Firefox,需要额外配置才能正常使用 Eclipse Tab:
 </td>
 <td width="50%" valign="top">
 
-</td>
-</tr>
-<tr>
-<td colspan="2" valign="top">
-
 ### 🎨 精美主题
 
 > 个性化你的新标签页,多种主题模式和自定义选项。

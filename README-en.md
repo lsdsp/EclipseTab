@@ -146,11 +146,6 @@ After installation, open a new tab:
 </td>
 <td width="50%" valign="top">
 
-</td>
-</tr>
-<tr>
-<td colspan="2" valign="top">
-
 ### 🎨 Beautiful Themes
 
 > Personalize your new tab page with multiple theme modes and customization options.
