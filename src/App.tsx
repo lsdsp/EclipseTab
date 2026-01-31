@@ -120,21 +120,21 @@ function App() {
   // 跟踪拖拽来源，用于区分内部拖拽和外部拖拽
   const [draggingFromFolder, setDraggingFromFolder] = useState(false);
 
-  // Refs for hover zone detection
+  // 用于检测悬停区域的 Refs
   const settingsAreaRef = useRef<HTMLDivElement>(null);
   const editorAreaRef = useRef<HTMLDivElement>(null);
 
-  // Use global mousemove to detect hover on zones (allows pointer-events: none)
+  // 使用全局 mousemove 来检测区域悬停 (支持 pointer-events: none)
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      // Check settings area (top-left)
+      // 检查设置区域 (左上角)
       if (settingsAreaRef.current) {
         const rect = settingsAreaRef.current.getBoundingClientRect();
         const inSettingsZone = e.clientX >= rect.left && e.clientX <= rect.right &&
           e.clientY >= rect.top && e.clientY <= rect.bottom;
         setShowSettings(inSettingsZone);
       }
-      // Check editor area (top-right)
+      // 检查编辑器区域 (右上角)
       if (editorAreaRef.current) {
         const rect = editorAreaRef.current.getBoundingClientRect();
         const inEditorZone = e.clientX >= rect.left && e.clientX <= rect.right &&
@@ -150,9 +150,9 @@ function App() {
   const handleSearch = (query: string) => {
     if (selectedSearchEngine.id === 'default') {
       // 使用 Chrome Search API (如果在扩展环境)
-      // @ts-ignore - chrome namespace
+      // @ts-ignore - chrome 命名空间
       if (typeof chrome !== 'undefined' && chrome.search && chrome.search.query) {
-        // @ts-ignore - chrome.search types
+        // @ts-ignore - chrome.search 类型定义
         chrome.search.query({ text: query, disposition: 'CURRENT_TAB' });
         return;
       }
@@ -193,7 +193,7 @@ function App() {
     handleItemEdit(item, rect);
   }, []);
 
-  // Update SVG filter stroke color based on CSS variable
+  // 根据 CSS 变量更新 SVG 滤镜的描边颜色
   useEffect(() => {
     const updateStrokeColor = () => {
       const strokeColor = getComputedStyle(document.documentElement)
@@ -205,10 +205,10 @@ function App() {
       }
     };
 
-    // Update on mount
+    // 组件挂载时更新
     updateStrokeColor();
 
-    // Update when theme changes (observe data-theme attribute)
+    // 当主题变化时更新 (观察 data-theme 属性变化)
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
@@ -253,8 +253,8 @@ function App() {
       </svg>
       <Background />
       <ZenShelf onOpenSettings={(pos) => {
-        // Use negative y offset to counteract the +60 in SettingsModal
-        setSettingsAnchor({ left: pos.x, top: pos.y - 60, right: pos.x, bottom: pos.y - 60, width: 0, height: 0, x: pos.x, y: pos.y - 60, toJSON: () => ({}) } as DOMRect);
+        // 直接使用传入的位置，不需要为了抵消 SettingsModal 的内部偏移而做运算
+        setSettingsAnchor({ left: pos.x, top: pos.y, right: pos.x, bottom: pos.y, width: 0, height: 0, x: pos.x, y: pos.y, toJSON: () => ({}) } as DOMRect);
         setIsSettingsModalOpen(true);
       }} />
       <div
@@ -375,7 +375,13 @@ function App() {
           <SettingsModal
             isOpen={isSettingsModalOpen}
             onClose={() => setIsSettingsModalOpen(false)}
-            anchorPosition={settingsAnchor ? { x: settingsAnchor.left, y: settingsAnchor.top } : { x: 0, y: 0 }}
+            // 显式添加偏移量：ZenShelf 右键菜单不需要偏移（anchorPosition 已经是鼠标位置），
+            // 但如果是从左上角按钮触发（settingsAnchor 来自 getBoundingClientRect），我们需要手动加上偏移量（+60px 或按钮高度+间距）
+            // 这里我们简单判断：如果是从按钮触发（通常 y < 100），加上偏移；如果是 ZenShelf 右键（通常 y > 100），不加偏移
+            anchorPosition={settingsAnchor ? {
+              x: settingsAnchor.left,
+              y: settingsAnchor.top < 100 ? settingsAnchor.top + 60 : settingsAnchor.top
+            } : { x: 0, y: 0 }}
           />
         </Suspense>
       )}

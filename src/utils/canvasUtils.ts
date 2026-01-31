@@ -1,7 +1,7 @@
 import { Sticker } from '../types';
 
 /**
- * Downloads a Blob as a file with the given filename.
+ * 将 Blob 作为文件下载，并指定文件名。
  */
 export function downloadBlob(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
@@ -15,7 +15,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
 }
 
 /**
- * Copies a Blob to the clipboard as a PNG image.
+ * 将 Blob 复制到剪贴板，格式为 PNG 图片。
  */
 export async function copyBlobToClipboard(blob: Blob): Promise<void> {
     try {
@@ -23,14 +23,14 @@ export async function copyBlobToClipboard(blob: Blob): Promise<void> {
             new ClipboardItem({ 'image/png': blob })
         ]);
     } catch (error) {
-        console.error('Failed to copy blob to clipboard:', error);
+        console.error('无法将 blob 复制到剪贴板:', error);
         throw error;
     }
 }
 
 /**
- * Converts an HTMLImageElement to a Blob (PNG).
- * @param img The loaded image element.
+ * 将 HTMLImageElement 转换为 Blob (PNG)。
+ * @param img 已加载的图片元素。
  */
 export function imageToBlob(img: HTMLImageElement): Promise<Blob | null> {
     return new Promise((resolve) => {
@@ -50,8 +50,8 @@ export function imageToBlob(img: HTMLImageElement): Promise<Blob | null> {
 }
 
 /**
- * Generates a PNG Blob for a Text Sticker.
- * Handles styling, padding, and text drawing.
+ * 为文字贴纸生成 PNG Blob。
+ * 处理样式、内边距和文本绘制。
  */
 export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
     return new Promise((resolve) => {
@@ -60,16 +60,16 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
             return;
         }
 
-        // Get stroke color from CSS variable
+        // 从 CSS 变量获取描边颜色
         const strokeColor = getComputedStyle(document.documentElement)
             .getPropertyValue('--color-sticker-stroke').trim() || 'white';
 
         const MIN_HEIGHT = 600;
         const BASE_FONT_SIZE = 48;
-        // const PADDING_RATIO = 0.5; // Removed: unused
+        // const PADDING_RATIO = 0.5; // 已移除：未使用
         const STROKE_RATIO = 0.25;
 
-        // Create temp canvas for measurement
+        // 创建用于测量的临时画布
         const measureCanvas = document.createElement('canvas');
         const measureCtx = measureCanvas.getContext('2d');
         if (!measureCtx) {
@@ -77,23 +77,23 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
             return;
         }
 
-        // Match CSS styles: font-weight 900, line-height 0.9, Bricolage Grotesque
+        // 匹配 CSS 样式: font-weight 900, line-height 0.9, Bricolage Grotesque
         measureCtx.font = `900 ${BASE_FONT_SIZE}px "Bricolage Grotesque", sans-serif`;
 
-        // Measure text content
+        // 测量文本内容
         const lines = sticker.content.split('\n');
         const lineHeight = BASE_FONT_SIZE * 0.9;
 
-        // Find max line width
+        // 寻找最大行宽
         let maxWidth = 0;
         for (const line of lines) {
             const metrics = measureCtx.measureText(line);
             maxWidth = Math.max(maxWidth, metrics.width);
         }
 
-        // Calculate content dimensions with extra buffer for stroke
-        // CSS Padding: 12px vertical, 16px horizontal
-        // Stroke: 12px (6px outside)
+        // 计算包含描边缓冲的内容维度
+        // CSS 内边距: 垂直 12px, 水平 16px
+        // 描边: 12px (外侧 6px)
         const strokeWidth = BASE_FONT_SIZE * STROKE_RATIO;
         const strokeBuffer = strokeWidth / 2;
 
@@ -103,20 +103,20 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
         const contentWidth = maxWidth;
         const contentHeight = lineHeight * lines.length;
 
-        // Add extra vertical buffer for ascenders/descenders slightly clipping with tight line-height
+        // 添加额外的垂直缓冲，以防止由于紧凑的行高导致的上伸部/下伸部轻微裁剪
         const verticalBuffer = BASE_FONT_SIZE * 0.2;
 
         const baseWidth = contentWidth + paddingX * 2;
         const baseHeight = contentHeight + paddingY * 2 + verticalBuffer;
 
-        // Scale to ensure min height while preserving aspect ratio
+        // 缩放以确保最小高度，同时保持纵横比
         const scale = baseHeight < MIN_HEIGHT ? MIN_HEIGHT / baseHeight : 1;
         const canvasWidth = Math.ceil(baseWidth * scale);
         const canvasHeight = Math.ceil(baseHeight * scale);
         const fontSize = Math.round(BASE_FONT_SIZE * scale);
 
         const finalPaddingX = Math.round(paddingX * scale);
-        // const finalPaddingY = Math.round(paddingY * scale); // Unused variable
+        // const finalPaddingY = Math.round(paddingY * scale); // 未使用的变量
 
         const finalStrokeWidth = Math.round(strokeWidth * scale);
         const finalLineHeight = fontSize * 0.9;
@@ -128,11 +128,11 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
         const ctx = canvas.getContext('2d');
 
         if (ctx) {
-            // Set text style
+            // 设置文本样式
             ctx.font = `900 ${fontSize}px "Bricolage Grotesque", sans-serif`;
             ctx.textBaseline = 'middle';
 
-            // Calculate text position based on alignment
+            // 根据对齐方式计算文本位置
             let textX: number;
             if (sticker.style?.textAlign === 'center') {
                 ctx.textAlign = 'center';
@@ -145,15 +145,15 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
                 textX = finalPaddingX;
             }
 
-            // Draw stroke using --color-sticker-stroke
+            // 使用 --color-sticker-stroke 绘制描边
             ctx.strokeStyle = strokeColor;
             ctx.lineWidth = finalStrokeWidth;
             ctx.lineJoin = 'round';
             ctx.miterLimit = 2;
 
-            // Calculate vertical center
+            // 计算垂直中心
             const totalTextHeight = finalLineHeight * lines.length;
-            // Center in canvas
+            // 在画布中居中
             let y = (canvasHeight - totalTextHeight) / 2 + finalLineHeight / 2;
 
             for (const line of lines) {
@@ -161,7 +161,7 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
                 y += finalLineHeight;
             }
 
-            // Draw fill color
+            // 绘制填充颜色
             ctx.fillStyle = sticker.style?.color || '#1C1C1E';
             y = (canvasHeight - totalTextHeight) / 2 + finalLineHeight / 2;
             for (const line of lines) {
@@ -169,7 +169,7 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
                 y += finalLineHeight;
             }
 
-            // Convert to Blob
+            // 转换为 Blob
             canvas.toBlob((blob) => {
                 resolve(blob);
             }, 'image/png');
@@ -180,7 +180,7 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
 }
 
 /**
- * Generates a PNG Blob for an Image Sticker with rounded corners, stroke, and shadow.
+ * 为图片贴纸生成具有圆角、描边和阴影的 PNG Blob。
  */
 export function createImageStickerImage(sticker: Sticker): Promise<Blob | null> {
     return new Promise((resolve) => {
@@ -191,7 +191,7 @@ export function createImageStickerImage(sticker: Sticker): Promise<Blob | null> 
 
         const img = new Image();
         img.onload = () => {
-            // Get stroke color from CSS variable
+            // 从 CSS 变量获取描边颜色
             const strokeColor = getComputedStyle(document.documentElement)
                 .getPropertyValue('--color-sticker-stroke').trim() || 'white';
 
@@ -201,7 +201,7 @@ export function createImageStickerImage(sticker: Sticker): Promise<Blob | null> 
             const SHADOW_OFFSET = 6;
             const PADDING = STROKE_WIDTH + SHADOW_BLUR;
 
-            // Canvas size includes image + padding for stroke and shadow
+            // 画布尺寸包括图片 + 描边和阴影的内边距
             const canvasWidth = img.width + PADDING * 2;
             const canvasHeight = img.height + PADDING * 2 + SHADOW_OFFSET;
 
@@ -214,7 +214,7 @@ export function createImageStickerImage(sticker: Sticker): Promise<Blob | null> 
                 const imgX = PADDING;
                 const imgY = PADDING;
 
-                // Create rounded rectangle path
+                // 创建圆角矩形路径
                 const createRoundedPath = (x: number, y: number, w: number, h: number, r: number) => {
                     ctx.beginPath();
                     ctx.moveTo(x + r, y);
@@ -229,7 +229,7 @@ export function createImageStickerImage(sticker: Sticker): Promise<Blob | null> 
                     ctx.closePath();
                 };
 
-                // Draw drop shadow
+                // 绘制外删除阴影
                 ctx.save();
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
                 ctx.shadowBlur = SHADOW_BLUR;
@@ -239,13 +239,13 @@ export function createImageStickerImage(sticker: Sticker): Promise<Blob | null> 
                 ctx.fill();
                 ctx.restore();
 
-                // Draw stroke/outline using --color-sticker-stroke
+                // 使用 --color-sticker-stroke 绘制描边/轮廓
                 createRoundedPath(imgX, imgY, img.width, img.height, BORDER_RADIUS);
                 ctx.strokeStyle = strokeColor;
-                ctx.lineWidth = STROKE_WIDTH * 2; // Double because half is clipped
+                ctx.lineWidth = STROKE_WIDTH * 2; // 双倍宽度，因为有一半会被裁剪掉
                 ctx.stroke();
 
-                // Clip to rounded rectangle and draw image
+                // 裁剪到圆角矩形并绘制图片
                 ctx.save();
                 createRoundedPath(imgX, imgY, img.width, img.height, BORDER_RADIUS);
                 ctx.clip();
@@ -260,7 +260,7 @@ export function createImageStickerImage(sticker: Sticker): Promise<Blob | null> 
             }
         };
         img.onerror = () => {
-            console.error('Failed to load image for sticker export');
+            console.error('无法为贴纸导出加载图片');
             resolve(null);
         };
         img.src = sticker.content;

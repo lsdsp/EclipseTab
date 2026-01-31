@@ -5,13 +5,13 @@ import { useThemeData } from '../../context/ThemeContext';
 import styles from './ZenShelf.module.css';
 
 // ============================================================================
-// Theme-aware color inversion for text stickers
+// 文字贴纸的主题感知颜色反转
 // ============================================================================
 const BLACK_COLOR = '#1C1C1E';
 const WHITE_COLOR = '#FFFFFF';
 
 /**
- * Inverts black/white colors in dark theme for better readability
+ * 在深色主题下反转黑/白颜色，以获得更好的可读性
  */
 const getThemeAwareColor = (color: string, theme: string): string => {
     if (theme !== 'dark') return color;
@@ -27,16 +27,16 @@ const getThemeAwareColor = (color: string, theme: string): string => {
 };
 
 // ============================================================================
-// UI Boundary Constants - Areas where stickers should not be placed
+// UI 边界常量 - 贴纸不应放置的区域
 // ============================================================================
 const UI_ZONES = {
-    // Bottom area (Dock + Searcher) - approximate height
+    // 底部区域 (Dock + Searcher) - 大约高度
     BOTTOM_MARGIN: 200,
-    // Top-left settings area
+    // 左上角设置区域
     TOP_LEFT: { width: 48, height: 48 },
-    // Top-right editor area
+    // 右上角编辑器区域
     TOP_RIGHT: { width: 48, height: 48 },
-    // Minimum margin from edges
+    // 距离边缘的最小边距
     EDGE_MARGIN: 20,
 };
 
@@ -83,7 +83,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
     const resizeStartRef = useRef<{ x: number; y: number; startScale: number } | null>(null);
     const [imageNaturalWidth, setImageNaturalWidth] = useState<number>(300);
 
-    // Physics Refs
+    // 物理效果 Refs
     const physicsRef = useRef({
         rotation: 0,
         targetRotation: 0,
@@ -92,7 +92,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
     const isDraggingRef = useRef(false);
     const rafRef = useRef<number>();
 
-    // Update rect when selected
+    // 选中时更新矩形
     useEffect(() => {
         if (isSelected && elementRef.current) {
             setStickerRect(elementRef.current.getBoundingClientRect());
@@ -101,11 +101,11 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         }
     }, [isSelected, sticker.x, sticker.y]);
 
-    // Physics Animation Loop
+    // 物理动画循环
     const updatePhysics = useCallback(() => {
         const { rotation, targetRotation } = physicsRef.current;
 
-        // Smoothly interpolate rotation (Spring-like effect)
+        // 平滑插值旋转（弹簧效果）
         const diff = targetRotation - rotation;
         const nextRotation = rotation + diff * 0.15;
 
@@ -115,11 +115,11 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             elementRef.current.style.transform = `rotate(${nextRotation.toFixed(2)}deg)`;
         }
 
-        // Continue loop if dragging or if rotation hasn't settled
+        // 如果正在拖拽或旋转尚未稳定，则继续循环
         if (isDraggingRef.current || Math.abs(diff) > 0.05 || Math.abs(nextRotation) > 0.05) {
             rafRef.current = requestAnimationFrame(updatePhysics);
         } else {
-            // Settle to exact 0
+            // 稳定在精确的 0
             if (elementRef.current) {
                 elementRef.current.style.transform = '';
             }
@@ -137,16 +137,16 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             return;
         }
 
-        // In Edit Mode, stickers should NOT be selectable (popup/outline),
-        // BUT they should still be draggable.
+        // 在创意模式（Creative Mode）下，贴纸不应该是可选的（弹出窗口/轮廓），
+        // 但它们仍然应该是可拖拽的。
         if (isCreativeMode && !isEditMode) {
             onSelect();
         }
 
-        // Bring to top on click/press
+        // 点击/按下时置顶
         onBringToTop();
 
-        // Start drag
+        // 开始拖拽
         setIsDragging(true);
         isDraggingRef.current = true;
 
@@ -157,11 +157,11 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             stickerY: sticker.y,
         };
 
-        // Reset Physics
+        // 重置物理效果
         physicsRef.current.lastX = e.clientX;
         physicsRef.current.targetRotation = 0;
 
-        // Start animation loop
+        // 开始动画循环
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
         rafRef.current = requestAnimationFrame(updatePhysics);
 
@@ -169,7 +169,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         e.stopPropagation();
     };
 
-    // Drag effect with RAF throttling
+    // 具有 RAF 节流的拖拽效果
     useEffect(() => {
         if (!isDragging) return;
 
@@ -199,11 +199,11 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 });
             }
 
-            // Physics Calculation (立即执行，不影响物理动画流畅度)
+            // 物理计算（立即执行，不影响物理动画流畅度）
             const moveDx = e.clientX - physicsRef.current.lastX;
             physicsRef.current.lastX = e.clientX;
 
-            // Calculate target rotation based on movement speed
+            // 根据移动速度计算目标旋转角度
             const SENSITIVITY = 0.4;
             const MAX_ROTATION = 12;
             let target = -moveDx * SENSITIVITY;
@@ -217,7 +217,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 cancelAnimationFrame(positionRafId);
             }
 
-            // Get sticker element bounds for overlap detection
+            // 获取贴纸元素边界以便进行重叠检测
             const stickerEl = elementRef.current;
             if (!stickerEl) {
                 setIsDragging(false);
@@ -226,19 +226,19 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 return;
             }
 
-            // Calculate final position from pending or current
+            // 从待处理或当前位置计算最终位置
             let finalX = pendingPosition?.x ?? sticker.x;
             let finalY = pendingPosition?.y ?? sticker.y;
             const windowWidth = window.innerWidth;
             const windowHeight = window.innerHeight;
             let needsAdjustment = false;
 
-            // Get sticker dimensions (approximate from current element)
+            // 获取贴纸尺寸（从当前元素近似得出）
             const stickerRect = stickerEl.getBoundingClientRect();
             const stickerWidth = stickerRect.width;
             const stickerHeight = stickerRect.height;
 
-            // Calculate sticker screen bounds
+            // 计算贴纸屏幕边界
             const screenX = finalX * viewportScale;
             const screenY = finalY * viewportScale;
             const stickerScreenRect = {
@@ -248,27 +248,27 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 bottom: screenY + stickerHeight,
             };
 
-            // Helper function to check rectangle overlap
+            // 检查矩形重叠的辅助函数
             const rectsOverlap = (r1: typeof stickerScreenRect, r2: DOMRect) => {
                 return !(r1.right < r2.left || r1.left > r2.right ||
                     r1.bottom < r2.top || r1.top > r2.bottom);
             };
 
-            // Check overlap with bottom zone (Searcher + Dock container)
+            // 检查与底部区域（Searcher + Dock 容器）的重叠
             const bottomZone = document.querySelector('[data-ui-zone="bottom"]');
             if (bottomZone) {
                 const bottomRect = bottomZone.getBoundingClientRect();
                 if (rectsOverlap(stickerScreenRect, bottomRect)) {
-                    // Calculate minimum escape distances for each direction
+                    // 计算每个方向的最小逃逸距离
                     const escapeUp = stickerScreenRect.bottom - bottomRect.top + UI_ZONES.EDGE_MARGIN;
                     const escapeLeft = stickerScreenRect.right - bottomRect.left + UI_ZONES.EDGE_MARGIN;
                     const escapeRight = bottomRect.right - stickerScreenRect.left + UI_ZONES.EDGE_MARGIN;
 
-                    // Check if escaping left/right is valid (sticker won't go off screen)
+                    // 检查向左/向右逃逸是否有效（贴纸不会超出屏幕）
                     const canEscapeLeft = (stickerScreenRect.left - escapeLeft) >= UI_ZONES.EDGE_MARGIN;
                     const canEscapeRight = (stickerScreenRect.right + escapeRight) <= (windowWidth - UI_ZONES.EDGE_MARGIN);
 
-                    // Find minimum valid escape distance
+                    // 找到最小的有效逃逸距离
                     let minEscape = escapeUp;
                     let escapeDirection: 'up' | 'left' | 'right' = 'up';
 
@@ -281,7 +281,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                         escapeDirection = 'right';
                     }
 
-                    // Apply escape based on direction
+                    // 根据方向应用逃逸位移
                     switch (escapeDirection) {
                         case 'up':
                             finalY = (bottomRect.top - stickerHeight - UI_ZONES.EDGE_MARGIN) / viewportScale;
@@ -297,11 +297,11 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 }
             }
 
-            // Note: Top-left and top-right zones no longer trigger bounce-away
-            // Stickers can now be placed in these areas freely
+            // 注意：左上角和右上角区域不再触发弹回效果
+            // 贴纸现在可以自由放置在这些区域
 
-            // Ensure sticker stays within screen bounds
-            // Convert sticker dimensions to original coordinate system for proper boundary calculation
+            // 确保贴纸保持在屏幕边界内
+            // 将贴纸尺寸转换为原始坐标系以实现正确的边界计算
             const stickerWidthOriginal = stickerWidth / viewportScale;
             const stickerHeightOriginal = stickerHeight / viewportScale;
             const maxX = (windowWidth / viewportScale) - stickerWidthOriginal - (UI_ZONES.EDGE_MARGIN / viewportScale);
@@ -309,26 +309,26 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             const minX = UI_ZONES.EDGE_MARGIN / viewportScale;
             const minY = UI_ZONES.EDGE_MARGIN / viewportScale;
 
-            // Check if position needs clamping (will trigger bounce)
+            // 检查位置是否需要限制（将触发弹回动画）
             let clampedX = finalX;
             if (maxX < minX) {
-                // Sticker wider than screen: allow panning but keep sticker covering the screen (or at least bounded)
+                // 贴纸比屏幕宽：允许平移，但保持贴纸覆盖屏幕（或至少在边界内）
                 clampedX = Math.max(maxX, Math.min(minX, finalX));
             } else {
-                // Sticker narrower than screen: keep within screen bounds
+                // 贴纸比屏幕窄：保持在屏幕边界内
                 clampedX = Math.max(minX, Math.min(maxX, finalX));
             }
 
             let clampedY = finalY;
             if (maxY < minY) {
-                // Sticker taller than screen
+                // 贴纸比屏幕高
                 clampedY = Math.max(maxY, Math.min(minY, finalY));
             } else {
-                // Sticker shorter than screen
+                // 贴纸比屏幕矮
                 clampedY = Math.max(minY, Math.min(maxY, finalY));
             }
 
-            // Mark as needing adjustment if position was clamped
+            // 如果位置被限制，则标记为需要调整
             if (Math.abs(clampedX - finalX) > 0.1 || Math.abs(clampedY - finalY) > 0.1) {
                 needsAdjustment = true;
             }
@@ -337,10 +337,10 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             finalX = clampedX;
             finalY = clampedY;
 
-            // Apply bounce animation if adjustment needed (from Dock/Searcher overlap OR edge clamping)
+            // 如果需要调整（由于 Dock/Searcher 重叠或边缘限制），则应用弹回动画
             if (needsAdjustment) {
-                // Manually trigger animation start to handle cases where React prop doesn't change
-                // (e.g. dragging away and bouncing back to same spot)
+                // 手动触发动画开始，以处理 React 属性未更改的情况
+                // （例如，拖走后又弹回同一位置）
                 if (elementRef.current) {
                     elementRef.current.classList.add(styles.bounceBack);
                     elementRef.current.style.left = `${finalX * viewportScale}px`;
@@ -348,11 +348,11 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 }
 
                 setIsBouncing(true);
-                // Remove bounce class after animation completes
+                // 动画完成后移除 bounce 类
                 setTimeout(() => setIsBouncing(false), 350);
             }
 
-            // Apply final position (with adjustment if needed)
+            // 应用最终位置（如果需要，包含调整）
             if (needsAdjustment || pendingPosition) {
                 onPositionChange(finalX, finalY);
             }
@@ -361,14 +361,13 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             isDraggingRef.current = false;
             dragStartRef.current = null;
 
-            // Reset target to 0 to animate back
+            // 将目标旋转重置为 0 以便动画返回
             physicsRef.current.targetRotation = 0;
         };
 
-        // Use capture phase to ensure drag events work through all UI layers
+        // 使用捕获阶段确保拖拽事件通过所有 UI 层正常工作
         document.addEventListener('mousemove', handleMouseMove, { capture: true });
-        // Use capture phase for mouseup to ensure we get the event even when
-        // mouse is released over Searcher/Dock which might stop propagation
+        // 使用捕获阶段进行 mouseup，以确保即使鼠标在可能停止传播的 Searcher/Dock 上方松开时，我们也能收到事件
         document.addEventListener('mouseup', handleMouseUp, { capture: true });
 
         return () => {
@@ -380,14 +379,14 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         };
     }, [isDragging, onPositionChange, updatePhysics]);
 
-    // Cleanup RAF on unmount
+    // 卸载时清理 RAF
     useEffect(() => {
         return () => {
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
         };
     }, []);
 
-    // Resize handle start
+    // 调整大小控制柄开始
     const handleResizeStart = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -400,7 +399,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         };
     };
 
-    // Resize effect with RAF throttling
+    // 具有 RAF 节流的调整大小效果
     useEffect(() => {
         if (!isResizing) return;
 
@@ -453,7 +452,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         };
     }, [isResizing, onScaleChange]);
 
-    // Get image natural width for scale calculation
+    // 获取图片原始宽度以进行缩放计算
     const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
         setImageNaturalWidth(e.currentTarget.naturalWidth);
     };
@@ -472,12 +471,12 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         isCreativeMode && styles.creativeHover,
     ].filter(Boolean).join(' ');
 
-    // Calculate actual image width based on scale and viewport scale
+    // 根据缩放比例和视口缩放比例计算实际图片宽度
     const imageWidth = sticker.type === 'image'
         ? Math.min(imageNaturalWidth, IMAGE_MAX_WIDTH) * (sticker.scale || 1) * viewportScale
         : undefined;
 
-    // Calculate scaled font size for text stickers
+    // 为文字贴纸计算缩放后的字体大小
     const scaledFontSize = (sticker.style?.fontSize || 40) * viewportScale;
 
     return (
@@ -488,7 +487,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 style={{
                     left: sticker.x * viewportScale,
                     top: sticker.y * viewportScale,
-                    // Elevate z-index during drag to stay above UI elements
+                    // 拖拽期间提升 z-index 以保持在 UI 元素之上
                     zIndex: isDragging ? 3000 : (sticker.zIndex || 1),
                 }}
                 data-sticker-id={sticker.id}
@@ -524,7 +523,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                             draggable={false}
                             onLoad={handleImageLoad}
                         />
-                        {/* Resize handle - always visible on hover */}
+                        {/* 调整大小控制柄 - 仅在悬停时可见 */}
                         <div
                             className={styles.resizeHandle}
                             onMouseDown={handleResizeStart}
@@ -532,7 +531,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                     </div>
                 )}
 
-                {/* Delete button - visible in creative mode on hover */}
+                {/* 删除按钮 - 在创意模式下悬停时可见 */}
                 {isCreativeMode && !isEditMode && (
                     <button
                         className={styles.deleteButton}
@@ -546,7 +545,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 )}
             </div>
 
-            {/* Floating toolbar for selected text stickers */}
+            {/* 用于选中文字贴纸的悬浮工具栏 */}
             {isSelected && sticker.type === 'text' && stickerRect && (
                 <FloatingToolbar
                     sticker={sticker}
@@ -559,7 +558,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
 };
 
 // ============================================================================
-// React.memo with custom comparison
+// 具有自定义比较的 React.memo
 // ============================================================================
 
 const arePropsEqual = (prev: StickerItemProps, next: StickerItemProps) => {

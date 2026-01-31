@@ -1,4 +1,5 @@
 import { getCachedIcon, setCachedIcon } from './iconCache';
+import { compressIcon } from './imageCompression';
 
 // ============================================================================
 // 请求去重: 跟踪进行中的请求，避免重复网络请求
@@ -44,9 +45,34 @@ export const fetchIcon = async (url: string, minSize: number = 100): Promise<Ico
       pendingRequests.delete(cacheKey);
     }
   } catch {
-    // If failed, generate text icon
+    // 如果失败，则生成文本图标
     const result = { url: generateTextIcon(url), isFallback: true };
     return result;
+  }
+};
+
+/**
+ * 获取并自动压缩图标
+ * 组合了 fetchIcon 和 compressIcon 的逻辑，用于统一 Modal 和其他组件的调用
+ */
+export const fetchAndProcessIcon = async (url: string, minSize: number = 100): Promise<{ url: string; isFallback: boolean }> => {
+  try {
+    const fetchResult = await fetchIcon(url, minSize);
+
+    // 如果是 fallback (生成的文本图标)，直接返回
+    if (fetchResult.isFallback) {
+      return fetchResult;
+    }
+
+    // 压缩网络图片 (compressIcon 内部会处理 data URL 或跳过不需要压缩的)
+    const compressedUrl = await compressIcon(fetchResult.url);
+
+    return {
+      url: compressedUrl,
+      isFallback: false
+    };
+  } catch (error) {
+    return { url: generateTextIcon(url), isFallback: true };
   }
 };
 
@@ -159,9 +185,9 @@ const fetchIconInternal = async (url: string, domain: string, minSize: number): 
       return result;
     }
 
-    throw new Error('No high-res icons found');
+    throw new Error('未找到高分辨率图标');
   } catch {
-    // If failed, generate text icon
+    // 如果失败，则生成文本图标
     const result = { url: generateTextIcon(url), isFallback: true };
     return result;
   }
@@ -197,15 +223,15 @@ export const generateTextIcon = (text: string): string => {
     if (!canvasData) return '';
     const { canvas, ctx } = canvasData;
 
-    // Extract text to display. If it's a URL, extract domain/name.
+    // 提取显示的文本。如果是 URL，提取域名/名称。
     let displayText = text;
     try {
-      // Logic: 
-      // 1. If it looks like a URL (http/https or contains dot), parse it.
-      // 2. Extract hostname.
-      // 3. Remove 'www.'.
-      // 4. Take the first segment as the name (google.com -> google).
-      // 5. Title case it.
+      // 逻辑: 
+      // 1. 如果看起来像 URL（以 http/https 开头或包含点），则进行解析。
+      // 2. 提取主机名 (hostname)。
+      // 3. 移除 'www.'。
+      // 4. 取第一部分作为名称 (google.com -> google)。
+      // 5. 转换为首字母大写。
 
       const isUrlLike = text.startsWith('http') || text.includes('.');
       if (isUrlLike) {
@@ -214,14 +240,14 @@ export const generateTextIcon = (text: string): string => {
           const urlObj = new URL(text.startsWith('http') ? text : `https://${text}`);
           hostname = urlObj.hostname;
         } catch {
-          // fallback if URL parsing fails but had dots
+          // 如果 URL 解析失败但包含点，则回退处理
           hostname = text;
         }
 
-        // Remove www.
+        // 移除 www.
         hostname = hostname.replace(/^www\./, '');
 
-        // Take first part
+        // 取第一部分
         const mainName = hostname.split('.')[0];
 
         if (mainName) {
@@ -229,7 +255,7 @@ export const generateTextIcon = (text: string): string => {
         }
       }
     } catch {
-      // ignore, use text as is
+      // 忽略错误，直接使用原始文本
     }
 
     // 判断是否包含中文字符
@@ -246,7 +272,7 @@ export const generateTextIcon = (text: string): string => {
       displayText = twoLetters.charAt(0).toUpperCase() + twoLetters.slice(1);
     }
 
-    // 1. Random low brightness background
+    // 1. 随机低亮度背景
     // H: 0-360, S: 40-80%, L: 20-35%
     const bgHue = Math.floor(Math.random() * 360);
     const bgSat = 40 + Math.floor(Math.random() * 40);
@@ -254,7 +280,7 @@ export const generateTextIcon = (text: string): string => {
     ctx.fillStyle = `hsl(${bgHue}, ${bgSat}%, ${bgLig}%)`;
     ctx.fillRect(0, 0, 576, 576);
 
-    // 2. Random high brightness text
+    // 2. 随机高亮度文字
     const ranTextHue = Math.floor(Math.random() * 360);
     const textSat = 50 + Math.floor(Math.random() * 40);
     const textLig = 80 + Math.floor(Math.random() * 15);

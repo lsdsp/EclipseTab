@@ -25,7 +25,7 @@ export const Searcher: React.FC<SearcherProps> = ({
 
   const { suggestions } = useSearchSuggestions(query);
 
-  // Animation state management
+  // 动画状态管理
   const showSuggestions = isFocused && suggestions.length > 0;
   const [shouldRender, setShouldRender] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
@@ -39,7 +39,7 @@ export const Searcher: React.FC<SearcherProps> = ({
       const timer = setTimeout(() => {
         setShouldRender(false);
         setIsExiting(false);
-      }, 300); // Match CSS animation duration (duration-normal)
+      }, 300); // 匹配 CSS 动画时长 (duration-normal)
       return () => clearTimeout(timer);
     }
   }, [showSuggestions, shouldRender]);
@@ -49,7 +49,7 @@ export const Searcher: React.FC<SearcherProps> = ({
     inputRef.current?.focus();
   }, []);
 
-  // Reset active index when suggestions change
+  // 当建议列表变化时重置激活索引
   useEffect(() => {
     setActiveIndex(-1);
   }, [suggestions]);
@@ -65,8 +65,8 @@ export const Searcher: React.FC<SearcherProps> = ({
       // 不是 URL，进行搜索
       onSearch(searchQuery);
     }
-    setQuery(''); // Optional: clear query after search
-    // Force close suggestions
+    setQuery(''); // 可选：搜索后清空查询内容
+    // 强制关闭建议列表
     setIsFocused(false);
   };
 
@@ -113,7 +113,7 @@ export const Searcher: React.FC<SearcherProps> = ({
 
   return (
     <header ref={containerRef} className={styles.searcher} style={containerStyle}>
-      {/* Suggestions List */}
+      {/* 建议列表 */}
       {shouldRender && suggestions.length > 0 && (
         <SuggestionsList
           suggestions={suggestions}
@@ -137,7 +137,7 @@ export const Searcher: React.FC<SearcherProps> = ({
                 onSearchEngineClick(rect);
               }}
             >
-              {/* Use localized name for default engine */}
+              {/* 对于默认搜索引擎使用本地化的名称 */}
               {searchEngine.id === 'default' ? t.search.systemDefault : searchEngine.name}
               {t.search.searchBySuffix}
             </p>
@@ -154,7 +154,7 @@ export const Searcher: React.FC<SearcherProps> = ({
             onKeyDown={handleKeyDown}
             onFocus={() => setIsFocused(true)}
             onBlur={() => {
-              // Delay hiding suggestions to allow click event to fire
+              // 延迟隐藏建议列表以允许点击事件触发
               setTimeout(() => setIsFocused(false), 200);
             }}
           />

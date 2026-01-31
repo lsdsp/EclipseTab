@@ -131,7 +131,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 { id: 'claude', name: 'Claude', url: 'https://claude.ai/new', type: 'app' },
             ];
 
-            // Generate icons for folders
+            // 为文件夹生成图标
             defaults.forEach(item => {
                 if (item.type === 'folder' && item.items) {
                     item.icon = generateFolderIcon(item.items);
@@ -139,42 +139,87 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
             setDockItems(defaults);
 
-            // Asynchronously fetch icons for default items
+            // 异步获取默认项目的图标
             const fetchAllIcons = async () => {
-                const itemsWithIcons = await Promise.all(defaults.map(async (item) => {
+                let isMounted = true;
+
+                type IconUpdateResult =
+                    | { id: string; icon: string; isFolder?: undefined; subItems?: undefined }
+                    | { id: string; isFolder: true; subItems: { id: string; icon: string }[]; icon?: undefined }
+                    | null;
+
+                // 并行获取图标，但不立即更新状态
+                const iconResults: IconUpdateResult[] = await Promise.all(defaults.map(async (item) => {
                     if (item.type === 'folder' && item.items) {
                         const updatedSubItems = await Promise.all(item.items.map(async (subItem) => {
                             if (subItem.url) {
                                 try {
                                     const { url: icon } = await fetchIcon(subItem.url);
-                                    return { ...subItem, icon };
+                                    return { id: subItem.id, icon };
                                 } catch (e) {
-                                    console.error(`Failed to fetch icon for ${subItem.name}`, e);
-                                    return subItem;
+                                    return null;
                                 }
                             }
-                            return subItem;
+                            return null;
                         }));
-                        return {
-                            ...item,
-                            items: updatedSubItems,
-                            icon: generateFolderIcon(updatedSubItems)
-                        };
+
+                        // 过滤出获取到图标的项目
+                        const validSubUpdates = updatedSubItems.filter((i): i is { id: string, icon: string } => i !== null);
+
+                        if (validSubUpdates.length > 0) {
+                            return {
+                                id: item.id,
+                                isFolder: true,
+                                subItems: validSubUpdates
+                            };
+                        }
                     } else if (item.url) {
                         try {
                             const { url: icon } = await fetchIcon(item.url);
-                            return { ...item, icon };
+                            return { id: item.id, icon };
                         } catch (e) {
                             console.error(`Failed to fetch icon for ${item.name}`, e);
-                            return item;
                         }
                     }
-                    return item;
+                    return null;
                 }));
-                setDockItems(itemsWithIcons);
+
+                // 过滤有效结果
+                const updates = iconResults.filter((r): r is NonNullable<IconUpdateResult> => r !== null);
+
+                if (!isMounted) return;
+
+                // 安全更新: 仅更新图标，保留用户可能已做的操作（如排序、删除）
+                setDockItems(prev => {
+                    return prev.map(item => {
+                        const update = updates.find(u => u && u.id === item.id);
+                        if (!update) return item;
+
+                        if (update.isFolder && item.type === 'folder' && item.items) {
+                            // 更新文件夹内的图标
+                            const newSubItems = item.items.map(subItem => {
+                                const subUpdate = update.subItems?.find(su => su.id === subItem.id);
+                                return subUpdate ? { ...subItem, icon: subUpdate.icon } : subItem;
+                            });
+                            return {
+                                ...item,
+                                items: newSubItems,
+                                icon: generateFolderIcon(newSubItems) // 重新生成文件夹预览图
+                            };
+                        } else if (!update.isFolder && update.icon) {
+                            // 更新 App 图标
+                            return { ...item, icon: update.icon };
+                        }
+                        return item;
+                    });
+                });
+
+                return () => { isMounted = false; };
             };
 
             fetchAllIcons();
+            // 注意：useEffect 的 cleanup 实际上不能直接处理 async 函数内部的变量
+            // 所以我们在 fetchAllIcons 内部处理 mount 状态，或者使用 ref 跟踪 mount 状态
         }
 
         // 搜索引擎仍使用独立存储
@@ -189,7 +234,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         storage.saveSearchEngine(selectedSearchEngine);
     }, [selectedSearchEngine]);
 
-    // Helper function to check and dissolve folder if needed
+    // 辅助函数: 检查并在需要时解散文件夹
     const checkAndDissolveFolderIfNeeded = useCallback((folderId: string, updatedItems: DockItem[]): DockItem[] => {
         const folder = updatedItems.find(i => i.id === folderId);
         if (!folder || folder.type !== 'folder' || !folder.items) return updatedItems;
@@ -197,12 +242,12 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const folderIndex = updatedItems.findIndex(i => i.id === folderId);
         if (folderIndex === -1) return updatedItems;
 
-        // If folder has 0 items, remove it completely
+        // 如果文件夹没有项目，完全移除它
         if (folder.items.length === 0) {
             return updatedItems.filter(i => i.id !== folderId);
         }
 
-        // If folder has exactly 1 item, dissolve and replace with that item
+        // 如果文件夹恰好只有 1 个项目，解散并用该项目替换文件夹
         if (folder.items.length === 1) {
             const remainingItem = folder.items[0];
             const newItems = [...updatedItems];
@@ -426,7 +471,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setDockItems(prev => {
             return prev.map(item => {
                 if (item.id === targetFolder.id) {
-                    // Prevent duplicates: Filter out items that are already in the folder
+                    // 防止重复: 过滤掉已经存在于文件夹中的项目
                     const existingIds = new Set((item.items || []).map(i => i.id));
                     const uniqueItemsToAdd = itemsToAdd.filter(add => !existingIds.has(add.id));
 

@@ -9,7 +9,7 @@ import trashIcon from '../../assets/icons/trash.svg';
 import { useLanguage } from '../../context/LanguageContext';
 
 // ============================================================================
-// DockContextMenu - Right-click context menu for Dock items
+// DockContextMenu - Dock 项目的右键上下文菜单
 // ============================================================================
 
 interface DockContextMenuProps {
@@ -37,7 +37,7 @@ export const DockContextMenu: React.FC<DockContextMenuProps> = ({
     const menuRef = useRef<HTMLDivElement>(null);
     const isClosingRef = useRef(false);
 
-    // Close with animation
+    // 带有动画的关闭
     const handleClose = useCallback(() => {
         if (isClosingRef.current) return;
         isClosingRef.current = true;
@@ -51,7 +51,7 @@ export const DockContextMenu: React.FC<DockContextMenuProps> = ({
         }
     }, [onClose]);
 
-    // Animation on mount
+    // 挂载时的动画
     useEffect(() => {
         isClosingRef.current = false;
         if (menuRef.current) {
@@ -59,10 +59,10 @@ export const DockContextMenu: React.FC<DockContextMenuProps> = ({
         }
     }, [x, y]);
 
-    // Click outside to close (ignore right-clicks to prevent race condition with new context menu)
+    // 点击外部关闭（忽略右键单击以防止与新上下文菜单竞争）
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            // Ignore right-clicks - they will trigger a new context menu via contextmenu event
+            // 忽略右键单击 - 它们将通过 contextmenu 事件触发新的上下文菜单
             if (e.button === 2) return;
 
             if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -73,35 +73,35 @@ export const DockContextMenu: React.FC<DockContextMenuProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [handleClose]);
 
-    // Prevent default context menu
+    // 阻止默认上下文菜单
     useEffect(() => {
         const handleContextMenu = (e: MouseEvent) => e.preventDefault();
         document.addEventListener('contextmenu', handleContextMenu);
         return () => document.removeEventListener('contextmenu', handleContextMenu);
     }, []);
 
-    // Adjust position to stay within viewport
+    // 调整位置以保持在视口内
     const menuWidth = 180;
     const menuHeight = 160;
     const padding = 10;
 
-    // Calculate adjusted position, ensuring menu stays within viewport on all edges
+    // 计算调整后的位置，确保菜单各边都保持在视口内
     let adjustedX = x;
     let adjustedY = y;
 
-    // Right edge
+    // 右边界
     if (x + menuWidth + padding > window.innerWidth) {
         adjustedX = window.innerWidth - menuWidth - padding;
     }
-    // Left edge
+    // 左边界
     if (adjustedX < padding) {
         adjustedX = padding;
     }
-    // Bottom edge  
+    // 底边界  
     if (y + menuHeight + padding > window.innerHeight) {
         adjustedY = window.innerHeight - menuHeight - padding;
     }
-    // Top edge
+    // 顶边界
     if (adjustedY < padding) {
         adjustedY = padding;
     }
@@ -116,19 +116,19 @@ export const DockContextMenu: React.FC<DockContextMenuProps> = ({
             <div className={styles.menuLabel}>{item.name}</div>
             <div className={styles.menuDivider} />
             <div className={styles.menuOptions}>
-                {/* Edit Icon - only for non-folder items */}
+                {/* 编辑图标 - 仅适用于非文件夹项目 */}
                 {item.type !== 'folder' && (
                     <button className={styles.menuItem} onClick={() => { onEdit(); handleClose(); }}>
                         <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
                         <span>{t.contextMenu.edit}</span>
                     </button>
                 )}
-                {/* Toggle Edit Mode */}
+                {/* 切换编辑模式 */}
                 <button className={styles.menuItem} onClick={() => { onToggleEditMode(); handleClose(); }}>
                     <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${editIcon})`, maskImage: `url(${editIcon})` }} />
                     <span>{isEditMode ? t.contextMenu.exitEditMode : t.contextMenu.editMode}</span>
                 </button>
-                {/* Delete */}
+                {/* 删除 */}
                 <button className={`${styles.menuItem} ${styles.danger}`} onClick={() => { onDelete(); handleClose(); }}>
                     <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${trashIcon})`, maskImage: `url(${trashIcon})` }} />
                     <span>{t.contextMenu.delete}</span>

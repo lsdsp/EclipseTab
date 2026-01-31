@@ -22,13 +22,13 @@ interface SettingsModalProps {
     anchorPosition: { x: number; y: number };
 }
 
-// Simple permission toggle component
+// 简单的权限切换组件
 const PermissionToggle: React.FC = () => {
     const [enabled, setEnabled] = useState<boolean | null>(null);
     const [loading, setLoading] = useState(false);
     const { t } = useLanguage();
 
-    // Define all required origins consistently
+    // 一致地定义所有必需的源域
     const REQUIRED_ORIGINS = [
         'https://suggestqueries.google.com/*',
         'https://www.google.com/*',
@@ -36,7 +36,7 @@ const PermissionToggle: React.FC = () => {
     ];
 
     useEffect(() => {
-        // Check initial permission status
+        // 检查初始权限状态
         if (typeof chrome !== 'undefined' && chrome.permissions) {
             chrome.permissions.contains({
                 origins: REQUIRED_ORIGINS
@@ -44,7 +44,7 @@ const PermissionToggle: React.FC = () => {
                 setEnabled(result);
             });
         } else {
-            // Dev mode fallback - check local storage
+            // 开发模式回退 - 检查本地存储
             const savedState = localStorage.getItem('search_suggestions_enabled');
             setEnabled(savedState === 'true');
         }
@@ -54,7 +54,7 @@ const PermissionToggle: React.FC = () => {
         if (loading || enabled === null) return;
         setLoading(true);
 
-        // Dev mode fallback: if chrome API is missing, simulate toggle and save to local storage
+        // 开发模式回退：如果缺少 chrome API，模拟切换并保存到本地存储
         if (typeof chrome === 'undefined' || !chrome.permissions) {
             setTimeout(() => {
                 const newState = !enabled;
@@ -66,7 +66,7 @@ const PermissionToggle: React.FC = () => {
         }
 
         if (enabled) {
-            // Remove permission
+            // 移除权限
             chrome.permissions.remove({ origins: REQUIRED_ORIGINS }, (removed) => {
                 if (removed) {
                     setEnabled(false);
@@ -74,7 +74,7 @@ const PermissionToggle: React.FC = () => {
                 setLoading(false);
             });
         } else {
-            // Request permission
+            // 请求权限
             chrome.permissions.request({ origins: REQUIRED_ORIGINS }, (granted) => {
                 if (granted) {
                     setEnabled(true);
@@ -137,13 +137,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     const modalRef = useRef<HTMLDivElement>(null);
     const isClosingRef = useRef(false);
 
-    // Logic to determine if we are in "Default" mode or "Light/Dark" mode
+    // 确定我们是处于“默认”模式还是“浅色/深色”模式的逻辑
     const isDefaultTheme = theme === 'default' && !followSystem;
 
-    // Note: Texture is only displayed when not in default theme (handled in ThemeContext)
-    // We no longer reset texture when switching to default theme so it's remembered
+    // 注意：纹理仅在非默认主题中显示（在 ThemeContext 中处理）
+    // 我们不再在切换到默认主题时重置纹理，这样它就可以被记住
 
-    // Animation effects - open
+    // 动画效果 - 打开
     useEffect(() => {
         if (isOpen) {
             isClosingRef.current = false;
@@ -157,7 +157,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         }
     }, [isOpen, isVisible]);
 
-    // Animation effects - close (triggered by parent setting isOpen=false)
+    // 动画效果 - 关闭（由父组件设置 isOpen=false 触发）
     useEffect(() => {
         if (!isOpen && isVisible && !isClosingRef.current) {
             isClosingRef.current = true;
@@ -173,7 +173,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
 
     const handleThemeSelect = (selectedTheme: Theme) => {
         setTheme(selectedTheme);
-        // Reset gradientId to theme-default when selecting default theme
+        // 选择默认主题时，将 gradientId 重置为主题默认值
         if (selectedTheme === 'default') {
             setGradientId('theme-default');
         }
@@ -187,20 +187,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     };
 
     const handleGradientSelect = (id: string) => {
-        // If there's a wallpaper, just clear it and set the gradient directly
-        // No special handling needed because the visual change is from wallpaper to color
+        // 如果有壁纸，只需清除它并直接设置渐变
+        // 不需要特殊处理，因为视觉上的变化是从壁纸到颜色的
         if (wallpaper) {
             setWallpaper(null);
             setGradientId(id);
             return;
         }
 
-        // If clicking the same gradient (and no wallpaper), we need to force React to update
-        // by using a temporary different value first
+        // 如果点击相同的渐变（且没有壁纸），我们需要通过首先使用一个临时的不同值来强制 React 更新
         if (gradientId === id) {
             const tempId = id === 'theme-default' ? 'gradient-1' : 'theme-default';
             setGradientId(tempId);
-            // Force a synchronous update by using requestAnimationFrame
+            // 通过使用 requestAnimationFrame 强制进行同步更新
             requestAnimationFrame(() => {
                 setGradientId(id);
             });
@@ -215,10 +214,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
 
     const modalStyle: React.CSSProperties = {
         left: `${anchorPosition.x}px`,
-        top: `${anchorPosition.y + 60}px`,
+        top: `${anchorPosition.y}px`,
     };
 
-    // Highlight index: 0 = auto, 1 = light, 2 = dark
+    // 高亮索引：0 = 自动, 1 = 浅色, 2 = 深色
     let activeIndex = -1;
     if (followSystem) {
         activeIndex = 0;
@@ -233,7 +232,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         opacity: activeIndex >= 0 ? 1 : 0,
     };
 
-    // Handle close with animation
+    // 处理带有动画的关闭
     const handleClose = () => {
         if (isClosingRef.current) return;
         isClosingRef.current = true;
@@ -254,9 +253,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
             <div className={styles.backdrop} onClick={handleClose} />
             <div ref={modalRef} className={styles.modal} style={modalStyle}>
                 <div className={styles.innerContainer}>
-                    {/* Theme Section */}
+                    {/* 主题部分 */}
                     <div className={styles.iconContainer}>
-                        {/* Theme Group (Auto / Light / Dark) */}
+                        {/* 主题组 (自动 / 浅色 / 深色) */}
                         <div className={styles.themeGroupContainer}>
                             <div className={styles.highlightBackground} style={highlightStyle} />
                             <button
@@ -281,7 +280,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                                 <img src={darkIcon} alt="Dark Theme" width={24} height={24} />
                             </button>
                         </div>
-                        {/* Default Theme Button */}
+                        {/* 默认主题按钮 */}
                         <button
                             className={`${styles.defaultTheme} ${isDefaultTheme ? styles.defaultThemeActive : ''}`}
                             onClick={() => handleThemeSelect('default')}
@@ -291,7 +290,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                         </button>
                     </div>
 
-                    {/* Texture Section - Animated Wrapper */}
+                    {/* 纹理部分 - 带有动画的包装器 */}
                     <div
                         className={`${styles.textureSectionWrapper} ${!isDefaultTheme && !wallpaper ? styles.textureSectionWrapperOpen : ''}`}
                     >
@@ -331,10 +330,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                         </div>
                     </div>
 
-                    {/* Color Options Section - Moved above Wallpaper */}
+                    {/* 颜色选项部分 - 已移动到壁纸上方 */}
                     <div className={styles.colorOptionsContainer}>
                         {GRADIENT_PRESETS.map(preset => {
-                            // For theme-default preset, use dynamic color based on active theme
+                            // 对于 theme-default 预设，根据活动主题使用动态颜色
                             let displayColor = '';
                             const isThemeDefault = preset.id === 'theme-default';
 
@@ -343,7 +342,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                             } else if (isDefaultTheme) {
                                 displayColor = preset.gradient;
                             } else {
-                                // 对于非默认主题，根据是否为深色模式选择solid或solidDark
+                                // 对于非默认主题，根据是否为深色模式选择 solid 或 solidDark
                                 const isDarkTheme = theme === 'dark' || (followSystem && systemTheme === 'dark');
                                 displayColor = isDarkTheme && 'solidDark' in preset ? preset.solidDark : preset.solid;
                             }
@@ -380,14 +379,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                         })}
                     </div>
 
-                    {/* Wallpaper Section - Moved to bottom */}
+                    {/* 壁纸部分 - 已移动到底部 */}
                     <div className={styles.wallpaperSection}>
                         <WallpaperGallery />
                     </div>
 
-                    {/* Layout Settings Section */}
+                    {/* 布局设置部分 */}
                     <div className={styles.layoutSection}>
-                        {/* Language Setting */}
+                        {/* 语言设置 */}
                         <div className={styles.layoutRow}>
                             <span className={styles.layoutLabel}>{t.settings.language}</span>
                             <div className={styles.layoutToggleGroup}>
@@ -414,7 +413,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                             </div>
                         </div>
 
-                        {/* Dock Position */}
+                        {/* Dock 位置 */}
                         <div className={styles.layoutRow}>
                             <span className={styles.layoutLabel}>{t.settings.position}</span>
                             <div className={styles.layoutToggleGroup}>
@@ -440,7 +439,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                                 </button>
                             </div>
                         </div>
-                        {/* Icon Size */}
+                        {/* 图标大小 */}
                         <div className={styles.layoutRow}>
                             <span className={styles.layoutLabel}>{t.settings.iconSize}</span>
                             <div className={styles.layoutToggleGroup}>
@@ -467,7 +466,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                             </div>
                         </div>
 
-                        {/* Search Suggestions (Optional Permission) */}
+                        {/* 搜索建议 (可选权限) */}
                         <div className={styles.layoutRow}>
                             <span className={styles.layoutLabel}>{t.settings.suggestions}</span>
                             <PermissionToggle />
@@ -475,7 +474,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                     </div>
 
 
-                    {/* Footer - GitHub Link */}
+                    {/* 页脚 - GitHub 链接 */}
                     <div className={styles.footer}>
                         <a
                             href="https://github.com/ENCRE0520/EclipseTab"

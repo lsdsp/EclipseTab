@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DockItem } from '../../types';
-import { fetchIcon, generateTextIcon } from '../../utils/iconFetcher';
+import { fetchAndProcessIcon, generateTextIcon } from '../../utils/iconFetcher';
 import { compressIcon } from '../../utils/imageCompression';
+import { normalizeUrl } from '../../utils/url';
 import { Modal } from './Modal';
 import { useLanguage } from '../../context/LanguageContext';
 import styles from './AddEditModal.module.css';
@@ -40,7 +41,7 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
       setName(item.name);
       setUrl(item.url || '');
       setIcon(item.icon || '');
-      setIsUsingFallback(false); // Reset fallback state on edit/open
+      setIsUsingFallback(false); // 编辑/打开时重置回退状态
     } else {
       setName('');
       setUrl('');
@@ -49,10 +50,10 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
     }
   }, [item, isOpen]);
 
-  // Effect: Update text icon when name changes if using fallback
+  // Effect：如果使用回退图标，当名称更改时更新文本图标
   useEffect(() => {
     if (isUsingFallback) {
-      // Use name if available, otherwise use domain from URL
+      // 如果名称可用则使用名称，否则使用 URL 中的域名
       const textToUse = name.trim() || url;
       if (textToUse) {
         setIcon(generateTextIcon(textToUse));
@@ -60,52 +61,36 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
     }
   }, [name, isUsingFallback, url]);
 
-  // Helper to normalize URL (add protocol if missing)
-  const normalizeUrl = (input: string): string => {
-    const trimmed = input.trim();
-    if (!trimmed) return '';
-    // If starts with http://, https://, or //, return as is
-    if (/^(https?:)?\/\//i.test(trimmed)) return trimmed;
-    // Otherwise assume https://
-    return `https://${trimmed}`;
-  };
-
   const handleUrlChange = async (value: string) => {
     setUrl(value);
 
-    // Auto-fetch icon logic
-    // We used to check !item?.icon to avoid overwriting existing icon, 
-    // but if user changes URL, they probably want new icon? 
-    // The original logic was: if (value && !item?.icon).
-    // Let's stick to original behavior but make it better: 
-    // If user explicitly uploaded an icon (how do we know? icon state), maybe don't overwrite?
-    // But for "Add New", item is null, so !item?.icon is true.
-    // For "Edit", valid point.
+    // 自动获取图标逻辑
+    // 我们以前会检查 !item?.icon 以避免覆盖现有图标，
+    // 但是如果用户更改了 URL，他们可能想要新图标？
+    // 原始逻辑是：if (value && !item?.icon)。
+    // 让我们坚持原始行为，但做得更好：
+    // 如果用户显式上传了图标（我们如何知道？图标状态），也许不要覆盖？
+    // 但对于“添加新项”，item 为空，因此 !item?.icon 为真。
+    // 对于“编辑”，这点很有效。
 
     if (value && (!item?.icon || !icon)) {
-      // Debounce could be good here, but for now just eager fetch
-      // Normalize strictly for fetching to ensure URL constructor works
+      // 这里的防抖处理可能会更好，但目前只是急切获取
+      // 为了确保 URL 构造函数正常工作，严格规范化以进行获取
       const normalized = normalizeUrl(value);
 
-      // Simple check to avoid fetching 'g', 'go', 'goo'... 
-      // check if it has at least one dot or looks valid?
+      // 避免获取 'g', 'go', 'goo'... 的简单检查
+      // 检查它是否至少包含一个点或看起来有效？
       if (!normalized.includes('.') && !normalized.includes('localhost')) return;
 
       setIsFetchingIcon(true);
       try {
-        // Auto-fetch: strict requirement (min 100x100)
-        const { url: fetchedIcon, isFallback } = await fetchIcon(normalized, 100);
+        // 自动获取：严格要求（最小 100x100）
+        // 使用 fetchAndProcessIcon 统一处理获取和压缩
+        const { url: processedIcon, isFallback } = await fetchAndProcessIcon(normalized, 100);
         setIsUsingFallback(isFallback);
-
-        // Don't compress if it's already a small generated fallback
-        if (isFallback) {
-          setIcon(fetchedIcon);
-        } else {
-          const compressed = await compressIcon(fetchedIcon);
-          setIcon(compressed);
-        }
+        setIcon(processedIcon);
       } catch (error) {
-        // silent fail
+        // 静默失败
       } finally {
         setIsFetchingIcon(false);
       }
@@ -121,7 +106,7 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
         // 压缩图标到 500x500 减少存储占用
         const compressed = await compressIcon(dataUrl);
         setIcon(compressed);
-        setIsUsingFallback(false); // User manually uploaded an icon
+        setIsUsingFallback(false); // 用户手动上传了图标
       };
       reader.readAsDataURL(file);
     }
@@ -129,7 +114,7 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
 
   const handleUseTextIcon = () => {
     setIsUsingFallback(true);
-    // Force immediate update in case effect is delayed or strictly dependent on changes
+    // 强制立即更新，以防 effect 延迟或严格依赖于更改
     const textToUse = name.trim() || url;
     if (textToUse) {
       setIcon(generateTextIcon(textToUse));
@@ -141,7 +126,7 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
 
     onSave({
       name: name.trim(),
-      url: normalizeUrl(url), // Normalize on save
+      url: normalizeUrl(url), // 保存时规范化
       icon: icon,
     });
   };
@@ -151,17 +136,11 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
     setIsFetchingIcon(true);
     try {
       const normalized = normalizeUrl(url);
-      // Manual fetch: lax requirement (accept any size)
-      const { url: fetchedIcon, isFallback } = await fetchIcon(normalized, 0);
+      // 手动获取：宽松要求（接受任何尺寸）
+      // 使用 fetchAndProcessIcon 统一处理获取和压缩
+      const { url: processedIcon, isFallback } = await fetchAndProcessIcon(normalized, 0);
       setIsUsingFallback(isFallback);
-
-      if (isFallback) {
-        setIcon(fetchedIcon);
-      } else {
-        // 压缩获取的图标
-        const compressed = await compressIcon(fetchedIcon);
-        setIcon(compressed);
-      }
+      setIcon(processedIcon);
     } catch (error) {
       console.error('Failed to fetch icon:', error);
     } finally {
@@ -241,7 +220,7 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
               type="button"
               className={styles.actionButton}
               onClick={handleUseTextIcon}
-              title="Generate text icon"
+              title="生成文字图标"
             >
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M2.5 3.5C2.5 2.94772 2.94772 2.5 3.5 2.5H12.5C13.0523 2.5 13.5 2.94772 13.5 3.5V4.5C13.5 4.77614 13.2761 5 13 5H12.5C12.2239 5 12 4.77614 12 4.5V4H9V12H10C10.2761 12 10.5 12.2239 10.5 12.5V13C10.5 13.2761 10.2761 13.5 10 13.5H6C5.72386 13.5 5.5 13.2761 5.5 13V12.5C5.5 12.2239 5.72386 12 6 12H7V4H4V4.5C4 4.77614 3.77614 5 3.5 5H3C2.72386 5 2.5 4.77614 2.5 4.5V3.5Z" fill="currentColor" />

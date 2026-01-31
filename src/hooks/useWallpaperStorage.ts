@@ -12,7 +12,7 @@ export interface UseWallpaperStorageReturn {
     error: Error | null;
 }
 
-const COMPRESSION_THRESHOLD = 15 * 1024 * 1024; // 15MB
+const COMPRESSION_THRESHOLD = 15 * 1024 * 1024; // 15MB 压缩阈值
 
 const compressImage = async (file: File): Promise<Blob> => {
     if (file.size <= COMPRESSION_THRESHOLD) return file;
@@ -74,7 +74,7 @@ const generateThumbnail = async (file: File | Blob): Promise<Blob> => {
                 return;
             }
 
-            // Calculate cover dimensions (center crop)
+            // 计算封面尺寸（居中裁剪）
             const minDimension = Math.min(img.width, img.height);
             const sourceX = (img.width - minDimension) / 2;
             const sourceY = (img.height - minDimension) / 2;
@@ -130,7 +130,7 @@ export const useWallpaperStorage = (): UseWallpaperStorageReturn => {
         }
     }, []);
 
-    // Cleanup all created URLs on unmount
+    // 卸载时清理所有创建的 URL
     useEffect(() => {
         const urlsRef = activeUrlsRef;
         return () => {
@@ -209,7 +209,7 @@ export const useWallpaperStorage = (): UseWallpaperStorageReturn => {
 
         try {
             const allItems = await db.getAll();
-            // Sort by createdAt desc and take top 6
+            // 按 createdAt 降序排序并取前 6 个
             return allItems
                 .sort((a, b) => b.createdAt - a.createdAt);
         } catch (err) {

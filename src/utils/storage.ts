@@ -3,21 +3,45 @@ import { DockItem, SearchEngine, SpacesState, createDefaultSpacesState } from '.
 const STORAGE_KEYS = {
   DOCK_ITEMS: 'EclipseTab_dockItems',
   SEARCH_ENGINE: 'EclipseTab_searchEngine',
-  THEME: 'EclipseTab_theme',
-  FOLLOW_SYSTEM: 'EclipseTab_followSystem',
+  // Config (Unified settings)
+  CONFIG: 'EclipseTab_config',
+
+  // Legacy Keys (kept for reference, strictly used for migration)
+  // THEME: 'EclipseTab_theme',
+  // FOLLOW_SYSTEM: 'EclipseTab_followSystem',
+  // DOCK_POSITION: 'EclipseTab_dockPosition',
+  // ICON_SIZE: 'EclipseTab_iconSize',
+  // GRADIENT: 'EclipseTab_gradient',
+  // TEXTURE: 'EclipseTab_texture',
+
   WALLPAPER: 'EclipseTab_wallpaper',
   LAST_WALLPAPER: 'EclipseTab_lastWallpaper',
-  GRADIENT: 'EclipseTab_gradient',
-  TEXTURE: 'EclipseTab_texture',
   WALLPAPER_ID: 'EclipseTab_wallpaperId',
-  // Focus Spaces 新增
+
+  // Focus Spaces
   SPACES: 'EclipseTab_spaces',
-  // Zen Shelf 贴纸
+  // Zen Shelf Stickers
   STICKERS: 'EclipseTab_stickers',
-  // Dock 布局设置
-  DOCK_POSITION: 'EclipseTab_dockPosition',
-  ICON_SIZE: 'EclipseTab_iconSize',
 } as const;
+
+// Unified Configuration Interface
+interface AppConfig {
+  theme: string;
+  followSystem: boolean;
+  dockPosition: 'center' | 'bottom';
+  iconSize: 'large' | 'small';
+  texture: string;
+  gradient: string | null;
+}
+
+const DEFAULT_CONFIG: AppConfig = {
+  theme: 'light',
+  followSystem: true,
+  dockPosition: 'bottom',
+  iconSize: 'large',
+  texture: 'point',
+  gradient: null,
+};
 
 // ============================================================================
 // 性能优化: 内存缓存层，避免重复 JSON.parse
@@ -30,6 +54,7 @@ interface CacheEntry<T> {
 const memoryCache = {
   spaces: null as CacheEntry<SpacesState> | null,
   stickers: null as CacheEntry<import('../types').Sticker[]> | null,
+  config: null as CacheEntry<AppConfig> | null,
 };
 
 /**
@@ -49,6 +74,128 @@ function getCached<T>(key: string, cache: CacheEntry<T> | null): T | null {
 }
 
 export const storage = {
+  // ==========================================================================
+  // Configuration Management (New Structured Storage)
+  // ==========================================================================
+
+  getConfig(): AppConfig {
+    try {
+      // Check memory cache
+      const cached = getCached(STORAGE_KEYS.CONFIG, memoryCache.config);
+      if (cached) return cached;
+
+      const json = localStorage.getItem(STORAGE_KEYS.CONFIG);
+      if (json) {
+        const parsed = JSON.parse(json);
+        const config = { ...DEFAULT_CONFIG, ...parsed };
+        memoryCache.config = { data: config, raw: json };
+        return config;
+      }
+
+      // Migration: Try to read legacy keys
+      const config = { ...DEFAULT_CONFIG };
+
+      const legacyTheme = localStorage.getItem('EclipseTab_theme');
+      if (legacyTheme) config.theme = legacyTheme;
+
+      const legacyFollow = localStorage.getItem('EclipseTab_followSystem');
+      if (legacyFollow !== null) config.followSystem = legacyFollow === 'true';
+
+      const legacyDockPos = localStorage.getItem('EclipseTab_dockPosition');
+      if (legacyDockPos === 'center' || legacyDockPos === 'bottom') config.dockPosition = legacyDockPos;
+
+      const legacyIconSize = localStorage.getItem('EclipseTab_iconSize');
+      if (legacyIconSize === 'small' || legacyIconSize === 'large') config.iconSize = legacyIconSize;
+
+      const legacyTexture = localStorage.getItem('EclipseTab_texture');
+      if (legacyTexture) config.texture = legacyTexture;
+
+      const legacyGradient = localStorage.getItem('EclipseTab_gradient');
+      if (legacyGradient) config.gradient = legacyGradient;
+
+      // Save migrated config
+      const newJson = JSON.stringify(config);
+      localStorage.setItem(STORAGE_KEYS.CONFIG, newJson);
+      memoryCache.config = { data: config, raw: newJson };
+
+      return config;
+    } catch {
+      return DEFAULT_CONFIG;
+    }
+  },
+
+  saveConfig(config: AppConfig): void {
+    try {
+      const json = JSON.stringify(config);
+      localStorage.setItem(STORAGE_KEYS.CONFIG, json);
+      memoryCache.config = { data: config, raw: json };
+    } catch (error) {
+      console.error('Failed to save config:', error);
+    }
+  },
+
+  updateConfig(patch: Partial<AppConfig>): void {
+    const current = this.getConfig();
+    const next = { ...current, ...patch };
+    this.saveConfig(next);
+  },
+
+  // ==========================================================================
+  // Specific Settings Accessors (Adapters using getConfig/saveConfig)
+  // ==========================================================================
+
+  getTheme(): string {
+    return this.getConfig().theme;
+  },
+
+  saveTheme(theme: string): void {
+    this.updateConfig({ theme });
+  },
+
+  getFollowSystem(): boolean {
+    return this.getConfig().followSystem;
+  },
+
+  saveFollowSystem(followSystem: boolean): void {
+    this.updateConfig({ followSystem });
+  },
+
+  getDockPosition(): 'center' | 'bottom' {
+    return this.getConfig().dockPosition;
+  },
+
+  saveDockPosition(dockPosition: 'center' | 'bottom'): void {
+    this.updateConfig({ dockPosition });
+  },
+
+  getIconSize(): 'large' | 'small' {
+    return this.getConfig().iconSize;
+  },
+
+  saveIconSize(iconSize: 'large' | 'small'): void {
+    this.updateConfig({ iconSize });
+  },
+
+  getTexture(): string {
+    return this.getConfig().texture;
+  },
+
+  saveTexture(texture: string): void {
+    this.updateConfig({ texture });
+  },
+
+  getGradient(): string | null {
+    return this.getConfig().gradient;
+  },
+
+  saveGradient(gradient: string | null): void {
+    this.updateConfig({ gradient });
+  },
+
+  // ==========================================================================
+  // Large Data / Independent Storage
+  // ==========================================================================
+
   getDockItems(): DockItem[] {
     try {
       const items = localStorage.getItem(STORAGE_KEYS.DOCK_ITEMS);
@@ -83,41 +230,6 @@ export const storage = {
     }
   },
 
-  getTheme(): string | null {
-    try {
-      return localStorage.getItem(STORAGE_KEYS.THEME);
-    } catch {
-      return null;
-    }
-  },
-
-  saveTheme(theme: string): void {
-    try {
-      localStorage.setItem(STORAGE_KEYS.THEME, theme);
-    } catch (error) {
-      console.error('Failed to save theme:', error);
-    }
-  },
-
-  getFollowSystem(): boolean {
-    try {
-      const value = localStorage.getItem(STORAGE_KEYS.FOLLOW_SYSTEM);
-      // First-time users: default to follow system
-      if (value === null) return true;
-      return value === 'true';
-    } catch {
-      return true;
-    }
-  },
-
-  saveFollowSystem(follow: boolean): void {
-    try {
-      localStorage.setItem(STORAGE_KEYS.FOLLOW_SYSTEM, String(follow));
-    } catch (error) {
-      console.error('Failed to save follow system setting:', error);
-    }
-  },
-
   getWallpaper(): string | null {
     try {
       return localStorage.getItem(STORAGE_KEYS.WALLPAPER);
@@ -130,7 +242,6 @@ export const storage = {
     try {
       if (wallpaper) {
         localStorage.setItem(STORAGE_KEYS.WALLPAPER, wallpaper);
-        // Also save as last wallpaper when setting a new one
         localStorage.setItem(STORAGE_KEYS.LAST_WALLPAPER, wallpaper);
       } else {
         localStorage.removeItem(STORAGE_KEYS.WALLPAPER);
@@ -180,71 +291,25 @@ export const storage = {
     }
   },
 
-  getGradient(): string | null {
-    try {
-      return localStorage.getItem(STORAGE_KEYS.GRADIENT);
-    } catch {
-      return null;
-    }
-  },
+  // ==========================================================================
+  // Focus Spaces
+  // ==========================================================================
 
-  saveGradient(gradientId: string | null): void {
-    try {
-      if (gradientId) {
-        localStorage.setItem(STORAGE_KEYS.GRADIENT, gradientId);
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.GRADIENT);
-      }
-    } catch (error) {
-      console.error('Failed to save gradient:', error);
-    }
-  },
-
-  getTexture(): string | null {
-    try {
-      const value = localStorage.getItem(STORAGE_KEYS.TEXTURE);
-      // First-time users: default to 'point' texture
-      if (value === null) return 'point';
-      return value;
-    } catch {
-      return 'point';
-    }
-  },
-
-  saveTexture(texture: string): void {
-    try {
-      localStorage.setItem(STORAGE_KEYS.TEXTURE, texture);
-    } catch (error) {
-      console.error('Failed to save texture:', error);
-    }
-  },
-
-  // ============================================================================
-  // Focus Spaces 存储
-  // ============================================================================
-
-  /**
-   * 获取空间状态
-   * 如果不存在则尝试从旧版 dockItems 迁移，或创建默认状态并保存
-   */
   getSpaces(): SpacesState {
     try {
-      // 检查内存缓存
       const cached = getCached(STORAGE_KEYS.SPACES, memoryCache.spaces);
       if (cached) return cached;
 
       const spacesJson = localStorage.getItem(STORAGE_KEYS.SPACES);
       if (spacesJson) {
         const parsed = JSON.parse(spacesJson);
-        // 确保数据有效
         if (parsed && parsed.spaces && parsed.spaces.length > 0) {
-          // 更新缓存
           memoryCache.spaces = { data: parsed, raw: spacesJson };
           return parsed;
         }
       }
 
-      // 尝试从旧版数据迁移
+      // Migration from legacy dock items
       const legacyItems = this.getDockItems();
       if (legacyItems.length > 0) {
         const migratedState = createDefaultSpacesState(legacyItems);
@@ -252,7 +317,6 @@ export const storage = {
         return migratedState;
       }
 
-      // 创建默认状态并立即保存
       const defaultState = createDefaultSpacesState();
       this.saveSpaces(defaultState);
       return defaultState;
@@ -264,23 +328,16 @@ export const storage = {
     }
   },
 
-  /**
-   * 保存空间状态
-   */
   saveSpaces(state: SpacesState): void {
     try {
       const json = JSON.stringify(state);
       localStorage.setItem(STORAGE_KEYS.SPACES, json);
-      // 同步更新缓存
       memoryCache.spaces = { data: state, raw: json };
     } catch (error) {
       console.error('Failed to save spaces:', error);
     }
   },
 
-  /**
-   * 清除空间数据（用于调试/重置）
-   */
   clearSpaces(): void {
     try {
       localStorage.removeItem(STORAGE_KEYS.SPACES);
@@ -289,23 +346,18 @@ export const storage = {
     }
   },
 
-  // ============================================================================
-  // Zen Shelf 贴纸存储
-  // ============================================================================
+  // ==========================================================================
+  // Zen Shelf Stickers
+  // ==========================================================================
 
-  /**
-   * 获取所有贴纸
-   */
   getStickers(): import('../types').Sticker[] {
     try {
-      // 检查内存缓存
       const cached = getCached(STORAGE_KEYS.STICKERS, memoryCache.stickers);
       if (cached) return cached;
 
       const stickersJson = localStorage.getItem(STORAGE_KEYS.STICKERS);
       if (stickersJson) {
         const parsed = JSON.parse(stickersJson);
-        // 更新缓存
         memoryCache.stickers = { data: parsed, raw: stickersJson };
         return parsed;
       }
@@ -316,67 +368,13 @@ export const storage = {
     }
   },
 
-  /**
-   * 保存贴纸列表
-   */
   saveStickers(stickers: import('../types').Sticker[]): void {
     try {
       const json = JSON.stringify(stickers);
       localStorage.setItem(STORAGE_KEYS.STICKERS, json);
-      // 同步更新缓存
       memoryCache.stickers = { data: stickers, raw: json };
     } catch (error) {
       console.error('Failed to save stickers:', error);
-    }
-  },
-
-  // ============================================================================
-  // Dock 布局设置
-  // ============================================================================
-
-  /**
-   * 获取 Dock 位置设置
-   */
-  getDockPosition(): 'center' | 'bottom' {
-    try {
-      const value = localStorage.getItem(STORAGE_KEYS.DOCK_POSITION);
-      return value === 'center' ? 'center' : 'bottom';
-    } catch {
-      return 'bottom';
-    }
-  },
-
-  /**
-   * 保存 Dock 位置设置
-   */
-  saveDockPosition(position: 'center' | 'bottom'): void {
-    try {
-      localStorage.setItem(STORAGE_KEYS.DOCK_POSITION, position);
-    } catch (error) {
-      console.error('Failed to save dock position:', error);
-    }
-  },
-
-  /**
-   * 获取图标大小设置
-   */
-  getIconSize(): 'large' | 'small' {
-    try {
-      const value = localStorage.getItem(STORAGE_KEYS.ICON_SIZE);
-      return value === 'small' ? 'small' : 'large';
-    } catch {
-      return 'large';
-    }
-  },
-
-  /**
-   * 保存图标大小设置
-   */
-  saveIconSize(size: 'large' | 'small'): void {
-    try {
-      localStorage.setItem(STORAGE_KEYS.ICON_SIZE, size);
-    } catch (error) {
-      console.error('Failed to save icon size:', error);
     }
   },
 };

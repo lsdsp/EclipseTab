@@ -60,19 +60,19 @@ const ThemeActionsContext = createContext<ThemeActionsContextType | undefined>(u
 // ============================================================================
 type ThemeContextType = ThemeDataContextType & ThemeActionsContextType;
 
-const MAX_WALLPAPER_SIZE = 20 * 1024 * 1024; // 20MB limit
+const MAX_WALLPAPER_SIZE = 20 * 1024 * 1024; // 20MB 限制
 
 /**
- * Determines if a background color/gradient is light or dark
- * Returns true if the background is light (needs dark text)
+ * 判断背景颜色/渐变是浅色还是深色
+ * 如果背景是浅色（需要深色文字），返回 true
  */
 const isBackgroundLight = (backgroundValue: string): boolean => {
-    // If it's a wallpaper URL, assume light background (can't analyze image)
+    // 如果是壁纸 URL，假设为浅色背景 (无法直接分析图像)
     if (backgroundValue.startsWith('url(')) {
         return true;
     }
 
-    // Extract all colors from the string
+    // 提取字符串中的所有颜色
     const colors: string[] = [];
     const hexRegex = /#[0-9A-Fa-f]{6}/g;
     const rgbRegex = /rgba?\([^)]+\)/g;
@@ -85,7 +85,7 @@ const isBackgroundLight = (backgroundValue: string): boolean => {
 
     if (colors.length === 0) return false;
 
-    // Calculate luminance for each color
+    // 计算每种颜色的亮度
     let totalLuminance = 0;
     let maxLuminance = 0;
 
@@ -115,8 +115,8 @@ const isBackgroundLight = (backgroundValue: string): boolean => {
 
     const averageLuminance = totalLuminance / colors.length;
 
-    // Use a combined score: average (overall brightness) + max (brightest spot)
-    // This helps detect gradients that fade to light, ensuring readability on the light parts
+    // 使用组合评分：平均值 (整体亮度) + 最大值 (最亮点)
+    // 这有助于检测淡入浅色的渐变，确保在浅色部分的可读性
     const score = (averageLuminance + maxLuminance) / 2;
 
     return score > 0.4;
@@ -125,10 +125,10 @@ const isBackgroundLight = (backgroundValue: string): boolean => {
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const systemTheme = useSystemTheme();
 
-    // Wallpaper storage hook
+    // 壁纸存储钩子
     const { saveWallpaper: saveToDb, getWallpaper: getFromDb, createWallpaperUrl } = useWallpaperStorage();
 
-    // Core theme state
+    // 核心主题状态
     const [manualTheme, setManualTheme] = useState<Theme>(() => {
         const saved = storage.getTheme();
         return (saved as Theme) || 'default';
@@ -160,7 +160,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return (storage.getTexture() as Texture) || 'none';
     });
 
-    // Dock layout settings
+    // Dock 布局设置
     const [dockPosition, setDockPositionState] = useState<DockPosition>(() => {
         return storage.getDockPosition();
     });
@@ -169,11 +169,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return storage.getIconSize();
     });
 
-    // Computed theme: use system theme if followSystem is enabled
+    // 计算主题：如果启用了 followSystem，则使用系统主题
     const theme = followSystem ? systemTheme : manualTheme;
     const isDefaultTheme = manualTheme === 'default' && !followSystem;
 
-    // Load wallpaper from DB if ID exists
+    // 如果 ID 存在，从数据库加载壁纸
     useEffect(() => {
         if (wallpaperId) {
             getFromDb(wallpaperId).then(blob => {
@@ -185,24 +185,24 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
     }, [wallpaperId, getFromDb, createWallpaperUrl]);
 
-    // Update manual theme
+    // 更新手动主题
     const setTheme = useCallback((newTheme: Theme) => {
         setManualTheme(newTheme);
         storage.saveTheme(newTheme);
-        // When manually setting theme, disable follow system
+        // 手动设置主题时，禁用跟随系统
         if (followSystem) {
             setFollowSystemState(false);
             storage.saveFollowSystem(false);
         }
     }, [followSystem]);
 
-    // Update follow system setting
+    // 更新跟随系统设置
     const setFollowSystem = useCallback((follow: boolean) => {
         setFollowSystemState(follow);
         storage.saveFollowSystem(follow);
     }, []);
 
-    // Update wallpaper
+    // 更新壁纸
     const setWallpaper = useCallback((wp: string | null) => {
         setWallpaperState(wp);
         storage.saveWallpaper(wp);
@@ -212,7 +212,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
     }, []);
 
-    // Set wallpaper by ID (from gallery)
+    // 通过 ID 设置壁纸 (从画廊)
     const setWallpaperId = useCallback(async (id: string) => {
         setWallpaperIdState(id);
         storage.saveWallpaperId(id);
@@ -224,14 +224,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
     }, [getFromDb, createWallpaperUrl]);
 
-    // Upload wallpaper file
+    // 上传壁纸文件
     const uploadWallpaper = useCallback(async (file: File) => {
-        // Validate file size
+        // 验证文件大小
         if (file.size > MAX_WALLPAPER_SIZE) {
             throw new Error(`图片大小不能超过 ${MAX_WALLPAPER_SIZE / 1024 / 1024}MB`);
         }
 
-        // Validate file type
+        // 验证文件类型
         if (!file.type.startsWith('image/')) {
             throw new Error('请选择图片文件');
         }
@@ -245,41 +245,39 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
     }, [saveToDb, setWallpaperId]);
 
-    // Update gradient
+    // 更新渐变
     const setGradientId = useCallback((id: string | null) => {
         setGradientIdState(id);
         storage.saveGradient(id);
-        // We don't necessarily reset texture here anymore, as texture can coexist with solid color
+        // 此处不再需要重置纹理，因为纹理可以与纯色共存
     }, []);
 
     const setTexture = useCallback((newTexture: Texture) => {
         setTextureState(newTexture);
         storage.saveTexture(newTexture);
-        // If texture is set, we might want to clear wallpaper if it exists?
-        // But let's leave that to the UI handler or user choice.
+        // 如果设置了纹理，我们可能想要清除壁纸（如果存在）？
+        // 但让我们把这个交给 UI 处理程序或用户选择。
     }, []);
 
-    // Update dock position
+    // 更新 Dock 位置
     const setDockPosition = useCallback((position: DockPosition) => {
         setDockPositionState(position);
         storage.saveDockPosition(position);
     }, []);
 
-    // Update icon size
+    // 更新图标大小
     const setIconSize = useCallback((size: IconSize) => {
         setIconSizeState(size);
         storage.saveIconSize(size);
     }, []);
 
-    // Apply theme to document
+    // 将主题应用到文档
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
     }, [theme]);
 
-    // Apply wallpaper or gradient/solid/texture to body background
-    // Compute background value and blend mode
-    // Apply wallpaper or gradient/solid/texture to body background
-    // Compute background value and blend mode
+    // 将壁纸或渐变/纯色/纹理应用到 body 背景
+    // 计算背景值和混合模式
     const { backgroundValue, backgroundBaseValue, backgroundTextureValue, backgroundTextureTileSize, backgroundBlendMode } = React.useMemo(() => {
         let fullBgValue = '';
         let baseValue = '';
@@ -322,9 +320,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
             fullBgValue = baseValue;
 
-            // Apply texture pattern if enabled (not in default theme and not 'none')
+            // 如果启用，应用纹理图案 (不在默认主题且不为 'none')
             if (!isDefaultTheme && texture !== 'none') {
-                // Calculate dynamic color from the base background
+                // 从基础背景计算动态颜色
                 const textureColor = getTextureColorFromBackground(baseValue);
 
                 const textureDataUrl = generateTextureDataUrl(texture, textureColor);
@@ -343,14 +341,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
     }, [wallpaper, gradientId, texture, isDefaultTheme, theme]);
 
-    // Apply theme to document and set CSS variables for backward compatibility
+    // 将主题应用到文档，并设置 CSS 变量以保持向后兼容
     useEffect(() => {
         const root = document.documentElement;
 
-        // Remove data-texture attribute
+        // 移除 data-texture 属性
         root.removeAttribute('data-texture');
 
-        // Detect background brightness for default theme only
+        // 仅对默认主题检测背景亮度
         if (isDefaultTheme && backgroundValue) {
             const isLight = isBackgroundLight(backgroundValue);
             root.setAttribute('data-background-brightness', isLight ? 'light' : 'dark');
@@ -358,19 +356,19 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             root.removeAttribute('data-background-brightness');
         }
 
-        // Set CSS variables
+        // 设置 CSS 变量
         root.style.setProperty('--background-custom', backgroundValue);
 
-        // Configure background sizing and positioning
+        // 配置背景大小和位置
         const hasTexture = !isDefaultTheme && texture !== 'none' && !wallpaper;
         if (hasTexture) {
-            // Texture pattern layer + solid/gradient layer
+            // 纹理图案层 + 纯色/渐变层
             const textureSize = getTextureSize(texture);
             root.style.setProperty('--background-size', `${textureSize}, cover`);
             root.style.setProperty('--background-position', '0 0, center');
             root.style.setProperty('--background-repeat', 'repeat, no-repeat');
         } else {
-            // Single layer (wallpaper or solid/gradient)
+            // 单层 (壁纸或纯色/渐变)
             root.style.setProperty('--background-size', 'cover');
             root.style.setProperty('--background-position', 'center');
             root.style.setProperty('--background-repeat', 'no-repeat');
@@ -382,7 +380,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             root.style.removeProperty('--background-blend-mode');
         }
 
-        // Set icon size CSS variable
+        // 设置图标大小 CSS 变量
         root.style.setProperty('--icon-size', iconSize === 'small' ? '52px' : '64px');
     }, [backgroundValue, backgroundBlendMode, isDefaultTheme, iconSize, texture, wallpaper]);
 

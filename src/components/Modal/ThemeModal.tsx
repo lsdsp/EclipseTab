@@ -12,9 +12,9 @@ interface ThemeModalProps {
 }
 
 const THEME_OPTIONS: { value: Theme; label: string; description: string }[] = [
-    { value: 'default', label: 'Default', description: 'Classic Gradient' },
-    { value: 'light', label: 'Light', description: 'Bright & Fresh' },
-    { value: 'dark', label: 'Dark', description: 'Deep & Elegant' },
+    { value: 'default', label: '默认', description: '经典渐变' },
+    { value: 'light', label: '浅色', description: '明亮清新' },
+    { value: 'dark', label: '深色', description: '深邃优雅' },
 ];
 
 export const ThemeModal: React.FC<ThemeModalProps> = ({
@@ -27,14 +27,14 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
     const [isVisible, setIsVisible] = useState(false);
     const modalRef = useRef<HTMLDivElement>(null);
 
-    // Handle visibility and animations
+    // 处理可见性和动画
     useEffect(() => {
         if (isOpen) {
             setIsVisible(true);
         }
     }, [isOpen]);
 
-    // Run enter animation when modal becomes visible
+    // 当模态框变为可见时运行入场动画
     useEffect(() => {
         if (isOpen && isVisible && modalRef.current) {
             scaleFadeIn(modalRef.current);
@@ -77,7 +77,7 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
 
     if (!isVisible) return null;
 
-    // Calculate position
+    // 计算位置
     const modalStyle: React.CSSProperties = {};
     if (anchorRect) {
         const modalWidth = 280;
@@ -86,11 +86,11 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
         const viewportHeight = window.innerHeight;
         const gap = 12;
 
-        // Position below the anchor on left side
+        // 定位于左侧锚点的下方
         let left = anchorRect.left;
         let top = anchorRect.bottom + gap;
 
-        // Ensure modal stays within viewport horizontally
+        // 确保模态框在水平方向上保持在视口内
         if (left + modalWidth > viewportWidth) {
             left = viewportWidth - modalWidth - 20;
         }
@@ -98,7 +98,7 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
             left = 20;
         }
 
-        // Ensure modal stays within viewport vertically
+        // 确保模态框在垂直方向上保持在视口内
         if (top + modalHeight > viewportHeight) {
             top = anchorRect.top - modalHeight - gap;
         }

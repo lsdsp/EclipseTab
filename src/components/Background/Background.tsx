@@ -2,15 +2,15 @@ import React from 'react';
 import { useThemeData } from '../../context/ThemeContext';
 import styles from './Background.module.css';
 
-// Helper function to extract URL from background value
-// Only returns URL if the background is purely a wallpaper image (no texture overlay)
+// 辅助函数：从背景值中提取 URL
+// 仅当背景是纯壁纸图像（无纹理叠加）时返回 URL
 const extractWallpaperUrl = (bgValue: string): string | null => {
-    // If the background contains a comma, it has multiple layers (e.g., texture + color)
-    // In this case, we should render as a div with background style, not as an img
+    // 如果背景包含逗号，则它具有多个图层（例如，纹理 + 颜色）
+    // 在这种情况下，我们应该将其渲染为具有背景样式的 div，而不是 img
     if (bgValue.includes(',')) {
         return null;
     }
-    // Only match if the entire value is a single url() that's NOT a data URL (data URLs are textures)
+    // 仅当整个值是单个 url() 且不是 data URL（data URL 是纹理）时匹配
     const match = bgValue.match(/^url\(['"]?([^'"]+)['"]?\)$/);
     if (match && !match[1].startsWith('data:')) {
         return match[1];
@@ -21,7 +21,7 @@ const extractWallpaperUrl = (bgValue: string): string | null => {
 export const Background: React.FC = () => {
     const { backgroundBaseValue, backgroundTextureValue, backgroundTextureTileSize, backgroundBlendMode } = useThemeData();
 
-    // Manage base layers (crossfade)
+    // 管理基础图层 (淡入淡出)
     const [baseLayers, setBaseLayers] = React.useState<Array<{
         id: number;
         value: string;
@@ -29,7 +29,7 @@ export const Background: React.FC = () => {
         visible: boolean;
     }>>([]);
 
-    // Manage texture layers (sequential: fade out -> wait -> fade in)
+    // 管理纹理图层 (顺序：淡出 -> 等待 -> 淡入)
     const [textureLayers, setTextureLayers] = React.useState<Array<{
         id: number;
         value: string | null;
@@ -37,11 +37,11 @@ export const Background: React.FC = () => {
         visible: boolean;
     }>>([]);
 
-    // Use refs to track current state for sequential logic
+    // 使用 refs 跟踪当前状态以实现顺序逻辑
     const textureLayersRef = React.useRef(textureLayers);
     textureLayersRef.current = textureLayers;
 
-    // 1. Handle Base Background Changes (Crossfade)
+    // 1. 处理基础背景更改 (交叉淡入淡出)
     React.useEffect(() => {
         const timestamp = Date.now();
         const wallpaperUrl = extractWallpaperUrl(backgroundBaseValue);
@@ -58,14 +58,14 @@ export const Background: React.FC = () => {
             return [...activeLayers, newLayer];
         });
 
-        // Fade in new layer
+        // 淡入新图层
         const animTimer = setTimeout(() => {
             setBaseLayers(prev => prev.map(l =>
                 l.id === timestamp ? { ...l, visible: true } : l
             ));
         }, 50);
 
-        // Cleanup old layers
+        // 清理旧图层
         const cleanupTimer = setTimeout(() => {
             setBaseLayers(prev => prev.filter(l => l.id === timestamp));
         }, 300);
@@ -76,11 +76,11 @@ export const Background: React.FC = () => {
         };
     }, [backgroundBaseValue]);
 
-    // 2. Handle Texture Changes (Sequential: Out -> In)
+    // 2. 处理纹理更改 (顺序：出 -> 入)
     React.useEffect(() => {
         const timestamp = Date.now();
-        // If texture is null/none, we just fade out current texture
-        // If texture is new, we fade out old, then fade in new
+        // 如果纹理为 null/none，我们只需淡出当前纹理
+        // 如果纹理是新的，我们先淡出旧的，然后淡入新的
 
         const newLayer = {
             id: timestamp,
@@ -89,17 +89,17 @@ export const Background: React.FC = () => {
             visible: false
         };
 
-        // Check if there are ANY layers (even if currently fading out)
-        // This enforces strict sequential animation: Old finishes -> New starts
+        // 检查是否有任何图层 (即使当前正在淡出)
+        // 这强制执行严格的顺序动画：旧的结束 -> 新的开始
         const hasLayers = textureLayersRef.current.length > 0;
 
         if (hasLayers) {
-            // Fade out current layers
+            // 淡出当前图层
             setTextureLayers(prev => prev.map(l => ({ ...l, visible: false })));
 
-            // Wait, then show new
+            // 等待，然后显示新图层
             const timer = setTimeout(() => {
-                // If there is a new texture (not null), add it
+                // 如果有新纹理 (不为 null), 则添加它
                 if (backgroundTextureValue) {
                     setTextureLayers([newLayer]);
                     requestAnimationFrame(() => {
@@ -108,14 +108,14 @@ export const Background: React.FC = () => {
                         ));
                     });
                 } else {
-                    // If switching to None, just clear layers
+                    // 如果切换到 None，只需清除图层
                     setTextureLayers([]);
                 }
             }, 300);
 
             return () => clearTimeout(timer);
         } else {
-            // No visible texture, just show new one if exists
+            // 没有可见纹理，如果存在则直接显示新纹理
             if (backgroundTextureValue) {
                 setTextureLayers(prev => [...prev, newLayer]);
 
@@ -134,7 +134,7 @@ export const Background: React.FC = () => {
                     clearTimeout(cleanupTimer);
                 };
             } else {
-                // Ensure empty if value is null and no visible layers
+                // 如果值为 null 且没有可见图层，确保为空
                 setTextureLayers([]);
             }
         }
@@ -142,7 +142,7 @@ export const Background: React.FC = () => {
 
     return (
         <div className={styles.container}>
-            {/* Base Background Layers */}
+            {/* 基础背景图层 */}
             {baseLayers.map((layer) => (
                 <div key={`base-${layer.id}`} className={styles.layerWrapper} style={{ zIndex: 0 }}>
                     {layer.wallpaperUrl ? (
@@ -171,7 +171,7 @@ export const Background: React.FC = () => {
                 </div>
             ))}
 
-            {/* Texture Layers (Overlay) */}
+            {/* 纹理图层 (叠加层) */}
             {textureLayers.map((layer) => layer.value ? (
                 <div
                     key={`tex-${layer.id}`}

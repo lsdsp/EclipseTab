@@ -8,7 +8,7 @@ interface ModalProps {
   onClose: () => void;
   children: React.ReactNode;
   title?: string;
-  // When provided, the modal behaves like a popover anchored to this rect (no backdrop/centered layout)
+  // 当提供此属性时，模态框的行为类似于锚定到此矩形的弹出框（无遮罩层/中心布局）
   anchorRect?: DOMRect | null;
   offset?: number;
   hideHeader?: boolean;
@@ -28,7 +28,7 @@ export const Modal: React.FC<ModalProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const isClosingRef = useRef(false);
 
-  // Handle open
+  // 处理打开
   useEffect(() => {
     if (isOpen) {
       isClosingRef.current = false;
@@ -36,14 +36,14 @@ export const Modal: React.FC<ModalProps> = ({
     }
   }, [isOpen]);
 
-  // Enter animation - use useLayoutEffect to ensure it runs synchronously before paint
+  // 入场动画 - 使用 useLayoutEffect 以确保它在绘制前同步运行
   useLayoutEffect(() => {
     if (isOpen && isVisible && containerRef.current && !isClosingRef.current) {
       scaleFadeIn(containerRef.current);
     }
   }, [isOpen, isVisible]);
 
-  // Exit animation - triggered by parent setting isOpen=false
+  // 出场动画 - 由父组件设置 isOpen=false 触发
   useEffect(() => {
     if (!isOpen && isVisible && !isClosingRef.current) {
       isClosingRef.current = true;
@@ -61,7 +61,7 @@ export const Modal: React.FC<ModalProps> = ({
     }
   };
 
-  // Handle close with animation
+  // 处理带有动画的关闭
   const handleClose = () => {
     if (isClosingRef.current) return;
     isClosingRef.current = true;
@@ -79,7 +79,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   if (!isVisible) return null;
 
-  // Popover mode
+  // 弹出框模式
   if (anchorRect) {
     return createPortal(
       <>
@@ -90,7 +90,7 @@ export const Modal: React.FC<ModalProps> = ({
             left: `${Math.min(Math.max(Math.round(anchorRect.left + anchorRect.width / 2), 160), window.innerWidth - 160)}px`,
             top: `${Math.round(anchorRect.top - 24)}px`,
             transform: 'translate(-50%, -100%)',
-            zIndex: 2001, // Higher than backdrop
+            zIndex: 2001, // 高于遮罩层
             pointerEvents: 'auto',
           }}
           onClick={(e) => e.stopPropagation()}
@@ -112,7 +112,7 @@ export const Modal: React.FC<ModalProps> = ({
             </div>
           </div>
         </div>
-        {/* global outside click catcher */}
+        {/* 全局外部点击捕获器 */}
         <div
           className={styles.clickAway}
           onClick={handleClose}

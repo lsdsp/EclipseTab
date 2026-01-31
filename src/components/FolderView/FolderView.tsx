@@ -28,7 +28,7 @@ interface FolderViewProps {
   onItemsReorder: (items: DockItem[]) => void;
   onItemDragOut?: (item: DockItem, mousePosition: { x: number; y: number }) => void;
   anchorRect?: DOMRect | null;
-  // Cross‑component drag feedback
+  // 跨组件拖拽反馈
   externalDragItem?: DockItem | null;
   onDragStart?: (item: DockItem) => void;
   onDragEnd?: () => void;
@@ -38,7 +38,7 @@ interface FolderViewProps {
   onToggleEditMode?: () => void;
 }
 
-// Layout Constants (imported from shared constants)
+// 布局常量 (从共享常量导入)
 const COLUMNS = FOLDER_COLUMNS;
 const ITEM_WIDTH = FOLDER_ITEM_WIDTH;
 const ITEM_HEIGHT = FOLDER_ITEM_HEIGHT;
@@ -99,7 +99,7 @@ export const FolderView: React.FC<FolderViewProps> = ({
   const items = folder.items || [];
 
   // ==================================================================================
-  // Snake-like Fluid Grid Layout Calculation
+  // 蛇形流体网格布局计算
   // ==================================================================================
 
   // Calculate effective layout indices for render

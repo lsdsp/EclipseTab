@@ -3,7 +3,7 @@ import { SearchEngine } from '../types';
 export const SEARCH_ENGINES: SearchEngine[] = [
   {
     id: 'default',
-    name: 'System Default',
+    name: '系统默认',
     url: '',
   },
   {

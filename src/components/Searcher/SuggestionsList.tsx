@@ -34,14 +34,14 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({
         }
     }, [anchorRect]);
 
-    // Entry animation
+    // 入场动画
     useEffect(() => {
         if (listRef.current && !isExiting) {
             scaleFadeIn(listRef.current);
         }
     }, []);
 
-    // Exit animation
+    // 出场动画
     useEffect(() => {
         if (isExiting && listRef.current) {
             scaleFadeOut(listRef.current, 300);

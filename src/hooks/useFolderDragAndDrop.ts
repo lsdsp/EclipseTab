@@ -97,7 +97,7 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
         };
     }, [externalDragItem, placeholderIndex, onFolderPlaceholderChange]);
 
-    // Track last position for drop events (since we don't update state during drag)
+    // 跟踪松开事件的最后位置（因为我们在拖拽期间不更新状态）
     const lastPositionRef = useRef<{ x: number; y: number } | null>(null);
 
     // ============================================================================
@@ -113,14 +113,14 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
         const currentDrag = dragRef.current;
         // 如果是内部拖拽
         if (currentDrag.isDragging && currentDrag.item) {
-            // Calculate new position
+            // 计算新位置
             const x = e.clientX - currentDrag.offset.x;
             const y = e.clientY - currentDrag.offset.y;
 
-            // Update ref for MouseUp handler
+            // 为 MouseUp 处理器更新 ref
             lastPositionRef.current = { x, y };
 
-            // Direct DOM manipulation for performance (avoids re-renders)
+            // 为了性能直接进行 DOM 操作（避免重新渲染）
             if (dragElementRef.current) {
                 dragElementRef.current.style.left = `${x}px`;
                 dragElementRef.current.style.top = `${y}px`;
@@ -147,7 +147,7 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
                     }
                     return;
                 } else {
-                    // Back inside
+                    // 回到内部
                     if (currentDrag.targetAction === 'dragOut') {
                         setDragState(prev => ({
                             ...prev,
@@ -269,8 +269,8 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
     /**
      * 处理鼠标松开 (Drop) - 两阶段释放
      * 
-     * Stage 1 (本函数): 触发归位动画，设置 isAnimatingReturn = true
-     * Stage 2 (handleAnimationComplete): 动画结束后提交数据
+     * 第一阶段 (本函数): 触发归位动画，设置 isAnimatingReturn = true
+     * 第二阶段 (handleAnimationComplete): 动画结束后提交数据
      * 
      * 关键：
      * 1. 不在此处调用 onReorder
@@ -286,10 +286,10 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
         window.removeEventListener('mousemove', handleMouseMove);
 
         if (currentDrag.isDragging && currentDrag.item) {
-            // ========== Case: Drag Out ==========
+            // ========== 场景: 拖出文件夹 ==========
             if (currentDrag.targetAction === 'dragOut' && onDragOut) {
                 // DragOut 不需要归位动画，直接执行
-                // Use last known position from ref (since state is not updated during drag)
+                // 使用 ref 中的最后已知位置（因为拖拽期间不更新状态）
                 const finalPos = lastPositionRef.current || currentDrag.currentPosition;
                 onDragOut(currentDrag.item, finalPos);
 
@@ -299,7 +299,7 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
                 return;
             }
 
-            // ========== Case: Reorder with Animation ==========
+            // ========== 场景: 带有动画的重排序 ==========
             if (currentPlaceholder !== -1 && currentPlaceholder !== currentDrag.originalIndex) {
                 // 计算目标位置 (网格坐标 -> 屏幕坐标)
                 const gridElement = containerRef.current;
@@ -320,10 +320,10 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
                     const targetX = gridRect.left + paddingLeft + targetCol * CELL_SIZE;
                     const targetY = gridRect.top + paddingTop + targetRow * CELL_SIZE;
 
-                    // 预计算新的 items 顺序 (保存到 state 中，Step 2 使用)
+                    // 预计算新的 items 顺序 (保存到 state 中，第二阶段使用)
                     const newItems = reorderList(itemsRef.current, currentDrag.originalIndex, currentPlaceholder);
 
-                    // Stage 1: 触发归位动画
+                    // 第一阶段: 触发归位动画
                     // 关键：isDragging 设为 false，但保留 placeholderIndex 维持挤压效果
                     setDragState(prev => ({
                         ...prev,
@@ -337,7 +337,7 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
                         }
                     }));
 
-                    // Stage 2: 使用共享的动画完成工具
+                    // 第二阶段: 使用共享的动画完成工具
                     onReturnAnimationComplete(dragElementRef.current, () => {
                         if (dragRef.current.isAnimatingReturn) {
                             handleAnimationComplete();

@@ -139,12 +139,14 @@ export interface UseDragBaseReturn<T extends BaseDragState> {
         mouseMoveHandler: (e: MouseEvent) => void,
         mouseUpHandler: () => void
     ) => void;
+    /** 开始回程动画 */
     startReturnAnimation: (
         targetPos: Position,
         action: any,
         actionData: any,
         onAnimationCompleteCallback: () => void
     ) => void;
+    /** 执行触觉反馈 */
     performHapticFeedback: (pattern: number | number[]) => void;
 }
 
@@ -314,12 +316,12 @@ export const useDragBase = <T extends BaseDragState>(
         });
     }, [setDragState]);
 
-    // Handle ESC key cancellation
+    // 处理 ESC 键取消
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && dragState.isDragging) {
-                // Cancel Drag
-                // Cleanup listeners first
+                // 取消拖拽
+                // 首先清理监听器
                 if (thresholdListenerRef.current) {
                     window.removeEventListener('mousemove', thresholdListenerRef.current);
                     thresholdListenerRef.current = null;
@@ -329,16 +331,16 @@ export const useDragBase = <T extends BaseDragState>(
                 // we trigger a state reset which should be handled by the parent effect logic 
                 // OR we can't easily clean specific listeners without knowing them.
 
-                // Strategy: Just reset state. The parent listeners might fire once more but see !isDragging.
-                // Better Strategy: Dispatch a Custom Event or similar? 
-                // Simplest: Just reset state.
+                // 策略：直接重置状态。父级监听器可能会再触发一次，但会看到 !isDragging。
+                // 更好的策略：调度一个自定义事件或类似的？ 
+                // 最简单：直接重置状态。
 
                 setDragState(options.resetState());
                 setPlaceholderIndex(null);
                 hasMovedRef.current = false;
                 if (onDragEnd) onDragEnd();
 
-                performHapticFeedback(20); // Cancel vibration
+                performHapticFeedback(20); // 取消操作的振动
             }
         };
 

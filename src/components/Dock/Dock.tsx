@@ -8,7 +8,7 @@ import { SpaceManageMenu } from '../Modal/SpaceManageMenu';
 import { DragPreview } from '../DragPreview';
 
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
-import { useDockDrag, useDock } from '../../context/DockContext';
+import { useDockDrag, useDockUI } from '../../context/DockContext';
 import { useSpaces } from '../../context/SpacesContext';
 import { generateFolderIcon } from '../../utils/iconFetcher';
 import {
@@ -31,7 +31,7 @@ interface DockProps {
     onHoverOpenFolder?: (item: DockItemType, folder: DockItemType) => void;
     onLongPressEdit?: () => void;
     onWidthChange?: (width: number) => void;
-    // Cross‑component drag feedback
+    // 跨组件拖拽反馈
     externalDragItem?: DockItemType | null;
     onDragStart?: (item: DockItemType) => void;
     onDragEnd?: () => void;
@@ -56,7 +56,7 @@ export const Dock: React.FC<DockProps> = ({
 }) => {
     const innerRef = useRef<HTMLDivElement>(null);
     const { folderPlaceholderActive } = useDockDrag();
-    const { setIsEditMode } = useDock();
+    const { setIsEditMode } = useDockUI();
 
     // Focus Spaces 集成
     const {
@@ -179,7 +179,7 @@ export const Dock: React.FC<DockProps> = ({
         setContextMenu({ x, y, item, rect });
     }, []);
 
-    // Sync ref for access in drag callbacks
+    // 同步 ref 以便在拖拽回调中访问
     const folderPlaceholderActiveRef = useRef(folderPlaceholderActive);
     useEffect(() => {
         folderPlaceholderActiveRef.current = folderPlaceholderActive;
@@ -255,7 +255,7 @@ export const Dock: React.FC<DockProps> = ({
     ): React.CSSProperties => {
         if (isDraggingItem) {
             if (placeholderIdx === null) {
-                // Collapsed state - cursor far from dock
+                // 折叠状态 - 光标远离 Dock
                 return {
                     '--stagger-index': index,
                     width: 0,
@@ -267,7 +267,7 @@ export const Dock: React.FC<DockProps> = ({
                     transition: interacting ? cachedTransitions.draggingCollapsed : 'none',
                 } as React.CSSProperties;
             } else {
-                // With placeholder - cursor over dock
+                // 有占位符状态 - 光标在 Dock 上方
                 return {
                     '--stagger-index': index,
                     width: 64,
@@ -280,7 +280,7 @@ export const Dock: React.FC<DockProps> = ({
                 } as React.CSSProperties;
             }
         }
-        // Normal state
+        // 正常状态
         return {
             '--stagger-index': index,
             transform: `translateX(${translateX}px)`,
@@ -288,14 +288,14 @@ export const Dock: React.FC<DockProps> = ({
         } as React.CSSProperties;
     }, [cachedTransitions]);
 
-    // Sync innerRef with dockRef from hook
+    // 将 innerRef 与来自 hook 的 dockRef 同步
     useEffect(() => {
         if (innerRef.current) {
             (dockRef as any).current = innerRef.current;
         }
     }, [dockRef]);
 
-    // Observe width changes
+    // 观察宽度变化
     useEffect(() => {
         if (!onWidthChange || !innerRef.current) return;
         const ro = new ResizeObserver(entries => {
@@ -333,7 +333,7 @@ export const Dock: React.FC<DockProps> = ({
                     const isMergeTarget = mergeTargetId === item.id;
                     const isDragging = dragState.item?.id === item.id;
 
-                    // Transform-based animation: calculate horizontal offset for smooth sliding
+                    // 基于 Transform 的动画：计算水平偏移量实现平滑滑动
                     const translateX = getItemTransform(index);
 
                     // 空间切换动画类

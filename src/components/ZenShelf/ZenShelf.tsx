@@ -10,7 +10,7 @@ import { ContextMenu } from './ContextMenu';
 import styles from './ZenShelf.module.css';
 
 // ============================================================================
-// ZenShelf Main Component
+// ZenShelf 主组件
 // ============================================================================
 
 interface ZenShelfProps {
@@ -30,13 +30,13 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         stickerId?: string;
     } | null>(null);
 
-    // Reference width for responsive scaling (1920px as base)
+    // 响应式缩放的参考宽度（以 1920px 为基准）
     const REFERENCE_WIDTH = 1920;
 
-    // Viewport scale for responsive sticker sizing
+    // 用于响应式贴纸尺寸的视口缩放比例
     const [viewportScale, setViewportScale] = useState(() => window.innerWidth / REFERENCE_WIDTH);
 
-    // Handle window resize for responsive sticker layout
+    // 处理窗口调整大小以实现响应式贴纸布局
     useEffect(() => {
         const handleResize = () => {
             setViewportScale(window.innerWidth / REFERENCE_WIDTH);
@@ -62,12 +62,12 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         '[class*="contextMenu"]',
     ].join(', ');
 
-    // Global right-click handler for context menu
+    // 上下文菜单的全局右键处理程序
     useEffect(() => {
         const handleContextMenu = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
 
-            // Don't show on UI elements
+            // 不在 UI 元素上显示
             if (target.closest(UI_SELECTORS)) {
                 return;
             }
@@ -88,7 +88,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                 return;
             }
 
-            // Right-click on background
+            // 在背景上右键单击
             e.preventDefault();
             setContextMenu({
                 x: e.clientX,
@@ -101,7 +101,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         return () => document.removeEventListener('contextmenu', handleContextMenu);
     }, [stickers]);
 
-    // Double-click on background to quickly add sticker
+    // 双击背景以快速添加贴纸
     useEffect(() => {
         const handleDoubleClick = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
@@ -126,7 +126,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         return () => document.removeEventListener('dblclick', handleDoubleClick);
     }, [textInputPos]);
 
-    // Hotkey: Delete to remove sticker
+    // 热键：Delete 键删除贴纸
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -140,7 +140,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectedStickerId, deleteSticker]);
 
-    // Handle image file selection
+    // 处理图片文件选择
     const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -151,7 +151,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
             const compressed = await compressStickerImage(base64);
             const img = new Image();
             img.onload = () => {
-                // Store position in reference coordinate system (1920px base)
+                // 在参考坐标系（1920px 基准）中存储位置
                 const x = (window.innerWidth / 2 - Math.min(img.width, IMAGE_MAX_WIDTH) / 2) / viewportScale;
                 const y = (window.innerHeight / 2 - (img.height * Math.min(img.width, IMAGE_MAX_WIDTH) / img.width) / 2) / viewportScale;
                 addSticker({
@@ -170,7 +170,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         }
     }, [addSticker]);
 
-    // Handle text input submit
+    // 处理文本输入提交
     const handleTextSubmit = useCallback((content: string, style?: { color: string; textAlign: 'left' | 'center' | 'right'; fontSize: number }) => {
         if (editingSticker) {
             updateSticker(editingSticker.id, {
@@ -182,7 +182,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                 } : editingSticker.style,
             });
         } else if (textInputPos) {
-            // Store position in reference coordinate system
+            // 在参考坐标系中存储位置
             addSticker({
                 type: 'text',
                 content,
@@ -209,7 +209,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         setTextInputPos({ x: sticker.x * viewportScale, y: sticker.y * viewportScale });
     }, [viewportScale]);
 
-    // Handle paste - add image sticker
+    // 处理粘贴 - 添加图片贴纸
     useEffect(() => {
         const handlePaste = async (e: ClipboardEvent) => {
             const activeElement = document.activeElement;
@@ -234,7 +234,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                         const compressed = await compressStickerImage(base64);
                         const img = new Image();
                         img.onload = () => {
-                            // Store position in reference coordinate system
+                            // 在参考坐标系中存储位置
                             const x = (window.innerWidth / 2 - Math.min(img.width, IMAGE_MAX_WIDTH) / 2) / viewportScale;
                             const y = (window.innerHeight / 2 - (img.height * Math.min(img.width, IMAGE_MAX_WIDTH) / img.width) / 2) / viewportScale;
                             addSticker({
@@ -303,7 +303,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                 />
             )}
 
-            {/* Context Menu */}
+            {/* 上下文菜单 */}
             {contextMenu && (
                 <ContextMenu
                     x={contextMenu.x}
@@ -393,7 +393,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                 />
             )}
 
-            {/* Hidden file input for image upload */}
+            {/* 用于图片上传的隐藏文件输入框 */}
             <input
                 ref={fileInputRef}
                 type="file"

@@ -6,7 +6,7 @@ import { storage } from '../utils/storage';
 const SAVE_DEBOUNCE_MS = 500;
 
 // ============================================================================
-// Context Type Definition
+// Context 类型定义
 // ============================================================================
 
 interface ZenShelfContextType {
@@ -25,7 +25,7 @@ interface ZenShelfContextType {
 const ZenShelfContext = createContext<ZenShelfContextType | undefined>(undefined);
 
 // ============================================================================
-// Helper Functions
+// 辅助函数
 // ============================================================================
 
 /**
@@ -36,7 +36,7 @@ const generateId = (): string => {
 };
 
 // ============================================================================
-// Provider
+// Provider 实现
 // ============================================================================
 
 export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -71,7 +71,7 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const addSticker = useCallback((input: StickerInput) => {
         setStickers(prev => {
-            // Calculate next zIndex (one higher than current max)
+            // 计算下一个 zIndex (比当前最大值高 1)
             const maxZ = Math.max(...prev.map(s => s.zIndex || 1), 0);
             const newSticker: Sticker = {
                 ...input,
@@ -112,7 +112,7 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
 
     // ========================================================================
-    // Context Value
+    // Context 值
     // ========================================================================
 
     const contextValue: ZenShelfContextType = useMemo(() => ({

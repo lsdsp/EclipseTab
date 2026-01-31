@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 
 /**
- * Hook to detect and listen to system theme preference changes
- * @returns current system theme preference ('light' | 'dark')
+ * 检测并监听系统主题偏好设置更改的 Hook
+ * @returns 当前系统主题偏好 ('light' | 'dark')
  */
 export const useSystemTheme = (): 'light' | 'dark' => {
     const getSystemTheme = (): 'light' | 'dark' => {
@@ -21,12 +21,12 @@ export const useSystemTheme = (): 'light' | 'dark' => {
             setSystemTheme(e.matches ? 'dark' : 'light');
         };
 
-        // Modern browsers
+        // 现代浏览器
         if (mediaQuery.addEventListener) {
             mediaQuery.addEventListener('change', handleChange);
             return () => mediaQuery.removeEventListener('change', handleChange);
         } else {
-            // Legacy browsers
+            // 旧版浏览器
             mediaQuery.addListener(handleChange);
             return () => mediaQuery.removeListener(handleChange);
         }

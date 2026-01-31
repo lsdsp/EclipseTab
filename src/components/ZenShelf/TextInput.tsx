@@ -10,13 +10,13 @@ import { TEXT_COLORS } from './FloatingToolbar';
 import styles from './ZenShelf.module.css';
 
 // ============================================================================
-// Theme-aware color inversion for text stickers
+// 文字贴纸的主题感知颜色反转
 // ============================================================================
 const BLACK_COLOR = '#1C1C1E';
 const WHITE_COLOR = '#FFFFFF';
 
 /**
- * Inverts black/white colors in dark theme for better readability
+ * 在深色主题下反转黑/白颜色，以获得更好的可读性
  */
 const getThemeAwareColor = (color: string, theme: string): string => {
     if (theme !== 'dark') return color;
@@ -32,7 +32,7 @@ const getThemeAwareColor = (color: string, theme: string): string => {
 };
 
 // ============================================================================
-// TextInput Component - Enhanced popup with style options
+// TextInput 组件 - 带有样式选项的增强弹出窗口
 // ============================================================================
 
 interface TextInputProps {
@@ -60,31 +60,31 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
     );
     const [isExiting, setIsExiting] = useState(false);
 
-    // Font size options with translated labels (L, M, S order)
+    // 带有翻译标签的字体大小选项（L、M、S 顺序）
     const fontSizes = [
         { label: t.textInput.l, value: 40 },
         { label: t.textInput.m, value: 32 },
         { label: t.textInput.s, value: 24 },
     ];
 
-    // Focus on mount and play enter animation for toolbar only
+    // 挂载时聚焦并仅对工具栏播放入场动画
     useEffect(() => {
         if (toolbarRef.current) {
             scaleFadeIn(toolbarRef.current, 200);
         }
         if (inputWrapperRef.current) {
-            // Only animate input entrance if we are adding new text (empty initialText)
-            // If editing, the text is already visible on canvas, so no entrance animation needed for the input itself.
+            // 仅在添加新文本（初始 text 为空）时播放输入框入场动画
+            // 如果是编辑，文本已经显示在画布上，因此输入框本身不需要入场动画。
             if (!initialText) {
                 scaleFadeIn(inputWrapperRef.current, 200);
             }
         }
         if (inputRef.current) {
             inputRef.current.focus();
-            // Set initial text if editing
+            // 如果是编辑，设置初始文本
             if (initialText) {
                 inputRef.current.innerText = initialText;
-                // Move cursor to end
+                // 将光标移动到末尾
                 const range = document.createRange();
                 range.selectNodeContents(inputRef.current);
                 range.collapse(false);
@@ -95,14 +95,14 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         }
     }, [initialText]);
 
-    // Update font size when it changes
+    // 字体大小更改时更新它
     useEffect(() => {
         if (inputRef.current) {
             inputRef.current.style.fontSize = `${fontSize * viewportScale}px`;
         }
     }, [fontSize, viewportScale]);
 
-    // Trigger exit animation for toolbar and input
+    // 触发工具栏和输入框的出场动画
     const triggerExit = useCallback((callback: () => void, animateInput: boolean = true) => {
         if (isExiting) return;
         setIsExiting(true);
@@ -118,19 +118,19 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         }
     }, [isExiting]);
 
-    // Click outside to close (only if clicking on empty background)
+    // 点击外部关闭（仅当点击空白背景时）
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (isExiting) return;
             const target = e.target as HTMLElement;
-            // Check if clicking on the input or toolbar
+            // 检查是否点击了输入框或工具栏
             if (inputRef.current?.contains(target) || toolbarRef.current?.contains(target)) {
                 return;
             }
-            // Submit if has content, otherwise cancel
+            // 如果有内容则提交，否则取消
             const text = inputRef.current?.innerText?.trim() || '';
             if (text) {
-                // Don't animate input out if submitting content
+                // 如果提交内容，则不播放输入框出场动画
                 triggerExit(() => onSubmit(text, { color: textColor, textAlign, fontSize }), false);
             } else {
                 triggerExit(onCancel);
@@ -154,7 +154,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         } else if (e.key === 'Escape') {
             handleCancel();
         }
-        // Shift+Enter allows newline (default behavior)
+        // Shift+Enter 允许换行（默认行为）
     };
 
     const handleInput = () => {
@@ -163,7 +163,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         }
     };
 
-    // Handle paste - ensure only plain text is pasted to avoid formatting issues
+    // 处理粘贴 - 确保仅粘贴纯文本以避免格式问题
     const handlePaste = (e: React.ClipboardEvent) => {
         e.preventDefault();
         const text = e.clipboardData.getData('text/plain');
@@ -174,7 +174,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
     const handleSubmit = () => {
         const trimmed = inputRef.current?.innerText?.trim() || '';
         if (trimmed) {
-            // Don't animate input out if submitting content
+            // 如果提交内容，则不播放输入框出场动画
             triggerExit(() => onSubmit(trimmed, { color: textColor, textAlign, fontSize }), false);
         } else {
             handleCancel();
@@ -185,7 +185,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         triggerExit(onCancel);
     };
 
-    // Get font size index for highlight position
+    // 获取字体大小索引以实现高亮位置
     const fontSizeIndex = fontSizes.findIndex(fs => fs.value === fontSize);
 
     return createPortal(

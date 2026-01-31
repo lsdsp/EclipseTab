@@ -2,8 +2,8 @@ export const GRADIENT_PRESETS = [
     {
         id: 'theme-default',
         name: '默认',
-        gradient: '#F3F3F3', // Light theme default
-        solid: '#F3F3F3',    // Will be overridden to #404040 for dark themes in component logic
+        gradient: '#F3F3F3', // 浅色主题默认值
+        solid: '#F3F3F3',    // 在组件逻辑中将针对深色主题重写为 #404040
     },
     {
         id: 'gradient-1',

@@ -35,7 +35,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
   onMouseDown,
   onContextMenu,
 }) => {
-  // ... (existing state)
+  // ... (现有状态)
   const [isHovered, setIsHovered] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const [pressTimer, setPressTimer] = useState<number | null>(null);
@@ -50,7 +50,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
 
     const rect = rootRef.current?.getBoundingClientRect();
 
-    // In edit mode, folders should open the folder view, not the edit modal
+    // 在编辑模式下，点击文件夹应打开文件夹视图，而不是编辑模态框
     if (isEditMode && item.type !== 'folder') {
       onEdit(rect);
     } else {
@@ -69,8 +69,8 @@ const DockItemComponent: React.FC<DockItemProps> = ({
   const handleMouseEnter = () => {
     setIsHovered(true);
 
-    // Start tooltip timer
-    if (!isDragging && !isEditMode) { // Don't show tooltip while dragging or in edit mode
+    // 启动提示文本定时器
+    if (!isDragging && !isEditMode) { // 拖拽中或编辑模式下不显示提示文本
       tooltipTimer.current = window.setTimeout(() => {
         setShowTooltip(true);
       }, 1000);
@@ -84,7 +84,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
       setPressTimer(null);
     }
 
-    // Clear tooltip timer and hide tooltip
+    // 清除提示文本定时器并隐藏提示文本
     if (tooltipTimer.current) {
       clearTimeout(tooltipTimer.current);
       tooltipTimer.current = null;
@@ -93,7 +93,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
   };
 
   const handleMouseDownInternal = (e: React.MouseEvent) => {
-    // Hide tooltip on click/mousedown
+    // 点击/鼠标按下时隐藏提示文本
     if (tooltipTimer.current) {
       clearTimeout(tooltipTimer.current);
       tooltipTimer.current = null;
@@ -111,7 +111,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
     }
   };
 
-  // Handle right-click context menu
+  // 处理右键上下文菜单
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -121,7 +121,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
     }
   };
 
-  // Generate a stable random delay based on item ID to desynchronize shake animation
+  // 根据项目 ID 生成稳定的随机延迟，以使抖动动画去同步
   const animationDelay = React.useMemo(() => {
     let hash = 0;
     for (let i = 0; i < item.id.length; i++) {
@@ -149,7 +149,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
       }}
     >
       <div className={`${styles.iconContainer} ${item.type !== 'folder' ? styles.nonFolderBg : ''} ${isHovered && !isEditMode ? styles.hovered : ''}`}>
-        {/* Edit mode hover overlay - always rendered for fade animation */}
+        {/* 编辑模式悬停叠加层 - 始终渲染以便进行淡入淡出动画 */}
         {isEditMode && item.type !== 'folder' && (
           <div className={`${styles.editOverlay} ${isHovered ? styles.editOverlayVisible : ''}`}>
             <img src={editIcon} alt="edit" className={styles.editIcon} />
@@ -193,21 +193,21 @@ const DockItemComponent: React.FC<DockItemProps> = ({
   );
 };
 
-// Custom comparison function for React.memo
+// 为 React.memo 自定义比较函数
 const arePropsEqual = (prev: DockItemProps, next: DockItemProps) => {
   return (
     prev.item.id === next.item.id &&
     prev.item.name === next.item.name &&
     prev.item.icon === next.item.icon &&
-    // Check items length for folder icon updates
+    // 检查项目长度以更新文件夹图标
     (prev.item.items?.length === next.item.items?.length) &&
     prev.isEditMode === next.isEditMode &&
     prev.isDragging === next.isDragging &&
     prev.isDropTarget === next.isDropTarget &&
-    prev.isMergeTarget === next.isMergeTarget && // Check pulse state
+    prev.isMergeTarget === next.isMergeTarget && // 检查脉冲状态
     prev.staggerIndex === next.staggerIndex
-    // Ignore function props (onClick, onEdit, etc.) as they are recreated on every render of parent
-    // but the underlying logic relies on the same item data which we checked above.
+    // 忽略函数属性 (onClick, onEdit 等)，因为它们在父组件的每次渲染中都会重新创建
+    // 但底层逻辑依赖于我们上面检查过的相同项目数据。
   );
 };
 

@@ -99,7 +99,7 @@ export const useDragAndDrop = ({
         performHapticFeedback,
     });
 
-    // Create Drag Strategy
+    // 创建拖拽策略
     const strategy = useMemo(() => createHorizontalStrategy(), []);
 
     // Refs
@@ -122,7 +122,7 @@ export const useDragAndDrop = ({
         }
     }, []);
 
-    // Haptic Feedback for Reordering
+    // 重排序的触觉反馈
     useEffect(() => {
         if (placeholderIndex !== null && dragState.isDragging) {
             performHapticFeedback(HAPTIC_PATTERNS.REORDER);
@@ -194,7 +194,7 @@ export const useDragAndDrop = ({
         const state = dragRef.current;
         const activeItem = state.isDragging ? state.item : externalDragItem;
 
-        // 阶段 1: 检查是否需要开始拖拽 (仅内部项目)
+        // 第一阶段: 检查是否需要开始拖拽 (仅内部项目)
         if (!state.isDragging && !externalDragItem && state.item) {
             const dist = Math.hypot(e.clientX - state.startPosition.x, e.clientY - state.startPosition.y);
             if (dist > DRAG_THRESHOLD) {
@@ -208,12 +208,12 @@ export const useDragAndDrop = ({
 
         if (!activeItem) return;
 
-        // 阶段 2: 确保布局快照存在
+        // 第二阶段: 确保布局快照存在
         if ((!layoutSnapshotRef.current || layoutSnapshotRef.current.length === 0) && itemsRef.current.length > 0) {
             captureLayoutSnapshot();
         }
 
-        // 阶段 3: 更新拖拽元素位置 (仅内部拖拽，使用直接 DOM 操作)
+        // 第三阶段: 更新拖拽元素位置 (仅内部拖拽，使用直接 DOM 操作)
         if (state.isDragging && dragElementRef.current) {
             const x = e.clientX - state.offset.x;
             const y = e.clientY - state.offset.y;
@@ -221,12 +221,12 @@ export const useDragAndDrop = ({
             dragElementRef.current.style.top = `${y}px`;
         }
 
-        // 阶段 4: 存储鼠标位置
+        // 第四阶段: 存储鼠标位置
         const mouseX = e.clientX;
         const mouseY = e.clientY;
         lastMousePositionRef.current = { x: mouseX, y: mouseY };
 
-        // 阶段 5: 区域检测与状态更新
+        // 第五阶段: 区域检测与状态更新
         const region = detectDragRegion(mouseX, mouseY, activeItem);
 
         if (region.type === 'folder' || region.type === 'outside') {
@@ -321,12 +321,7 @@ export const useDragAndDrop = ({
 
         // If we never started dragging and just clicked, cleanup
         if (!state.isDragging && state.item && !hasMovedRef.current) {
-            if (thresholdListenerRef.current) {
-                window.removeEventListener('mousemove', thresholdListenerRef.current);
-                thresholdListenerRef.current = null;
-            }
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+            cleanupDragListeners(handleMouseMove, handleMouseUp);
             hasMovedRef.current = false;
             setDragState(resetDockDragState());
             return;
@@ -334,12 +329,7 @@ export const useDragAndDrop = ({
 
         if (!state.item) return;
 
-        if (thresholdListenerRef.current) {
-            window.removeEventListener('mousemove', thresholdListenerRef.current);
-            thresholdListenerRef.current = null;
-        }
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+        cleanupDragListeners(handleMouseMove, handleMouseUp);
 
         const currentPlaceholder = placeholderRef.current;
         const currentHoveredFolder = hoveredFolderRef.current;
@@ -353,7 +343,6 @@ export const useDragAndDrop = ({
         let actionData: DockActionData = null;
 
         // 判断是否应该放入文件夹：以文件夹的占位符状态为准
-        // 如果文件夹显示了占位符，就放入文件夹，无论鼠标当前位置在哪
         const shouldDropToFolder = state.item.type !== 'folder' && hasFolderPlaceholderActive?.();
 
         if (shouldDropToFolder && onDragToOpenFolder && state.item.type !== 'folder') {
@@ -367,7 +356,7 @@ export const useDragAndDrop = ({
                 actionData = { type: 'dragToOpenFolder', item: state.item };
             }
         } else if (isPreMergeState) {
-            // ... (Same merge logic) ...
+            // ... (相同的合并逻辑) ...
             if (currentHoveredFolder && onDropToFolder) {
                 // Find rect from snapshot if possible for stability
                 const targetFolderItem = snapshot.find(i => i.id === currentHoveredFolder);
@@ -394,53 +383,30 @@ export const useDragAndDrop = ({
             const oldIndex = state.originalIndex;
             let insertIndex = currentPlaceholder;
 
-            // Logic to calculate final items
+            // ... logic continues ...
             const newItems = [...currentItems];
-            // If internal drag, move item. If external, insert.
             if (oldIndex !== -1) {
+                // Adjust index if moving heavily
                 if (insertIndex > oldIndex) insertIndex -= 1;
                 const [moved] = newItems.splice(oldIndex, 1);
                 newItems.splice(insertIndex, 0, moved);
             }
 
-            // Calculate Target Position for "Fly Back"
-            // 
-            // 关键修复：获取第一个可见图标的 **实时** 位置作为基准
-            // 
-            // 问题分析：
-            // - snapshot 是拖拽开始时捕获的静态快照
-            // - 在内部拖拽期间，由于挤压动画，实际布局已经改变了
-            // - 例如：从索引0拖到索引2时，原位置0是空的，index1和index2已经向左挤压
-            // - 使用 snapshot[0].rect.left 作为基准会导致计算出的目标位置偏移
-            //
-            // 解决方案：
-            // 获取当前第一个非拖拽项目的实时位置作为基准
-            // 因为在内部拖拽时，源位置是空的（隐藏状态），其他项目会挤压填充
-            // 所以第一个可见项目的位置就是当前布局的基准点
+            // ... position calculation ...
             const CELL_SIZE = DOCK_CELL_SIZE;
-
             let targetX = 0;
             let targetY = 0;
 
-            // 获取第一个非拖拽图标的实时位置
             const firstVisibleRef = itemRefs.current.find((ref, idx) => ref && idx !== oldIndex);
             if (firstVisibleRef) {
                 const firstVisibleRect = firstVisibleRef.getBoundingClientRect();
-                // 找到这个图标的原始索引
                 const firstVisibleIndex = itemRefs.current.findIndex((ref, idx) => ref === firstVisibleRef && idx !== oldIndex);
 
-                // 在内部拖拽时，如果这个图标在原索引之后，它已经向左挤压了一格
-                // 所以它的视觉位置对应的是 (firstVisibleIndex - 1) 如果 firstVisibleIndex > oldIndex
-                // 否则对应 firstVisibleIndex
                 let firstVisibleVisualIndex = firstVisibleIndex;
                 if (oldIndex !== -1 && firstVisibleIndex > oldIndex) {
                     firstVisibleVisualIndex = firstVisibleIndex - 1;
                 }
 
-                // 现在可以计算基准位置了
-
-                // CRITICAL FIX: Subtract current transform to get the canonical slot position.
-                // firstVisibleRect includes the CSS transform (squeeze), so we must strip it.
                 const currentTransform = strategy.calculateTransform(
                     firstVisibleIndex,
                     currentPlaceholder!,
@@ -448,27 +414,17 @@ export const useDragAndDrop = ({
                     true
                 ).x;
                 const unshiftedBaseX = firstVisibleRect.left - currentTransform;
-
-                // unshiftedBaseX 对应的视觉位置是 firstVisibleVisualIndex
-                // 所以基准位置 baseX = unshiftedBaseX - firstVisibleVisualIndex * CELL_SIZE
                 const baseX = unshiftedBaseX - firstVisibleVisualIndex * CELL_SIZE;
                 const baseY = firstVisibleRect.top;
 
-                // 目标位置 = 基准位置 + 目标视觉索引 * 单元格尺寸
-                // 对于内部拖拽，我们需要考虑源位置被移除后的视觉布局
-                // visualTargetIndex 是占位符位置
-                // 在挤压后的布局中，目标位置 = baseX + insertIndex * CELL_SIZE
-                // 因为 insertIndex 是最终在数组中的位置，也是挤压后的视觉位置
                 targetX = baseX + insertIndex * CELL_SIZE;
                 targetY = baseY;
             } else if (snapshot.length > 0 && snapshot[0]) {
-                // Fallback to snapshot if no visible ref (shouldn't happen normally)
                 const baseX = snapshot[0].rect.left;
                 const baseY = snapshot[0].rect.top;
                 targetX = baseX + insertIndex * CELL_SIZE;
                 targetY = baseY;
             } else {
-                // Fallback: 使用容器位置
                 const dockContainer = dockRef.current || document.querySelector('[data-dock-container="true"]');
                 const dockRect = dockContainer?.getBoundingClientRect();
                 if (dockRect) {
@@ -477,11 +433,7 @@ export const useDragAndDrop = ({
                 }
             }
 
-            targetPos = {
-                x: targetX,
-                y: targetY
-            };
-
+            targetPos = { x: targetX, y: targetY };
             action = 'reorder';
             actionData = { type: 'reorder', newItems };
         }
@@ -525,7 +477,7 @@ export const useDragAndDrop = ({
         handleMouseMove,
         setDragState, setPlaceholderIndex,
         cleanupDragListeners,
-        hasFolderPlaceholderActive
+        hasFolderPlaceholderActive,
     ]); // Optimized dependencies
 
 
@@ -654,18 +606,14 @@ export const useDragAndDrop = ({
         return itemTransforms[index] ?? 0;
     }, [itemTransforms]);
 
-    // Cleanup when component unmounts
+    // 组件卸载时清理
     useEffect(() => {
         return () => {
             // 清理 RAF
             if (rafIdRef.current !== null) {
                 cancelAnimationFrame(rafIdRef.current);
             }
-            if (thresholdListenerRef.current) {
-                window.removeEventListener('mousemove', thresholdListenerRef.current);
-            }
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+            cleanupDragListeners(handleMouseMove, handleMouseUp);
         };
     }, []);
 

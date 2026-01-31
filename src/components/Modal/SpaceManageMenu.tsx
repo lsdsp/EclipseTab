@@ -168,7 +168,7 @@ export function SpaceManageMenu({
             const message = error instanceof Error ? error.message : 'Unknown error';
             window.alert(`${t.space.importFailed}${message}`);
         } finally {
-            // Reset file input
+            // 重置文件输入
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
@@ -252,7 +252,7 @@ export function SpaceManageMenu({
                                 <span className={styles.icon} style={{ WebkitMaskImage: `url(${exportIcon})`, maskImage: `url(${exportIcon})` }} />
                                 <span>{t.space.exportAllSpaces}</span>
                             </button>
-                            {/* Hidden file input */}
+                            {/* 隐藏的文件输入框 */}
                             <input
                                 ref={fileInputRef}
                                 type="file"

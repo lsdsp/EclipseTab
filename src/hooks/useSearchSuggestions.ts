@@ -59,7 +59,7 @@ async function fetchSuggestions(query: string): Promise<string[]> {
                 chrome.permissions.contains({
                     origins: ['https://suggestqueries.google.com/*']
                 }, (result) => {
-                    // Chrome runtime.lastError check (good practice though usually not needed for contains)
+                    // 检查 Chrome runtime.lastError (良好实践，虽然 contains 通常不需要)
                     if (chrome.runtime && chrome.runtime.lastError) {
                         resolve(false);
                     } else {
@@ -96,7 +96,7 @@ async function fetchSuggestions(query: string): Promise<string[]> {
             }
         }
     } catch (error) {
-        // quiet fail
+        // 静默失败
     }
 
     // 备选：百度 API
@@ -110,7 +110,7 @@ async function fetchSuggestions(query: string): Promise<string[]> {
             return SUGGESTION_API.baidu.parseResponse(data);
         }
     } catch (error) {
-        // quiet fail
+        // 静默失败
     }
 
     return [];
@@ -135,7 +135,7 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
     const fetchWithDebounce = useCallback(async (searchQuery: string) => {
         const trimmedQuery = searchQuery.trim();
 
-        // Clear suggestions if query is empty
+        // 如果查询内容为空，清空建议列表
         if (!trimmedQuery) {
             setSuggestions([]);
             setError(null);
@@ -143,11 +143,11 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
             return;
         }
 
-        // Track the current request to handle race conditions
+        // 跟踪当前请求以处理竞态条件
         const currentRequestId = `req_${Date.now()}`;
         latestRequestRef.current = currentRequestId;
 
-        // Cancel previous request if any
+        // 如果存在之前的请求，则将其取消
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
@@ -159,7 +159,7 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
         try {
             const results = await fetchSuggestions(trimmedQuery);
 
-            // Only update state if this is still the latest request
+            // 仅当这仍然是最新请求时才更新状态
             if (latestRequestRef.current === currentRequestId) {
                 setSuggestions(results);
             }
@@ -186,7 +186,7 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
         };
     }, [query, fetchWithDebounce]);
 
-    // Cleanup on unmount
+    // 卸载时清理
     useEffect(() => {
         return () => {
             if (abortControllerRef.current) {
