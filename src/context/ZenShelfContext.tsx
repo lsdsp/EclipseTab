@@ -13,6 +13,7 @@ interface ZenShelfContextType {
     // 状态
     stickers: Sticker[];
     selectedStickerId: string | null;
+    confirmDelete: boolean;
 
     // 操作
     addSticker: (input: StickerInput) => void;
@@ -20,6 +21,7 @@ interface ZenShelfContextType {
     deleteSticker: (id: string) => void;
     selectSticker: (id: string | null) => void;
     bringToTop: (id: string) => void;
+    setConfirmDelete: (confirm: boolean) => void;
 }
 
 const ZenShelfContext = createContext<ZenShelfContextType | undefined>(undefined);
@@ -43,6 +45,10 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // 状态初始化：从 localStorage 加载
     const [stickers, setStickers] = useState<Sticker[]>(() => storage.getStickers());
     const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null);
+    const [confirmDelete, setConfirmDeleteState] = useState<boolean>(() => {
+        const saved = localStorage.getItem('sticker_confirm_delete');
+        return saved === null ? true : saved === 'true'; // Default to true
+    });
 
     // 防抖保存 ref
     const saveTimeoutRef = useRef<number>();
@@ -62,6 +68,11 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
         };
     }, [stickers]);
+
+    const setConfirmDelete = useCallback((confirm: boolean) => {
+        setConfirmDeleteState(confirm);
+        localStorage.setItem('sticker_confirm_delete', String(confirm));
+    }, []);
 
 
 
@@ -118,19 +129,23 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const contextValue: ZenShelfContextType = useMemo(() => ({
         stickers,
         selectedStickerId,
+        confirmDelete,
         addSticker,
         updateSticker,
         deleteSticker,
         selectSticker,
         bringToTop,
+        setConfirmDelete,
     }), [
         stickers,
         selectedStickerId,
+        confirmDelete,
         addSticker,
         updateSticker,
         deleteSticker,
         selectSticker,
         bringToTop,
+        setConfirmDelete,
     ]);
 
     return (

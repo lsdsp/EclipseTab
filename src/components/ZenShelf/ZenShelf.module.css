@@ -599,6 +599,12 @@
     background-color: var(--red-400);
 }
 
+.sticker.deleting {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform: scale(0.8) rotate(60deg) !important;
+    opacity: 0.8;
+}
+
 /* ===== 贴纸实时预览模式 ===== */
 
 /* 预览容器 - 包含输入框和工具栏 */
@@ -794,4 +800,43 @@
 .toolbarConfirmBtn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+
+/* ----------------------------------------------------------------------------
+   Recycle Bin
+   ---------------------------------------------------------------------------- */
+.recycleBin {
+    position: fixed;
+    bottom: -500px;
+    right: 0;
+    width: 320px;
+    height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: bottom 0.4s cubic-bezier(0.34, 1.25, 0.64, 1), transform 0.2s ease;
+    z-index: 2500;
+    /* Below dragging sticker (3000) but above other UI */
+    pointer-events: none;
+    /* Let events pass through to document for drag logic */
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 70%);
+    /* Subtle glow backdrop */
+    border-radius: 50%;
+}
+
+.recycleBin.visible {
+    bottom: -120px;
+    pointer-events: auto;
+}
+
+.recycleIcon {
+    width: 200px;
+    height: 200px;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+    transition: transform 0.2s ease;
+}
+
+/* Hover effect handled by JS drag detection, but we can add scale for visual feedback */
+.recycleBin.dragOver .recycleIcon {
+    transform: scale(1.1);
 }

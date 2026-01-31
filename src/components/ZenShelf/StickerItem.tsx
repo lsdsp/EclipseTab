@@ -57,6 +57,8 @@ interface StickerItemProps {
     isEditMode?: boolean;
     viewportScale: number;
     onDoubleClick?: () => void;
+    onDragStart?: () => void;
+    onDragEnd?: () => void;
 }
 
 const StickerItemComponent: React.FC<StickerItemProps> = ({
@@ -72,6 +74,8 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
     isEditMode,
     viewportScale,
     onDoubleClick,
+    onDragStart,
+    onDragEnd,
 }) => {
     const { theme } = useThemeData();
     const elementRef = useRef<HTMLDivElement>(null);
@@ -149,6 +153,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         // 开始拖拽
         setIsDragging(true);
         isDraggingRef.current = true;
+        onDragStart?.();
 
         dragStartRef.current = {
             x: e.clientX,
@@ -209,6 +214,36 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             let target = -moveDx * SENSITIVITY;
             target = Math.max(-MAX_ROTATION, Math.min(MAX_ROTATION, target));
             physicsRef.current.targetRotation = target;
+            // Check for collision with Recycle Bin for visual feedback
+            const recycleBin = document.getElementById('sticker-recycle-bin');
+            if (recycleBin && pendingPosition) {
+                const binRect = recycleBin.getBoundingClientRect();
+                const stickerRect = elementRef.current?.getBoundingClientRect();
+
+                if (stickerRect) {
+                    // We need to check overlap based on current mouse position or pending position
+                    // stickerRect might be lagging due to RAF, but good enough for visual feedback
+
+                    // Simple overlap check
+                    const isOverBin = !(stickerRect.right < binRect.left ||
+                        stickerRect.left > binRect.right ||
+                        stickerRect.bottom < binRect.top ||
+                        stickerRect.top > binRect.bottom);
+
+                    if (isOverBin) {
+                        recycleBin.classList.add(styles.dragOver);
+                        if (elementRef.current) {
+                            elementRef.current.classList.add(styles.deleting);
+                        }
+                    } else {
+                        recycleBin.classList.remove(styles.dragOver);
+                        if (elementRef.current) {
+                            elementRef.current.classList.remove(styles.deleting);
+                        }
+                    }
+                }
+            }
+
         };
 
         const handleMouseUp = () => {
@@ -223,7 +258,30 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 setIsDragging(false);
                 isDraggingRef.current = false;
                 dragStartRef.current = null;
+                onDragEnd?.();
                 return;
+            }
+
+            // 检查与垃圾桶的碰撞
+            const recycleBin = document.getElementById('sticker-recycle-bin');
+            if (recycleBin) {
+                const binRect = recycleBin.getBoundingClientRect();
+                const stickerRect = stickerEl.getBoundingClientRect();
+
+                // 简单的重叠检查
+                const isOverBin = !(stickerRect.right < binRect.left ||
+                    stickerRect.left > binRect.right ||
+                    stickerRect.bottom < binRect.top ||
+                    stickerRect.top > binRect.bottom);
+
+                if (isOverBin) {
+                    onDelete();
+                    setIsDragging(false);
+                    isDraggingRef.current = false;
+                    dragStartRef.current = null;
+                    onDragEnd?.();
+                    return;
+                }
             }
 
             // 从待处理或当前位置计算最终位置
@@ -297,6 +355,9 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 }
             }
 
+
+
+
             // 注意：左上角和右上角区域不再触发弹回效果
             // 贴纸现在可以自由放置在这些区域
 
@@ -352,7 +413,6 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 setTimeout(() => setIsBouncing(false), 350);
             }
 
-            // 应用最终位置（如果需要，包含调整）
             if (needsAdjustment || pendingPosition) {
                 onPositionChange(finalX, finalY);
             }
@@ -360,6 +420,16 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             setIsDragging(false);
             isDraggingRef.current = false;
             dragStartRef.current = null;
+            onDragEnd?.();
+
+            // Clear dragOver state
+            const cleanupRecycleBin = document.getElementById('sticker-recycle-bin');
+            if (cleanupRecycleBin) {
+                cleanupRecycleBin.classList.remove(styles.dragOver);
+            }
+            if (elementRef.current) {
+                elementRef.current.classList.remove(styles.deleting);
+            }
 
             // 将目标旋转重置为 0 以便动画返回
             physicsRef.current.targetRotation = 0;

@@ -19,6 +19,7 @@ interface Translations {
         darkTheme: string;
         defaultTheme: string;
         noTexture: string;
+        confirmDelete: string;
     };
     search: {
         searchBy: string;
@@ -72,6 +73,7 @@ interface Translations {
         tooltip: string;
         switch: string;
         manage: string;
+        deleteStickerConfirm: string;
     };
     textInput: {
         placeholder: string;
@@ -101,6 +103,7 @@ const translations: Record<Language, Translations> = {
             darkTheme: 'Dark Theme',
             defaultTheme: 'Default Theme',
             noTexture: 'No Texture',
+            confirmDelete: 'Delete Confirmation',
         },
         search: {
             searchBy: 'Search by',
@@ -154,6 +157,7 @@ const translations: Record<Language, Translations> = {
             tooltip: 'Current space',
             switch: 'Left click: Switch space',
             manage: 'Right click: Manage space',
+            deleteStickerConfirm: 'Are you sure you want to delete this sticker?',
         },
         textInput: {
             placeholder: 'Enter text...',
@@ -181,6 +185,7 @@ const translations: Record<Language, Translations> = {
             darkTheme: '深色模式',
             defaultTheme: '默认主题',
             noTexture: '无纹理',
+            confirmDelete: '删除二次确认',
         },
         search: {
             searchBy: '使用',
@@ -234,6 +239,7 @@ const translations: Record<Language, Translations> = {
             tooltip: '当前空间',
             switch: '左键：切换空间',
             manage: '右键：管理空间',
+            deleteStickerConfirm: '确定要删除这个贴纸吗？',
         },
         textInput: {
             placeholder: '输入文本...',

@@ -54,6 +54,8 @@ export const useDragAndDrop = ({
     externalDragItem,
     hasFolderPlaceholderActive,
 }: UseDragAndDropOptions) => {
+    const dockRef = useRef<HTMLElement | null>(null);
+
     // 使用基础 Hook
     const {
         dragState,
@@ -72,6 +74,7 @@ export const useDragAndDrop = ({
         dragElementRef,
         cleanupDragListeners,
         performHapticFeedback,
+        cachedContainerRectRef,
     } = useDragBase<DockDragState>({
         items,
         isEditMode,
@@ -80,6 +83,7 @@ export const useDragAndDrop = ({
         externalDragItem,
         createInitialState: createDockDragState,
         resetState: resetDockDragState,
+        containerRef: dockRef,
     });
 
     // 使用合并状态管理 Hook
@@ -102,8 +106,6 @@ export const useDragAndDrop = ({
     // 创建拖拽策略
     const strategy = useMemo(() => createHorizontalStrategy(), []);
 
-    // Refs
-    const dockRef = useRef<HTMLElement | null>(null);
     const cachedDockRectRef = useRef<DOMRect | null>(null);
     const lastMousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     // 使用 ref 跟踪外部拖拽状态
@@ -146,14 +148,21 @@ export const useDragAndDrop = ({
         activeItem: DockItem | null
     ): DragRegion => {
         const dockRect = cachedDockRectRef.current || dockRef.current?.getBoundingClientRect();
+
+        // 在编辑模式下，允许全屏拖拽（超大缓冲区）
+        // 否则使用标准缓冲区
+        const buffer = isEditMode
+            ? Math.max(window.innerWidth, window.innerHeight)
+            : DOCK_DRAG_BUFFER;
+
         return detectDragRegionUtil(
             mouseX,
             mouseY,
             dockRect || null,
             activeItem?.type === 'folder',
-            DOCK_DRAG_BUFFER
+            buffer
         );
-    }, []);
+    }, [isEditMode]);
 
     /** 检测合并目标 (使用提取的纯函数) */
     const detectMergeTarget = useCallback((
@@ -381,59 +390,79 @@ export const useDragAndDrop = ({
             }
         } else if (currentPlaceholder !== null && currentPlaceholder !== undefined) {
             const oldIndex = state.originalIndex;
-            let insertIndex = currentPlaceholder;
 
-            // ... logic continues ...
+            // ========== 关键修复：先计算动画目标位置，再调整数据索引 ==========
+            // 动画目标位置应该使用 currentPlaceholder（占位符的视觉位置）
+            // 而不是调整后的 insertIndex（数据数组的插入位置）
+            // 
+            // 原因：当向右拖动时（oldIndex < currentPlaceholder），占位符显示在视觉位置 currentPlaceholder
+            // 但数据插入需要 insertIndex = currentPlaceholder - 1（因为移除原项后索引会前移）
+            // 动画应该飞向"空隙"的视觉位置，即 currentPlaceholder 对应的位置
+
+            const dockContainer = dockRef.current || document.querySelector('[data-dock-container="true"]');
+            const dockRect = dockContainer?.getBoundingClientRect();
+
+            if (dockRect) {
+                const CELL_SIZE = DOCK_CELL_SIZE;
+
+                // 1. 计算视觉目标索引
+                // 对于向右拖动：占位符在 currentPlaceholder，动画目标应该是该位置
+                // 对于向左拖动：占位符在 currentPlaceholder，动画目标也应该是该位置
+                // 
+                // 但需要考虑：当从 oldIndex 拖到 currentPlaceholder 时，
+                // 如果 oldIndex < currentPlaceholder，视觉上的目标槽位实际是 currentPlaceholder - 1
+                // 因为原位置的"空隙"会消失，所有右侧项目会向左移动一格
+                let visualTargetIndex = currentPlaceholder;
+                if (oldIndex !== -1 && oldIndex < currentPlaceholder) {
+                    visualTargetIndex = currentPlaceholder - 1;
+                }
+
+                // 2. 计算目标坐标 (相对偏移法)
+                // 优先使用 cachedContainerRectRef 计算相对偏移
+                // 相对偏移 = 快照中第一个元素Left - 快照中容器Left（这个差值包含了 Edit Tools 和 Padding）
+                // 实时起点 = 当前容器Left + 相对偏移
+
+                let startX = dockRect.left + DOCK_PADDING; // Fallback X
+                let startY = dockRect.top + DOCK_PADDING;  // Fallback Y
+
+                const snapshot = layoutSnapshotRef.current;
+                const cachedContainerRect = cachedContainerRectRef.current;
+
+                if (snapshot && snapshot.length > 0 && cachedContainerRect) {
+                    // 相对偏移 = 快照中第一个元素位置 - 快照中容器位置
+                    const relativeOffsetX = snapshot[0].rect.left - cachedContainerRect.left;
+                    const relativeOffsetY = snapshot[0].rect.top - cachedContainerRect.top;
+
+                    startX = dockRect.left + relativeOffsetX;
+                    startY = dockRect.top + relativeOffsetY;
+                } else if (snapshot && snapshot.length > 0) {
+                    // 只有 snapshot 没有 container rect (罕见)
+                    startX = snapshot[0].rect.left;
+                    startY = snapshot[0].rect.top;
+                } else if (isEditMode) {
+                    // 空 Dock 且 Edit Mode Fallback
+                    startX += 80;
+                }
+
+                const targetX = startX + visualTargetIndex * CELL_SIZE;
+                const targetY = startY; // 水平布局，Y轴固定
+
+                targetPos = { x: targetX, y: targetY };
+            } else {
+                // Fallback if no container found (rare)
+                targetPos = { x: 0, y: 0 };
+            }
+
+            // ========== 数据重排逻辑 ==========
+            let insertIndex = currentPlaceholder;
             const newItems = [...currentItems];
             if (oldIndex !== -1) {
-                // Adjust index if moving heavily
+                // 调整插入索引（移除原项后的正确位置）
                 if (insertIndex > oldIndex) insertIndex -= 1;
                 const [moved] = newItems.splice(oldIndex, 1);
                 newItems.splice(insertIndex, 0, moved);
             }
 
-            // ... position calculation ...
-            const CELL_SIZE = DOCK_CELL_SIZE;
-            let targetX = 0;
-            let targetY = 0;
-
-            const firstVisibleRef = itemRefs.current.find((ref, idx) => ref && idx !== oldIndex);
-            if (firstVisibleRef) {
-                const firstVisibleRect = firstVisibleRef.getBoundingClientRect();
-                const firstVisibleIndex = itemRefs.current.findIndex((ref, idx) => ref === firstVisibleRef && idx !== oldIndex);
-
-                let firstVisibleVisualIndex = firstVisibleIndex;
-                if (oldIndex !== -1 && firstVisibleIndex > oldIndex) {
-                    firstVisibleVisualIndex = firstVisibleIndex - 1;
-                }
-
-                const currentTransform = strategy.calculateTransform(
-                    firstVisibleIndex,
-                    currentPlaceholder!,
-                    oldIndex,
-                    true
-                ).x;
-                const unshiftedBaseX = firstVisibleRect.left - currentTransform;
-                const baseX = unshiftedBaseX - firstVisibleVisualIndex * CELL_SIZE;
-                const baseY = firstVisibleRect.top;
-
-                targetX = baseX + insertIndex * CELL_SIZE;
-                targetY = baseY;
-            } else if (snapshot.length > 0 && snapshot[0]) {
-                const baseX = snapshot[0].rect.left;
-                const baseY = snapshot[0].rect.top;
-                targetX = baseX + insertIndex * CELL_SIZE;
-                targetY = baseY;
-            } else {
-                const dockContainer = dockRef.current || document.querySelector('[data-dock-container="true"]');
-                const dockRect = dockContainer?.getBoundingClientRect();
-                if (dockRect) {
-                    targetX = dockRect.left + DOCK_PADDING + insertIndex * CELL_SIZE;
-                    targetY = dockRect.top + DOCK_PADDING;
-                }
-            }
-
-            targetPos = { x: targetX, y: targetY };
             action = 'reorder';
             actionData = { type: 'reorder', newItems };
         }

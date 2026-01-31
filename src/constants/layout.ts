@@ -60,7 +60,7 @@ export const DRAG_THRESHOLD = 8;
 export const MOVE_THRESHOLD = 3;
 
 /** 合并/放入文件夹的距离阈值 (px) */
-export const MERGE_DISTANCE_THRESHOLD = 30;
+export const MERGE_DISTANCE_THRESHOLD = 15;
 
 /** 悬停打开文件夹延迟 (ms) */
 export const HOVER_OPEN_DELAY = 500;
