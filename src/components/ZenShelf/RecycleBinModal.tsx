@@ -322,7 +322,7 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ isOpen, onClos
                 <div className={styles.recycleBinHeader}>
                     <div className={styles.headerTextWrapper}>
                         <h2 className={styles.recycleBinTitle}>{t.space.recycleBin || "Recycle Bin"}</h2>
-                        <span className={styles.recycleBinSubtitle}>{t.space.restoreHint || "Swipe left to restore, swipe right to delete"}</span>
+                        <span className={styles.recycleBinSubtitle}>{t.space.restoreHint || "Swipe left to restore, swipe right to delete"} · {t.space.recycleBinLimitHint}</span>
                     </div>
                     <button className={styles.recycleBinCloseWrapper} onClick={handleClose}>
                         <div className={styles.recycleBinCloseInner}>

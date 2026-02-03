@@ -10,6 +10,7 @@ import { DragPreview } from '../DragPreview';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import { useDockDrag, useDockUI } from '../../context/DockContext';
 import { useSpaces } from '../../context/SpacesContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { generateFolderIcon } from '../../utils/iconFetcher';
 import {
     EASE_SWIFT,
@@ -57,6 +58,7 @@ export const Dock: React.FC<DockProps> = ({
     const innerRef = useRef<HTMLDivElement>(null);
     const { folderPlaceholderActive } = useDockDrag();
     const { setIsEditMode } = useDockUI();
+    const { t } = useLanguage();
 
     // Focus Spaces 集成
     const {
@@ -328,6 +330,13 @@ export const Dock: React.FC<DockProps> = ({
                         </svg>
                     </div>
                 </div>
+
+                {/* 空 Dock 提示 - 当没有图标时显示 */}
+                {items.length === 0 && (
+                    <div className={styles.emptyHint}>
+                        {t.dock.emptyHint}
+                    </div>
+                )}
 
                 {items.map((item, index) => {
                     const isMergeTarget = mergeTargetId === item.id;

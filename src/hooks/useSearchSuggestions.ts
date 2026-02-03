@@ -161,7 +161,8 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
 
             // 仅当这仍然是最新请求时才更新状态
             if (latestRequestRef.current === currentRequestId) {
-                setSuggestions(results);
+                // Limit to 10 suggestions
+                setSuggestions(results.slice(0, 10));
             }
         } catch (err) {
             if (latestRequestRef.current === currentRequestId) {

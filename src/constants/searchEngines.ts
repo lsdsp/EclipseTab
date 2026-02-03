@@ -28,5 +28,6 @@ export const SEARCH_ENGINES: SearchEngine[] = [
   },
 ];
 
-export const DEFAULT_SEARCH_ENGINE: SearchEngine = SEARCH_ENGINES[0];
+// 默认使用 Google 搜索引擎
+export const DEFAULT_SEARCH_ENGINE: SearchEngine = SEARCH_ENGINES.find(e => e.id === 'google')!;
 

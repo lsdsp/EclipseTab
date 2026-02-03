@@ -82,6 +82,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
     const [isDragging, setIsDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const [isBouncing, setIsBouncing] = useState(false);
+    const [isDropDeleting, setIsDropDeleting] = useState(false);
     const [stickerRect, setStickerRect] = useState<DOMRect | null>(null);
     const dragStartRef = useRef<{ x: number; y: number; stickerX: number; stickerY: number } | null>(null);
     const resizeStartRef = useRef<{ x: number; y: number; startScale: number } | null>(null);
@@ -288,11 +289,20 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                     stickerRect.top > binRect.bottom);
 
                 if (isOverBin) {
-                    onDelete();
+                    // Stop physics animation immediately to freeze rotation
+                    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+                    // Trigger fade-out animation
+                    setIsDropDeleting(true);
                     setIsDragging(false);
                     isDraggingRef.current = false;
                     dragStartRef.current = null;
                     onDragEnd?.();
+
+                    // Actual delete after animation
+                    setTimeout(() => {
+                        onDelete();
+                    }, 300);
                     return;
                 }
             }
@@ -553,6 +563,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         sticker.type === 'text' && styles.stickerText,
         isDragging && styles.dragging,
         isBouncing && styles.bounceBack,
+        isDropDeleting && styles.dropDelete,
         isSelected && styles.selected,
         isCreativeMode && styles.creativeHover,
     ].filter(Boolean).join(' ');

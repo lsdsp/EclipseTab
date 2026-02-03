@@ -145,6 +145,36 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
     const MAX_FONT_SIZE = 120; // 最大字体大小（px）
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
+        const isModifierPressed = e.ctrlKey || e.metaKey;
+
+        if (isModifierPressed) {
+            // 字体大小快捷键：Ctrl/Cmd + 上下方向键
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                const step = e.shiftKey ? FONT_SIZE_STEP_LARGE : FONT_SIZE_STEP;
+                setFontSize(prev => Math.min(prev + step, MAX_FONT_SIZE));
+                return;
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                const step = e.shiftKey ? FONT_SIZE_STEP_LARGE : FONT_SIZE_STEP;
+                setFontSize(prev => Math.max(prev - step, MIN_FONT_SIZE));
+                return;
+            }
+
+            // 颜色快捷键：Ctrl/Cmd + 1~7
+            const numKey = parseInt(e.key, 10);
+            if (!isNaN(numKey) && numKey >= 1 && numKey <= 7) {
+                e.preventDefault();
+                // 1-based index to 0-based index
+                const colorIndex = numKey - 1;
+                if (colorIndex < TEXT_COLORS.length) {
+                    setTextColor(TEXT_COLORS[colorIndex]);
+                }
+                return;
+            }
+        }
+
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSubmit();
@@ -212,11 +242,50 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         setLocalFontSize(num.toString());
     };
 
+    // State for visual position, initially matching props
+    const [position, setPosition] = useState({ x, y });
+
+    // Use useLayoutEffect to adjust position before painting if it overflows
+    React.useLayoutEffect(() => {
+        if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const PADDING = 20;
+
+            let newX = x;
+            let newY = y;
+
+            // Check right edge
+            if (x + rect.width > viewportWidth - PADDING) {
+                newX = viewportWidth - rect.width - PADDING;
+            }
+            // Check left edge
+            if (newX < PADDING) {
+                newX = PADDING;
+            }
+
+            // Check bottom edge
+            if (y + rect.height > viewportHeight - PADDING) {
+                newY = viewportHeight - rect.height - PADDING;
+            }
+            // Check top edge
+            if (newY < PADDING) {
+                newY = PADDING;
+            }
+
+            // Only update if changed significantly to avoid loops
+            if (Math.abs(newX - position.x) > 1 || Math.abs(newY - position.y) > 1) {
+                setPosition({ x: newX, y: newY });
+            }
+        }
+    }, [x, y, fontSize, viewportScale, position.x, position.y]); // Re-run when size might change
+
     return createPortal(
         <div
             ref={containerRef}
             className={`${styles.stickerPreviewContainer} ${isExiting ? styles.exiting : ''}`}
-            style={{ left: x, top: y }}
+            style={{ left: position.x, top: position.y }}
         >
             {/* 实时预览贴纸 - 直接在背景上显示 */}
             <div ref={inputWrapperRef}>

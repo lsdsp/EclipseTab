@@ -14,7 +14,6 @@ interface ZenShelfContextType {
     stickers: Sticker[];
     deletedStickers: Sticker[];
     selectedStickerId: string | null;
-    confirmDelete: boolean;
 
     // 操作
     addSticker: (input: StickerInput) => void;
@@ -22,7 +21,6 @@ interface ZenShelfContextType {
     deleteSticker: (id: string) => void;
     selectSticker: (id: string | null) => void;
     bringToTop: (id: string) => void;
-    setConfirmDelete: (confirm: boolean) => void;
     restoreSticker: (sticker: Sticker) => void;
     permanentlyDeleteSticker: (id: string) => void;
     clearRecycleBin: () => void;
@@ -50,10 +48,6 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [stickers, setStickers] = useState<Sticker[]>(() => storage.getStickers());
     const [deletedStickers, setDeletedStickers] = useState<Sticker[]>(() => storage.getDeletedStickers());
     const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null);
-    const [confirmDelete, setConfirmDeleteState] = useState<boolean>(() => {
-        const saved = localStorage.getItem('sticker_confirm_delete');
-        return saved === null ? true : saved === 'true'; // Default to true
-    });
 
     // 防抖保存 ref
     const saveTimeoutRef = useRef<number>();
@@ -73,17 +67,9 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 clearTimeout(saveTimeoutRef.current);
             }
         };
-        return () => {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-            }
-        };
     }, [stickers, deletedStickers]);
 
-    const setConfirmDelete = useCallback((confirm: boolean) => {
-        setConfirmDeleteState(confirm);
-        localStorage.setItem('sticker_confirm_delete', String(confirm));
-    }, []);
+
 
 
 
@@ -175,7 +161,6 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         stickers,
         deletedStickers,
         selectedStickerId,
-        confirmDelete,
         addSticker,
         updateSticker,
         deleteSticker,
@@ -184,12 +169,10 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         clearRecycleBin,
         selectSticker,
         bringToTop,
-        setConfirmDelete,
     }), [
         stickers,
         deletedStickers,
         selectedStickerId,
-        confirmDelete,
         addSticker,
         updateSticker,
         deleteSticker,
@@ -198,7 +181,6 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         clearRecycleBin,
         selectSticker,
         bringToTop,
-        setConfirmDelete,
     ]);
 
     return (

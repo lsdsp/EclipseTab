@@ -79,6 +79,10 @@ interface Translations {
         restoreHint: string;
         emptyRecycleBin: string;
         emptyRecycleBinHint: string;
+        recycleBinLimitHint: string;
+    };
+    dock: {
+        emptyHint: string;
     };
     textInput: {
         placeholder: string;
@@ -170,6 +174,10 @@ const translations: Record<Language, Translations> = {
             restoreHint: 'Swipe left to restore, swipe right to delete',
             emptyRecycleBin: 'No deleted items',
             emptyRecycleBinHint: 'Deleted stickers will appear here',
+            recycleBinLimitHint: 'Recycle bin stores up to 30 items',
+        },
+        dock: {
+            emptyHint: 'Right-click or use top-right button to enter edit mode and add icons',
         },
         textInput: {
             placeholder: 'Enter text...',
@@ -259,6 +267,10 @@ const translations: Record<Language, Translations> = {
             restoreHint: '左滑还原，右滑删除',
             emptyRecycleBin: '没有已删除的项目',
             emptyRecycleBinHint: '删除的贴纸将在这里显示',
+            recycleBinLimitHint: '回收站最多存储30条贴纸',
+        },
+        dock: {
+            emptyHint: '右键或点击右上角进入编辑模式添加图标',
         },
         textInput: {
             placeholder: '输入文本...',
@@ -285,9 +297,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [language, setLanguage] = useState<Language>(() => {
         const saved = localStorage.getItem('app_language');
         if (saved === 'en' || saved === 'zh') return saved;
-        // Default to browser language or 'en'
-        const browserLang = navigator.language.toLowerCase();
-        return browserLang.startsWith('zh') ? 'zh' : 'en';
+        // 默认使用英文
+        return 'en';
     });
 
     useEffect(() => {

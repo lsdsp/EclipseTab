@@ -15,7 +15,7 @@ import asteriskIcon from '../../assets/icons/asterisk.svg';
 import circleIcon from '../../assets/icons/texture background/circle-preview.svg';
 import crossIcon from '../../assets/icons/texture background/cross-preview.svg';
 import { WallpaperGallery } from '../WallpaperGallery/WallpaperGallery';
-import { useZenShelf } from '../../context/ZenShelfContext';
+
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -132,7 +132,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     } = useTheme();
 
     const { language, setLanguage, t } = useLanguage();
-    const { confirmDelete, setConfirmDelete } = useZenShelf();
 
     const systemTheme = useSystemTheme();
     const [isVisible, setIsVisible] = useState(isOpen);
@@ -474,32 +473,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                             <PermissionToggle />
                         </div>
 
-                        {/* 删除确认 */}
-                        <div className={styles.layoutRow}>
-                            <span className={styles.layoutLabel}>{t.settings.confirmDelete}</span>
-                            <div className={styles.layoutToggleGroup}>
-                                <div
-                                    className={styles.layoutHighlight}
-                                    style={{
-                                        transform: `translateX(${confirmDelete ? 0 : 100}%)`,
-                                    }}
-                                />
-                                <button
-                                    className={styles.layoutToggleOption}
-                                    onClick={() => setConfirmDelete(true)}
-                                    title={t.settings.on}
-                                >
-                                    {t.settings.on}
-                                </button>
-                                <button
-                                    className={styles.layoutToggleOption}
-                                    onClick={() => setConfirmDelete(false)}
-                                    title={t.settings.off}
-                                >
-                                    {t.settings.off}
-                                </button>
-                            </div>
-                        </div>
+
                     </div>
 
 

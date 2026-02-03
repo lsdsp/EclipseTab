@@ -4,6 +4,7 @@ import styles from './ZenShelf.module.css';
 import { useZenShelf } from '../../context/ZenShelfContext';
 import TrashCanEmpty from '../../assets/icons/TrashCan-empty.svg';
 import TrashCanFull from '../../assets/icons/TrashCan-full.svg';
+import TrashCanHalf from '../../assets/icons/TrashCan-half.svg';
 
 interface RecycleBinProps {
     isVisible: boolean;
@@ -42,7 +43,12 @@ export const RecycleBin: React.FC<RecycleBinProps> = ({ isVisible, onClick }) =>
         return styles.recycleBin;
     };
 
-    const icon = deletedStickers.length > 0 ? TrashCanFull : TrashCanEmpty;
+    let icon = TrashCanEmpty;
+    if (deletedStickers.length >= 30) {
+        icon = TrashCanFull;
+    } else if (deletedStickers.length > 0) {
+        icon = TrashCanHalf;
+    }
 
     return ReactDOM.createPortal(
         <div

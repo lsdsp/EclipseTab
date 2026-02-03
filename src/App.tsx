@@ -124,27 +124,53 @@ function App() {
   const settingsAreaRef = useRef<HTMLDivElement>(null);
   const editorAreaRef = useRef<HTMLDivElement>(null);
 
-  // 使用全局 mousemove 来检测区域悬停 (支持 pointer-events: none)
+  // ============================================================================
+  // 性能优化: 使用 RAF 节流 + 状态变化检测，减少 mousemove 期间的重渲染
+  // ============================================================================
+  const lastSettingsState = useRef(false);
+  const lastEditorState = useRef(false);
+  const rafId = useRef<number>(0);
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      // 检查设置区域 (左上角)
-      if (settingsAreaRef.current) {
-        const rect = settingsAreaRef.current.getBoundingClientRect();
-        const inSettingsZone = e.clientX >= rect.left && e.clientX <= rect.right &&
-          e.clientY >= rect.top && e.clientY <= rect.bottom;
-        setShowSettings(inSettingsZone);
+      // 取消上一帧的待处理更新
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
       }
-      // 检查编辑器区域 (右上角)
-      if (editorAreaRef.current) {
-        const rect = editorAreaRef.current.getBoundingClientRect();
-        const inEditorZone = e.clientX >= rect.left && e.clientX <= rect.right &&
-          e.clientY >= rect.top && e.clientY <= rect.bottom;
-        setShowEditor(inEditorZone);
-      }
+
+      rafId.current = requestAnimationFrame(() => {
+        // 检查设置区域 (左上角)
+        if (settingsAreaRef.current) {
+          const rect = settingsAreaRef.current.getBoundingClientRect();
+          const inSettingsZone = e.clientX >= rect.left && e.clientX <= rect.right &&
+            e.clientY >= rect.top && e.clientY <= rect.bottom;
+          // 仅在状态变化时更新
+          if (inSettingsZone !== lastSettingsState.current) {
+            lastSettingsState.current = inSettingsZone;
+            setShowSettings(inSettingsZone);
+          }
+        }
+        // 检查编辑器区域 (右上角)
+        if (editorAreaRef.current) {
+          const rect = editorAreaRef.current.getBoundingClientRect();
+          const inEditorZone = e.clientX >= rect.left && e.clientX <= rect.right &&
+            e.clientY >= rect.top && e.clientY <= rect.bottom;
+          // 仅在状态变化时更新
+          if (inEditorZone !== lastEditorState.current) {
+            lastEditorState.current = inEditorZone;
+            setShowEditor(inEditorZone);
+          }
+        }
+      });
     };
 
     document.addEventListener('mousemove', handleMouseMove);
-    return () => document.removeEventListener('mousemove', handleMouseMove);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+      }
+    };
   }, []);
 
   const handleSearch = (query: string) => {

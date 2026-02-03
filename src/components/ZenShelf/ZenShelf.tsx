@@ -10,7 +10,7 @@ import { ContextMenu } from './ContextMenu';
 import { RecycleBin } from './RecycleBin';
 import { RecycleBinModal } from './RecycleBinModal';
 import styles from './ZenShelf.module.css';
-import { useLanguage } from '../../context/LanguageContext';
+
 
 // ============================================================================
 // ZenShelf 主组件
@@ -23,9 +23,8 @@ interface ZenShelfProps {
 export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
     const canvasRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { stickers, selectedStickerId, confirmDelete, addSticker, updateSticker, deleteSticker, selectSticker, bringToTop } = useZenShelf();
+    const { stickers, selectedStickerId, addSticker, updateSticker, deleteSticker, selectSticker, bringToTop } = useZenShelf();
     const { isEditMode, setIsEditMode } = useDockUI();
-    const { t } = useLanguage();
 
     const [textInputPos, setTextInputPos] = useState<{ x: number; y: number } | null>(null);
     const [contextMenu, setContextMenu] = useState<{
@@ -64,20 +63,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         setIsAnyDragging(false);
     }, []);
 
-    // 包装删除函数以支持确认
-    const handleDeleteWithConfirm = useCallback((id: string) => {
-        if (confirmDelete) {
-            // 使用 window.confirm 进行简单的确认对话框
-            // 使用 setTimeout 确保在拖放操作完全结束后弹出，避免一些事件冲突
-            setTimeout(() => {
-                if (window.confirm(t.space.deleteStickerConfirm)) {
-                    deleteSticker(id);
-                }
-            }, 10);
-        } else {
-            deleteSticker(id);
-        }
-    }, [confirmDelete, deleteSticker, t]);
+
 
     // UI 元素选择器 - 右键这些区域不会触发上下文菜单
     const UI_SELECTORS = [
@@ -168,20 +154,14 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                 }
 
                 if (selectedStickerId) {
-                    // Keyboard delete normally implies intent, but consistent behavior suggests confirming if setting is on.
-                    // However, standard UX often skips confirm for Del key unless it's destructive. 
-                    // Given the user request is about "dragging to trash", I'll still apply it globally for consistency,
-                    // or maybe I should check if the user *only* wanted it for drag.
-                    // "Default on, drag to trash triggers confirm". 
-                    // I'll stick to global confirm for safety.
-                    handleDeleteWithConfirm(selectedStickerId);
+                    deleteSticker(selectedStickerId);
                 }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedStickerId, handleDeleteWithConfirm]);
+    }, [selectedStickerId, deleteSticker]);
 
     // 处理图片文件选择
     const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -313,7 +293,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                         isSelected={selectedStickerId === sticker.id}
                         isCreativeMode={isEditMode}
                         onSelect={() => selectSticker(sticker.id)}
-                        onDelete={() => handleDeleteWithConfirm(sticker.id)}
+                        onDelete={() => deleteSticker(sticker.id)}
                         onPositionChange={(x, y) => updateSticker(sticker.id, { x, y })}
                         onStyleChange={(updates) => {
                             if (sticker.style) {
@@ -388,7 +368,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                     }}
                     onDeleteSticker={() => {
                         if (contextMenu.stickerId) {
-                            handleDeleteWithConfirm(contextMenu.stickerId);
+                            deleteSticker(contextMenu.stickerId);
                         }
                     }}
                     onCopyImage={async () => {

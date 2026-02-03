@@ -90,12 +90,13 @@ const fetchIconInternal = async (url: string, domain: string, minSize: number): 
     const origin = `${protocol}//${domain}`;
 
     // ========================================================================
-    // 优化: 分批候选 URL，减少不必要的网络请求
+    // 性能优化: 串行尝试策略 - 找到符合条件的图标后立即返回
+    // 减少不必要的网络请求，同时缩短单次请求超时时间
     // ========================================================================
 
-    // 第一批: 高优先级本地路径 (通常网络开销较小)
+    // 第一批: 高优先级本地路径 (按优先级排序)
     const highPriorityCandidates = [
-      // Apple Touch Icons (通常最高质量)
+      // Apple Touch Icons (通常最高质量，180x180)
       `${origin}/apple-touch-icon.png`,
       `${origin}/apple-touch-icon-180x180.png`,
       `${origin}/apple-touch-icon-precomposed.png`,
@@ -104,7 +105,7 @@ const fetchIconInternal = async (url: string, domain: string, minSize: number): 
       `${origin}/favicon.ico`,
     ];
 
-    // 第二批: 外部 API 备用 (仅在第一批失败时尝试)
+    // 第二批: 外部 API 备用 (仅在第一批全部失败时尝试)
     const fallbackCandidates = [
       // DuckDuckGo Icons API (隐私友好)
       `https://icons.duckduckgo.com/ip3/${domain}.ico`,
@@ -112,30 +113,25 @@ const fetchIconInternal = async (url: string, domain: string, minSize: number): 
       `https://www.google.com/s2/favicons?domain=${domain}&sz=256`,
     ];
 
-    // Helper to probe an image URL
-    const probeImage = (src: string): Promise<{ url: string; width: number; height: number }> => {
+    // 单个图片探测函数 (带超时)
+    const probeImage = (src: string, timeout: number = 3000): Promise<{ url: string; width: number; height: number }> => {
       return new Promise((resolve, reject) => {
         const img = new Image();
         let settled = false;
 
-        // 清理函数 - 取消加载并释放资源
         const cleanup = () => {
           img.onload = null;
           img.onerror = null;
-          // 取消正在进行的图片加载
           if (!settled) {
             img.src = '';
           }
         };
 
-        // Do not set crossOrigin to avoid CORS errors on opaque responses
         img.onload = () => {
           settled = true;
-          // Check for min resolution (100x100) or at least not tiny (1x1)
           if (img.naturalWidth >= minSize && img.naturalHeight >= minSize) {
             resolve({ url: src, width: img.naturalWidth, height: img.naturalHeight });
           } else if (img.naturalWidth > 1) {
-            // If minSize is 0, we accept anything > 1 (Manual Fetch Mode)
             if (minSize === 0) {
               resolve({ url: src, width: img.naturalWidth, height: img.naturalHeight });
               return;
@@ -150,37 +146,50 @@ const fetchIconInternal = async (url: string, domain: string, minSize: number): 
           reject('Failed to load');
         };
         img.src = src;
-        // Timeout to prevent hanging
+
+        // 缩短超时时间，加快失败检测
         setTimeout(() => {
           if (!settled) {
             cleanup();
             reject('Timeout');
           }
-        }, 5000);
+        }, timeout);
       });
     };
 
-    // 辅助函数: 从候选列表中找到最佳图标
-    const findBestIcon = async (candidates: string[]): Promise<{ url: string; width: number; height: number } | null> => {
-      const results = await Promise.allSettled(candidates.map(src => probeImage(src)));
-      const validIcons = results
-        .filter((r): r is PromiseFulfilledResult<{ url: string; width: number; height: number }> => r.status === 'fulfilled')
-        .map(r => r.value)
-        .sort((a, b) => b.width - a.width); // Sort by size descending
-      return validIcons.length > 0 ? validIcons[0] : null;
-    };
-
-    // 第一批: 尝试高优先级本地路径
-    let bestIcon = await findBestIcon(highPriorityCandidates);
-
-    // 第二批: 如果第一批失败，尝试外部 API
-    if (!bestIcon) {
-      bestIcon = await findBestIcon(fallbackCandidates);
+    // ========================================================================
+    // 策略1: 串行尝试高优先级候选 (找到即停止，减少请求数)
+    // ========================================================================
+    for (const candidate of highPriorityCandidates) {
+      try {
+        // 本地路径使用较短超时 (2秒)
+        const icon = await probeImage(candidate, 2000);
+        // 找到符合条件的图标，立即返回
+        const result = { url: icon.url, isFallback: false };
+        setCachedIcon(domain, result);
+        return result;
+      } catch {
+        // 继续尝试下一个候选
+        continue;
+      }
     }
 
-    if (bestIcon) {
-      const result = { url: bestIcon.url, isFallback: false };
-      // 缓存结果
+    // ========================================================================
+    // 策略2: 并行尝试 fallback 候选 (加快响应速度)
+    // ========================================================================
+    const fallbackResults = await Promise.allSettled(
+      fallbackCandidates.map(src => probeImage(src, 4000))
+    );
+
+    const validFallbacks = fallbackResults
+      .filter((r): r is PromiseFulfilledResult<{ url: string; width: number; height: number }> =>
+        r.status === 'fulfilled'
+      )
+      .map(r => r.value)
+      .sort((a, b) => b.width - a.width);
+
+    if (validFallbacks.length > 0) {
+      const result = { url: validFallbacks[0].url, isFallback: false };
       setCachedIcon(domain, result);
       return result;
     }

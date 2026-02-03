@@ -195,20 +195,45 @@ const DockItemComponent: React.FC<DockItemProps> = ({
 
 // 为 React.memo 自定义比较函数
 const arePropsEqual = (prev: DockItemProps, next: DockItemProps) => {
-  return (
-    prev.item.id === next.item.id &&
-    prev.item.name === next.item.name &&
-    prev.item.icon === next.item.icon &&
-    // 检查项目长度以更新文件夹图标
-    (prev.item.items?.length === next.item.items?.length) &&
-    prev.isEditMode === next.isEditMode &&
-    prev.isDragging === next.isDragging &&
-    prev.isDropTarget === next.isDropTarget &&
-    prev.isMergeTarget === next.isMergeTarget && // 检查脉冲状态
-    prev.staggerIndex === next.staggerIndex
-    // 忽略函数属性 (onClick, onEdit 等)，因为它们在父组件的每次渲染中都会重新创建
-    // 但底层逻辑依赖于我们上面检查过的相同项目数据。
-  );
+  // 基础属性比较
+  if (
+    prev.item.id !== next.item.id ||
+    prev.item.name !== next.item.name ||
+    prev.item.icon !== next.item.icon ||
+    prev.isEditMode !== next.isEditMode ||
+    prev.isDragging !== next.isDragging ||
+    prev.isDropTarget !== next.isDropTarget ||
+    prev.isMergeTarget !== next.isMergeTarget ||
+    prev.staggerIndex !== next.staggerIndex
+  ) {
+    return false;
+  }
+
+  // ============================================================================
+  // 性能优化: 改进文件夹子项比较逻辑
+  // 不仅检查长度，还检查子项 ID 和图标以确保文件夹图标正确更新
+  // ============================================================================
+  const prevItems = prev.item.items;
+  const nextItems = next.item.items;
+
+  if (prevItems?.length !== nextItems?.length) {
+    return false;
+  }
+
+  // 检查前4个子项的 ID 和图标 (文件夹图标只显示前4个)
+  if (prevItems && nextItems) {
+    const checkCount = Math.min(4, prevItems.length);
+    for (let i = 0; i < checkCount; i++) {
+      if (prevItems[i].id !== nextItems[i].id ||
+        prevItems[i].icon !== nextItems[i].icon) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+  // 忽略函数属性 (onClick, onEdit 等)，因为它们在父组件的每次渲染中都会重新创建
+  // 但底层逻辑依赖于我们上面检查过的相同项目数据。
 };
 
 export const DockItem = React.memo(DockItemComponent, arePropsEqual);

@@ -216,3 +216,21 @@
 .navigatorTransitioning {
     opacity: 0.3;
 }
+
+/* 空 Dock 提示 - 当没有图标时显示 */
+.emptyHint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 200px;
+    max-width: 280px;
+    padding: 0 var(--spacing-padding-small);
+    height: var(--icon-size, 64px);
+    font-family: var(--font-family);
+    font-size: var(--font-size-medium);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-tertiary);
+    text-align: center;
+    line-height: 1.4;
+    user-select: none;
+}

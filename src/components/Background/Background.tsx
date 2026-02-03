@@ -21,6 +21,13 @@ const extractWallpaperUrl = (bgValue: string): string | null => {
 export const Background: React.FC = () => {
     const { backgroundBaseValue, backgroundTextureValue, backgroundTextureTileSize, backgroundBlendMode } = useThemeData();
 
+    // ========================================================================
+    // 性能优化: 使用递增计数器代替 Date.now() 作为图层 ID
+    // 避免 zIndex 使用过大的时间戳值
+    // ========================================================================
+    const layerIdCounter = React.useRef(0);
+    const getNextLayerId = () => ++layerIdCounter.current;
+
     // 管理基础图层 (淡入淡出)
     const [baseLayers, setBaseLayers] = React.useState<Array<{
         id: number;
@@ -43,11 +50,11 @@ export const Background: React.FC = () => {
 
     // 1. 处理基础背景更改 (交叉淡入淡出)
     React.useEffect(() => {
-        const timestamp = Date.now();
+        const layerId = getNextLayerId();
         const wallpaperUrl = extractWallpaperUrl(backgroundBaseValue);
 
         const newLayer = {
-            id: timestamp,
+            id: layerId,
             value: backgroundBaseValue,
             wallpaperUrl,
             visible: false
@@ -61,13 +68,13 @@ export const Background: React.FC = () => {
         // 淡入新图层
         const animTimer = setTimeout(() => {
             setBaseLayers(prev => prev.map(l =>
-                l.id === timestamp ? { ...l, visible: true } : l
+                l.id === layerId ? { ...l, visible: true } : l
             ));
         }, 50);
 
         // 清理旧图层
         const cleanupTimer = setTimeout(() => {
-            setBaseLayers(prev => prev.filter(l => l.id === timestamp));
+            setBaseLayers(prev => prev.filter(l => l.id === layerId));
         }, 300);
 
         return () => {
@@ -78,12 +85,12 @@ export const Background: React.FC = () => {
 
     // 2. 处理纹理更改 (顺序：出 -> 入)
     React.useEffect(() => {
-        const timestamp = Date.now();
+        const layerId = getNextLayerId();
         // 如果纹理为 null/none，我们只需淡出当前纹理
         // 如果纹理是新的，我们先淡出旧的，然后淡入新的
 
         const newLayer = {
-            id: timestamp,
+            id: layerId,
             value: backgroundTextureValue,
             tileSize: backgroundTextureTileSize,
             visible: false
@@ -104,7 +111,7 @@ export const Background: React.FC = () => {
                     setTextureLayers([newLayer]);
                     requestAnimationFrame(() => {
                         setTextureLayers(prev => prev.map(l =>
-                            l.id === timestamp ? { ...l, visible: true } : l
+                            l.id === layerId ? { ...l, visible: true } : l
                         ));
                     });
                 } else {
@@ -121,12 +128,12 @@ export const Background: React.FC = () => {
 
                 const animTimer = setTimeout(() => {
                     setTextureLayers(prev => prev.map(l =>
-                        l.id === timestamp ? { ...l, visible: true } : l
+                        l.id === layerId ? { ...l, visible: true } : l
                     ));
                 }, 50);
 
                 const cleanupTimer = setTimeout(() => {
-                    setTextureLayers(prev => prev.filter(l => l.id === timestamp));
+                    setTextureLayers(prev => prev.filter(l => l.id === layerId));
                 }, 300);
 
                 return () => {

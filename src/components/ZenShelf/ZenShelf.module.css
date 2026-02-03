@@ -613,6 +613,15 @@
     transform: scale(1) rotate(0deg) !important;
 }
 
+/* Drop delete animation */
+/* Drop delete animation */
+.sticker.dropDelete {
+    transform: scale(0.8) rotate(60deg) !important;
+    opacity: 0;
+    transition: opacity 0.3s ease-in;
+    pointer-events: none;
+}
+
 /* ===== 贴纸实时预览模式 ===== */
 
 /* 预览容器 - 包含输入框和工具栏 */

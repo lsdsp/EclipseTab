@@ -10,7 +10,8 @@
   border-radius: var(--radius-default);
   padding: var(--spacing-border-default);
   width: 100%;
-  /* 移除 min-width 以支持响应式缩放 */
+  /* 最小宽度约束 */
+  min-width: 520px;
   box-shadow: var(--shadow-small);
 }
 
