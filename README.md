@@ -53,7 +53,7 @@ Eclipse Tab 将你的浏览器新标签页变成一个强大的工作台：
 |:---|:---|
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_48x48.png" width="24" /> **Chrome** | [Chrome 扩展商店](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp?utm_source=ext_app_menu) |
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_48x48.png" width="24" /> **Edge** | [Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/eclipse-tab/omlbmhdkajhbcdhjdgjalelbbmjoekfj?hl=zh-cn) |
-| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox_48x48.png" width="24" /> **Firefox** | [Firefox 扩展商店（审核中）](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/) |
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox_48x48.png" width="24" /> **Firefox** | [Firefox 扩展商店](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/) |
 
 ### 🛠️ 手动安装
 
@@ -173,6 +173,7 @@ Zen Browser 基于 Firefox,需要额外配置才能正常使用 Eclipse Tab:
 - **双击编辑**：双击文字贴纸可以重新编辑内容
 - **导出图片**：文字贴纸支持导出为图片，方便分享
 - **自动置顶**：点击贴纸会自动置顶，确保重要内容始终可见
+- **回收站**：误删贴纸可从屏幕边缘回收站恢复或清除
 
 ### 🚀 Dock 技巧
 

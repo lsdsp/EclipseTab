@@ -53,7 +53,7 @@ Eclipse Tab transforms your browser's new tab page into a powerful workspace:
 |:---|:---|
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_48x48.png" width="24" /> **Chrome** | [Chrome Web Store](https://chromewebstore.google.com/detail/eclipse-tab/lcnmbgidemidmfffplkpflpdpmfdgabp?utm_source=ext_app_menu) |
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_48x48.png" width="24" /> **Edge** | [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/eclipse-tab/omlbmhdkajhbcdhjdgjalelbbmjoekfj?hl=zh-cn) |
-| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox_48x48.png" width="24" /> **Firefox** | [Firefox Add-ons (Under Review)](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/) |
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox_48x48.png" width="24" /> **Firefox** | [Firefox Add-ons](https://addons.mozilla.org/zh-CN/firefox/addon/eclipse-tab/) |
 
 ### 🛠️ Manual Installation
 
@@ -173,6 +173,7 @@ After installation, open a new tab:
 - **Double-Click to Edit**: Double-click a text sticker to edit its content
 - **Export as Image**: Text stickers can be exported as images for sharing
 - **Auto Bring to Top**: Clicking a sticker automatically brings it to the front
+- **Recycle Bin**: Restore or clear deleted stickers from the bin at the screen edge
 
 ### 🚀 Dock Tips
 
