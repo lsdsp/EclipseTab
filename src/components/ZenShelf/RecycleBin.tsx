@@ -22,7 +22,7 @@ export const RecycleBin: React.FC<RecycleBinProps> = ({ isVisible, onClick }) =>
             if (isVisible) return; // If already visible due to drag, let parent control
 
             const { innerWidth, innerHeight } = window;
-            const threshold = 300; // Trigger peek when close to corner
+            const threshold = 150; // Trigger peek when close to corner
 
             const dist = Math.sqrt(
                 Math.pow(innerWidth - e.clientX, 2) +
@@ -38,7 +38,8 @@ export const RecycleBin: React.FC<RecycleBinProps> = ({ isVisible, onClick }) =>
 
     const getClassName = () => {
         if (isVisible) return `${styles.recycleBin} ${styles.visible}`;
-        if (isHovered) return `${styles.recycleBin} ${styles.active}`;
+        // 二段出现逻辑：只有在 peek 状态下悬停才显示完整
+        if (isPeek && isHovered) return `${styles.recycleBin} ${styles.active}`;
         if (isPeek) return `${styles.recycleBin} ${styles.peek}`;
         return styles.recycleBin;
     };

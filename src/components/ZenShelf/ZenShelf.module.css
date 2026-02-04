@@ -882,10 +882,10 @@
    ---------------------------------------------------------------------------- */
 .recycleBin {
     position: fixed;
-    bottom: -500px;
+    bottom: -220px;
     right: 0;
-    width: 320px;
-    height: 320px;
+    width: 200px;
+    height: 200px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -900,13 +900,13 @@
 }
 
 .recycleBin.visible {
-    bottom: -120px;
+    bottom: -90px;
     pointer-events: auto;
 }
 
 .recycleIcon {
-    width: 200px;
-    height: 200px;
+    width: 160px;
+    height: 160px;
     filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
     transition: transform 0.2s ease;
 }
@@ -917,7 +917,7 @@
 }
 
 .recycleBin.active {
-    bottom: -120px;
+    bottom: -90px;
     pointer-events: auto;
     cursor: pointer;
 }
@@ -932,9 +932,9 @@
 }
 
 .recycleBin.peek {
-    bottom: -120px;
+    bottom: -145px;
     pointer-events: auto;
-    /* Allow hovering */
+    /* Allow hovering - show ~55px visible */
 }
 
 /* ----------------------------------------------------------------------------
