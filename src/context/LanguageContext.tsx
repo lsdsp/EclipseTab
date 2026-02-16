@@ -11,6 +11,7 @@ interface Translations {
         large: string;
         small: string;
         suggestions: string;
+        openInNewTab: string;
         on: string;
         off: string;
         language: string;
@@ -106,6 +107,7 @@ const translations: Record<Language, Translations> = {
             large: 'Large',
             small: 'Small',
             suggestions: 'Suggestions',
+            openInNewTab: 'New Tab',
             on: 'On',
             off: 'Off',
             language: 'Language',
@@ -199,6 +201,7 @@ const translations: Record<Language, Translations> = {
             large: '大',
             small: '小',
             suggestions: '搜索建议',
+            openInNewTab: '新标签页',
             on: '开启',
             off: '关闭',
             language: '语言设置',

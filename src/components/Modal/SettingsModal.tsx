@@ -129,6 +129,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         setDockPosition,
         iconSize,
         setIconSize,
+        openInNewTab,
+        setOpenInNewTab,
     } = useTheme();
 
     const { language, setLanguage, t } = useLanguage();
@@ -471,6 +473,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                         <div className={styles.layoutRow}>
                             <span className={styles.layoutLabel}>{t.settings.suggestions}</span>
                             <PermissionToggle />
+                        </div>
+
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>{t.settings.openInNewTab}</span>
+                            <div className={styles.layoutToggleGroup}>
+                                <div
+                                    className={styles.layoutHighlight}
+                                    style={{
+                                        transform: `translateX(${openInNewTab ? 0 : 100}%)`,
+                                    }}
+                                />
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => setOpenInNewTab(true)}
+                                    title={t.settings.on}
+                                >
+                                    {t.settings.on}
+                                </button>
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => setOpenInNewTab(false)}
+                                    title={t.settings.off}
+                                >
+                                    {t.settings.off}
+                                </button>
+                            </div>
                         </div>
 
 

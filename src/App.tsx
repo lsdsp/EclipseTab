@@ -53,7 +53,7 @@ function App() {
   const { draggingItem, setDraggingItem, setFolderPlaceholderActive } = useDockDrag();
 
   // 布局设置
-  const { dockPosition } = useThemeData();
+  const { dockPosition, openInNewTab } = useThemeData();
 
   // 计算派生状态
   const openFolder = useMemo(
@@ -174,22 +174,43 @@ function App() {
   }, []);
 
   const handleSearch = (query: string) => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return;
+
+    const openUrl = (url: string) => {
+      if (openInNewTab) {
+        window.open(url, '_blank');
+      } else {
+        window.location.assign(url);
+      }
+    };
+
+    // 输入的是 URL 时，按设置决定在当前页或新标签页打开
+    try {
+      const url = new URL(trimmedQuery);
+      openUrl(url.toString());
+      return;
+    } catch {
+      // 不是 URL，继续执行搜索
+    }
+
     if (selectedSearchEngine.id === 'default') {
       // 使用 Chrome Search API (如果在扩展环境)
       // @ts-ignore - chrome 命名空间
       if (typeof chrome !== 'undefined' && chrome.search && chrome.search.query) {
+        const disposition = openInNewTab ? 'NEW_TAB' : 'CURRENT_TAB';
         // @ts-ignore - chrome.search 类型定义
-        chrome.search.query({ text: query, disposition: 'CURRENT_TAB' });
+        chrome.search.query({ text: trimmedQuery, disposition });
         return;
       }
 
       // 开发环境或 API 不可用时的回退方案 (使用 Google)
-      window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+      openUrl(`https://www.google.com/search?q=${encodeURIComponent(trimmedQuery)}`);
       return;
     }
 
-    const searchUrl = `${selectedSearchEngine.url}${encodeURIComponent(query)}`;
-    window.open(searchUrl, '_blank');
+    const searchUrl = `${selectedSearchEngine.url}${encodeURIComponent(trimmedQuery)}`;
+    openUrl(searchUrl);
   };
 
   const handleItemEdit = (item: DockItem, rect?: DOMRect) => {

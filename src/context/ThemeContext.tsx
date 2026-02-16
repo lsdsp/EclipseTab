@@ -34,6 +34,7 @@ interface ThemeDataContextType {
     backgroundBlendMode: string;
     dockPosition: DockPosition;
     iconSize: IconSize;
+    openInNewTab: boolean;
 }
 
 const ThemeDataContext = createContext<ThemeDataContextType | undefined>(undefined);
@@ -51,6 +52,7 @@ interface ThemeActionsContextType {
     setWallpaperId: (id: string) => Promise<void>;
     setDockPosition: (position: DockPosition) => void;
     setIconSize: (size: IconSize) => void;
+    setOpenInNewTab: (openInNewTab: boolean) => void;
 }
 
 const ThemeActionsContext = createContext<ThemeActionsContextType | undefined>(undefined);
@@ -169,6 +171,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return storage.getIconSize();
     });
 
+    const [openInNewTab, setOpenInNewTabState] = useState<boolean>(() => {
+        return storage.getOpenInNewTab();
+    });
+
     // 计算主题：如果启用了 followSystem，则使用系统主题
     const theme = followSystem ? systemTheme : manualTheme;
     const isDefaultTheme = manualTheme === 'default' && !followSystem;
@@ -269,6 +275,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const setIconSize = useCallback((size: IconSize) => {
         setIconSizeState(size);
         storage.saveIconSize(size);
+    }, []);
+
+    const setOpenInNewTab = useCallback((openInNewTab: boolean) => {
+        setOpenInNewTabState(openInNewTab);
+        storage.saveOpenInNewTab(openInNewTab);
     }, []);
 
     // 将主题应用到文档
@@ -402,7 +413,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         backgroundBlendMode,
         dockPosition,
         iconSize,
-    }), [theme, followSystem, wallpaper, lastWallpaper, gradientId, texture, wallpaperId, backgroundValue, backgroundBaseValue, backgroundTextureValue, backgroundTextureTileSize, backgroundBlendMode, dockPosition, iconSize]);
+        openInNewTab,
+    }), [theme, followSystem, wallpaper, lastWallpaper, gradientId, texture, wallpaperId, backgroundValue, backgroundBaseValue, backgroundTextureValue, backgroundTextureTileSize, backgroundBlendMode, dockPosition, iconSize, openInNewTab]);
 
     const actionsValue: ThemeActionsContextType = useMemo(() => ({
         setTheme,
@@ -414,7 +426,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setWallpaperId,
         setDockPosition,
         setIconSize,
-    }), [setTheme, setFollowSystem, setWallpaper, uploadWallpaper, setGradientId, setTexture, setWallpaperId, setDockPosition, setIconSize]);
+        setOpenInNewTab,
+    }), [setTheme, setFollowSystem, setWallpaper, uploadWallpaper, setGradientId, setTexture, setWallpaperId, setDockPosition, setIconSize, setOpenInNewTab]);
 
     return (
         <ThemeDataContext.Provider value={dataValue}>

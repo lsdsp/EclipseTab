@@ -55,16 +55,10 @@ export const Searcher: React.FC<SearcherProps> = ({
   }, [suggestions]);
 
   const handleSearch = (searchQuery: string) => {
-    if (!searchQuery.trim()) return;
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) return;
 
-    // 检查是否是 URL
-    try {
-      const url = new URL(searchQuery);
-      window.open(url.toString(), '_blank');
-    } catch {
-      // 不是 URL，进行搜索
-      onSearch(searchQuery);
-    }
+    onSearch(trimmedQuery);
     setQuery(''); // 可选：搜索后清空查询内容
     // 强制关闭建议列表
     setIsFocused(false);

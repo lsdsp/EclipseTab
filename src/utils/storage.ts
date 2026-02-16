@@ -32,6 +32,7 @@ interface AppConfig {
   followSystem: boolean;
   dockPosition: 'center' | 'bottom';
   iconSize: 'large' | 'small';
+  openInNewTab: boolean;
   texture: string;
   gradient: string | null;
 }
@@ -41,6 +42,7 @@ const DEFAULT_CONFIG: AppConfig = {
   followSystem: true,
   dockPosition: 'bottom',
   iconSize: 'large',
+  openInNewTab: false,
   texture: 'point',
   gradient: null,
 };
@@ -177,6 +179,14 @@ export const storage = {
 
   saveIconSize(iconSize: 'large' | 'small'): void {
     this.updateConfig({ iconSize });
+  },
+
+  getOpenInNewTab(): boolean {
+    return this.getConfig().openInNewTab;
+  },
+
+  saveOpenInNewTab(openInNewTab: boolean): void {
+    this.updateConfig({ openInNewTab });
   },
 
   getTexture(): string {
