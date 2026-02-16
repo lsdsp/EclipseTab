@@ -133,11 +133,35 @@
     filter: url(#text-sticker-stroke);
 }
 
+/* 普通字体：保持白边风格，降低默认粗重感 */
+.textStickerNormal {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+}
+
+/* 代码字体：保持白边风格不变，降低粗重感并优化中英混排观感 */
+.textStickerCode {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+}
+
 /* Firefox 专用样式 - 使用 -moz-appearance 检测 Firefox */
 @supports (-moz-appearance: none) {
     .textSticker {
         -webkit-text-stroke: 0.3px currentColor;
         line-height: 0.85;
+    }
+
+    .textStickerNormal {
+        -webkit-text-stroke: 0.2px currentColor;
+        line-height: 0.95;
+    }
+
+    .textStickerCode {
+        -webkit-text-stroke: 0.2px currentColor;
+        line-height: 0.95;
     }
 }
 
@@ -665,11 +689,35 @@
     transition: font-size var(--transition-smooth);
 }
 
+/* 普通字体预览：与最终贴纸保持一致 */
+.stickerPreviewInputNormal {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+}
+
+/* 代码字体预览：与最终贴纸保持一致的字重和排版节奏 */
+.stickerPreviewInputCode {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+}
+
 /* Firefox 专用样式 */
 @supports (-moz-appearance: none) {
     .stickerPreviewInput {
         -webkit-text-stroke: 0.3px currentColor;
         line-height: 0.95;
+    }
+
+    .stickerPreviewInputNormal {
+        -webkit-text-stroke: 0.2px currentColor;
+        line-height: 1;
+    }
+
+    .stickerPreviewInputCode {
+        -webkit-text-stroke: 0.2px currentColor;
+        line-height: 1;
     }
 }
 

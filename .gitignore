@@ -2,3 +2,9 @@
 node_modules/
 AGENTS.md
 .serena/
+.vscode
+
+# 自动化测试临时文件
+.e2e-tests/
+playwright-report/
+test-results/

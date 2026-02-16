@@ -67,6 +67,8 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
     const [fontPreset, setFontPreset] = useState<StickerFontPreset>(() => (
         isStickerFontPreset(initialStyle?.fontPreset) ? initialStyle.fontPreset : DEFAULT_STICKER_FONT_PRESET
     ));
+    const isNormalFontPreset = fontPreset === 'normal';
+    const isCodeFontPreset = fontPreset === 'code';
     const [isExiting, setIsExiting] = useState(false);
 
     // 挂载时聚焦并仅对工具栏播放入场动画
@@ -306,7 +308,11 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
             <div ref={inputWrapperRef}>
                 <div
                     ref={inputRef}
-                    className={styles.stickerPreviewInput}
+                    className={[
+                        styles.stickerPreviewInput,
+                        isNormalFontPreset && styles.stickerPreviewInputNormal,
+                        isCodeFontPreset && styles.stickerPreviewInputCode,
+                    ].filter(Boolean).join(' ')}
                     contentEditable
                     suppressContentEditableWarning
                     style={{

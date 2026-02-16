@@ -589,6 +589,8 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
     // 为文字贴纸计算缩放后的字体大小
     const scaledFontSize = (sticker.style?.fontSize || 40) * viewportScale;
     const resolvedFontFamily = resolveStickerFontFamily(sticker.style?.fontPreset);
+    const isNormalFontPreset = sticker.style?.fontPreset === 'normal';
+    const isCodeFontPreset = sticker.style?.fontPreset === 'code';
 
     return (
         <>
@@ -609,6 +611,8 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                     <div
                         className={[
                             styles.textSticker,
+                            isNormalFontPreset && styles.textStickerNormal,
+                            isCodeFontPreset && styles.textStickerCode,
                             isDragging && styles.dragging,
                             isCreativeMode && styles.creativeHover,
                         ].filter(Boolean).join(' ')}
