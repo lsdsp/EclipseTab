@@ -1,6 +1,7 @@
 /**
  * Zen Shelf 贴纸相关类型定义
  */
+import { DEFAULT_STICKER_FONT_PRESET, type StickerFontPreset } from '../constants/stickerFonts';
 
 /**
  * 文字贴纸的样式配置
@@ -9,6 +10,7 @@ export interface TextStickerStyle {
     color: string;                           // 字体颜色
     textAlign: 'left' | 'center' | 'right';  // 文字对齐
     fontSize: number;                        // 字号大小 (px)
+    fontPreset?: StickerFontPreset;          // 字体类型
     maxWidth?: number;                       // 最大宽度限制 (px)
 }
 
@@ -38,6 +40,7 @@ export const DEFAULT_TEXT_STYLE: TextStickerStyle = {
     color: '#1C1C1E',        // 深色文字
     textAlign: 'left',
     fontSize: 40,
+    fontPreset: DEFAULT_STICKER_FONT_PRESET,
 };
 
 /**

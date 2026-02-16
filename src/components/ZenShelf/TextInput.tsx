@@ -6,6 +6,12 @@ import { useLanguage } from '../../context/LanguageContext';
 import plusIcon from '../../assets/icons/plus.svg';
 import minusIcon from '../../assets/icons/minus.svg';
 import { TEXT_COLORS } from './FloatingToolbar';
+import {
+    DEFAULT_STICKER_FONT_PRESET,
+    isStickerFontPreset,
+    resolveStickerFontFamily,
+    type StickerFontPreset,
+} from '../../constants/stickerFonts';
 import styles from './ZenShelf.module.css';
 
 // ============================================================================
@@ -38,8 +44,8 @@ interface TextInputProps {
     x: number;
     y: number;
     initialText?: string;
-    initialStyle?: { color: string; textAlign: 'left' | 'center' | 'right'; fontSize?: number };
-    onSubmit: (content: string, style?: { color: string; textAlign: 'left' | 'center' | 'right'; fontSize: number }) => void;
+    initialStyle?: { color: string; textAlign: 'left' | 'center' | 'right'; fontSize?: number; fontPreset?: StickerFontPreset };
+    onSubmit: (content: string, style?: { color: string; textAlign: 'left' | 'center' | 'right'; fontSize: number; fontPreset: StickerFontPreset }) => void;
     onCancel: () => void;
     viewportScale: number;
 }
@@ -58,6 +64,9 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
     const [fontSize, setFontSize] = useState<number>(
         (initialStyle?.fontSize as number) || 40
     );
+    const [fontPreset, setFontPreset] = useState<StickerFontPreset>(() => (
+        isStickerFontPreset(initialStyle?.fontPreset) ? initialStyle.fontPreset : DEFAULT_STICKER_FONT_PRESET
+    ));
     const [isExiting, setIsExiting] = useState(false);
 
     // 挂载时聚焦并仅对工具栏播放入场动画
@@ -124,7 +133,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
             const text = inputRef.current?.innerText?.trim() || '';
             if (text) {
                 // 如果提交内容，则不播放输入框出场动画
-                triggerExit(() => onSubmit(text, { color: textColor, textAlign, fontSize }), false);
+                triggerExit(() => onSubmit(text, { color: textColor, textAlign, fontSize, fontPreset }), false);
             } else {
                 triggerExit(onCancel);
             }
@@ -136,7 +145,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
             clearTimeout(timer);
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [textColor, fontSize, onSubmit, onCancel, isExiting, triggerExit]);
+    }, [textColor, fontSize, fontPreset, onSubmit, onCancel, isExiting, triggerExit]);
 
     // 字体大小调整常量
     const FONT_SIZE_STEP = 2; // 每次调整的步长（px）
@@ -212,7 +221,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         const trimmed = inputRef.current?.innerText?.trim() || '';
         if (trimmed) {
             // 如果提交内容，则不播放输入框出场动画
-            triggerExit(() => onSubmit(trimmed, { color: textColor, textAlign, fontSize }), false);
+            triggerExit(() => onSubmit(trimmed, { color: textColor, textAlign, fontSize, fontPreset }), false);
         } else {
             handleCancel();
         }
@@ -281,6 +290,12 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         }
     }, [x, y, fontSize, viewportScale, position.x, position.y]); // Re-run when size might change
 
+    const fontPresetOptions: Array<{ preset: StickerFontPreset; label: string }> = [
+        { preset: 'handwritten', label: t.textInput.fontHandwritten },
+        { preset: 'normal', label: t.textInput.fontNormal },
+        { preset: 'code', label: t.textInput.fontCode },
+    ];
+
     return createPortal(
         <div
             ref={containerRef}
@@ -298,6 +313,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
                         color: getThemeAwareColor(textColor, theme),
                         textAlign: textAlign,
                         fontSize: `${fontSize * viewportScale}px`,
+                        fontFamily: resolveStickerFontFamily(fontPreset),
                     }}
                     onInput={handleInput}
                     onKeyDown={handleKeyDown}
@@ -313,83 +329,106 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
                 className={styles.stickerToolbar}
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* 字体大小控制 */}
-                <div className={styles.toolbarFontSizeControl}>
-                    <button
-                        className={styles.toolbarFontSizeBtn}
-                        onClick={(e) => {
-                            const step = e.shiftKey ? FONT_SIZE_STEP_LARGE : FONT_SIZE_STEP;
-                            setFontSize(prev => Math.max(prev - step, MIN_FONT_SIZE));
-                        }}
-                        title={t.textInput.fontSizeDecrease}
-                    >
-                        <span className={styles.toolbarIcon} style={{ WebkitMaskImage: `url(${minusIcon})`, maskImage: `url(${minusIcon})` }} />
-                    </button>
-                    <input
-                        className={styles.toolbarFontSizeInput}
-                        value={localFontSize}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            // 仅允许输入数字
-                            if (val === '' || /^\d*$/.test(val)) {
-                                setLocalFontSize(val);
-                            }
-                        }}
-                        onBlur={() => commitFontSize(localFontSize)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                commitFontSize(localFontSize);
-                                (e.target as HTMLInputElement).blur();
-                                // 将焦点还给文本编辑器
-                                inputRef.current?.focus();
-                            }
-                        }}
-                        // 防止事件冒泡导致贴纸提交
-                        onClick={(e) => e.stopPropagation()}
-                        title={t.textInput.fontSizeIncrease}
-                    />
-                    <button
-                        className={styles.toolbarFontSizeBtn}
-                        onClick={(e) => {
-                            const step = e.shiftKey ? FONT_SIZE_STEP_LARGE : FONT_SIZE_STEP;
-                            setFontSize(prev => Math.min(prev + step, MAX_FONT_SIZE));
-                        }}
-                        title={t.textInput.fontSizeIncrease}
-                    >
-                        <span className={styles.toolbarIcon} style={{ WebkitMaskImage: `url(${plusIcon})`, maskImage: `url(${plusIcon})` }} />
-                    </button>
-                </div>
-
-                <div className={styles.toolbarDivider} />
-
-                {/* 颜色选项 */}
-                <div className={styles.toolbarColorGroup}>
-                    {TEXT_COLORS.map((color) => (
+                <div className={styles.toolbarMainRow}>
+                    {/* 字体大小控制 */}
+                    <div className={styles.toolbarFontSizeControl}>
                         <button
-                            key={color}
-                            className={`${styles.toolbarColorBtn} ${textColor === color ? styles.active : ''}`}
-                            style={{ backgroundColor: color }}
-                            onClick={() => setTextColor(color)}
-                            title={color}
+                            className={styles.toolbarFontSizeBtn}
+                            onClick={(e) => {
+                                const step = e.shiftKey ? FONT_SIZE_STEP_LARGE : FONT_SIZE_STEP;
+                                setFontSize(prev => Math.max(prev - step, MIN_FONT_SIZE));
+                            }}
+                            title={t.textInput.fontSizeDecrease}
+                        >
+                            <span className={styles.toolbarIcon} style={{ WebkitMaskImage: `url(${minusIcon})`, maskImage: `url(${minusIcon})` }} />
+                        </button>
+                        <input
+                            className={styles.toolbarFontSizeInput}
+                            value={localFontSize}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                // 仅允许输入数字
+                                if (val === '' || /^\d*$/.test(val)) {
+                                    setLocalFontSize(val);
+                                }
+                            }}
+                            onBlur={() => commitFontSize(localFontSize)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    commitFontSize(localFontSize);
+                                    (e.target as HTMLInputElement).blur();
+                                    // 将焦点还给文本编辑器
+                                    inputRef.current?.focus();
+                                }
+                            }}
+                            // 防止事件冒泡导致贴纸提交
+                            onClick={(e) => e.stopPropagation()}
+                            title={t.textInput.fontSizeIncrease}
                         />
-                    ))}
+                        <button
+                            className={styles.toolbarFontSizeBtn}
+                            onClick={(e) => {
+                                const step = e.shiftKey ? FONT_SIZE_STEP_LARGE : FONT_SIZE_STEP;
+                                setFontSize(prev => Math.min(prev + step, MAX_FONT_SIZE));
+                            }}
+                            title={t.textInput.fontSizeIncrease}
+                        >
+                            <span className={styles.toolbarIcon} style={{ WebkitMaskImage: `url(${plusIcon})`, maskImage: `url(${plusIcon})` }} />
+                        </button>
+                    </div>
+
+                    <div className={styles.toolbarDivider} />
+
+                    {/* 颜色选项 */}
+                    <div className={styles.toolbarColorGroup}>
+                        {TEXT_COLORS.map((color) => (
+                            <button
+                                key={color}
+                                className={`${styles.toolbarColorBtn} ${textColor === color ? styles.active : ''}`}
+                                style={{ backgroundColor: color }}
+                                onClick={() => setTextColor(color)}
+                                title={color}
+                            />
+                        ))}
+                    </div>
+
+                    <div className={styles.toolbarDivider} />
+
+                    {/* 操作按钮 */}
+                    <button className={styles.toolbarCancelBtn} onClick={handleCancel}>
+                        {t.textInput.cancel}
+                    </button>
+                    <button
+                        className={styles.toolbarConfirmBtn}
+                        onClick={handleSubmit}
+                        disabled={!value.trim()}
+                    >
+                        {t.textInput.confirm}
+                    </button>
                 </div>
 
-                <div className={styles.toolbarDivider} />
-
-                {/* 操作按钮 */}
-                <button className={styles.toolbarCancelBtn} onClick={handleCancel}>
-                    {t.textInput.cancel}
-                </button>
-                <button
-                    className={styles.toolbarConfirmBtn}
-                    onClick={handleSubmit}
-                    disabled={!value.trim()}
-                >
-                    {t.textInput.confirm}
-                </button>
+                <div className={styles.toolbarFontRow}>
+                    <span className={styles.toolbarFontLabel}>{t.textInput.fontLabel}</span>
+                    <div className={styles.toolbarFontPresetGroup}>
+                        {fontPresetOptions.map((option) => (
+                            <button
+                                key={option.preset}
+                                className={`${styles.toolbarFontPresetBtn} ${fontPreset === option.preset ? styles.active : ''}`}
+                                onClick={() => setFontPreset(option.preset)}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                    <span
+                        className={styles.toolbarFontPreview}
+                        style={{ fontFamily: resolveStickerFontFamily(fontPreset) }}
+                    >
+                        Aa
+                    </span>
+                </div>
             </div>
         </div>,
         document.body

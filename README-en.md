@@ -15,6 +15,8 @@ English | [简体中文](README.md)
 
 **✨ Creative Canvas · 🌐 Multiple Spaces · 🎨 Beautiful & Efficient**
 
+**Current Version: `v2.0.0` (Major Update)**
+
 </div>
 
 <br>
@@ -22,6 +24,18 @@ English | [简体中文](README.md)
 > 💡 **AI-Powered Development** - This project is 90% developed using AI-assisted coding (VibeCoding)
 
 Eclipse Tab is a powerful browser new tab extension, centered around **Zen Shelf (Creative Canvas)** and **Focus Spaces (Multiple Workspaces)**, transforming your browser into a creative workstation and productivity hub.
+
+<br>
+
+## 🚨 v2.0.0 Major Update
+
+- Search engine management rebuilt: added a dedicated **Custom** entry with unlimited engine count and support for `{query}` / `%s` placeholders.
+- Deletion workflow upgraded: engines can be removed in global edit mode with user confirmation.
+- Safety constraints enforced: Google is fixed at the top and cannot be deleted; saved engines can never drop to zero.
+- Search behavior improved: added a **New Tab** setting to control whether search opens in a new tab.
+- Search UI simplified: removed redundant labels such as "Search by / Use", top "Use", and "System Default".
+- Edit mode enhanced: `Esc` now exits global edit mode by default; in edit mode, single left-click on a text sticker opens edit directly.
+- Sticker typography expanded: added **Handwrite / Normal / Code** font presets in sticker configuration.
 
 <br>
 
@@ -165,12 +179,14 @@ After installation, open a new tab:
 
 - **Settings Access**: Move your mouse to the **top-left corner** of the page to reveal the settings icon ⚙️
 - **Edit Mode**: Move your mouse to the **top-right corner** of the page to reveal the edit button ✏️ for managing Dock apps
+- **Quick Exit**: Press `Esc` to exit global edit mode
 
 ### ✏️ Zen Shelf Tips
 
 - **Double-Click to Create**: Double-click on empty space to quickly create a text sticker
 - **Paste Images**: Use `Ctrl+V` to directly paste images from clipboard
 - **Double-Click to Edit**: Double-click a text sticker to edit its content
+- **Edit Mode Quick Edit**: In global edit mode, single left-click on a text sticker opens edit directly
 - **Export as Image**: Text stickers can be exported as images for sharing
 - **Auto Bring to Top**: Clicking a sticker automatically brings it to the front
 - **Recycle Bin**: Restore or clear deleted stickers from the bin at the screen edge

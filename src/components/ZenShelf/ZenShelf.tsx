@@ -9,6 +9,7 @@ import { TextInput } from './TextInput';
 import { ContextMenu } from './ContextMenu';
 import { RecycleBin } from './RecycleBin';
 import { RecycleBinModal } from './RecycleBinModal';
+import { type StickerFontPreset } from '../../constants/stickerFonts';
 import styles from './ZenShelf.module.css';
 
 
@@ -194,7 +195,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
     }, [addSticker]);
 
     // 处理文本输入提交
-    const handleTextSubmit = useCallback((content: string, style?: { color: string; textAlign: 'left' | 'center' | 'right'; fontSize: number }) => {
+    const handleTextSubmit = useCallback((content: string, style?: { color: string; textAlign: 'left' | 'center' | 'right'; fontSize: number; fontPreset: StickerFontPreset }) => {
         if (editingSticker) {
             updateSticker(editingSticker.id, {
                 content,
@@ -202,6 +203,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                     color: style.color,
                     textAlign: style.textAlign,
                     fontSize: style.fontSize,
+                    fontPreset: style.fontPreset,
                 } : editingSticker.style,
             });
         } else if (textInputPos) {
@@ -215,6 +217,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                     color: style.color,
                     textAlign: style.textAlign,
                     fontSize: style.fontSize,
+                    fontPreset: style.fontPreset,
                 } : undefined,
             });
         }

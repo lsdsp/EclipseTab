@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Sticker, IMAGE_MAX_WIDTH } from '../../types';
 import { FloatingToolbar } from './FloatingToolbar';
 import { useThemeData } from '../../context/ThemeContext';
+import { resolveStickerFontFamily } from '../../constants/stickerFonts';
 import styles from './ZenShelf.module.css';
 
 // ============================================================================
@@ -143,6 +144,10 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             return;
         }
 
+        if (e.button !== 0) {
+            return;
+        }
+
         // 在创意模式（Creative Mode）下，贴纸不应该是可选的（弹出窗口/轮廓），
         // 但它们仍然应该是可拖拽的。
         if (isCreativeMode && !isEditMode) {
@@ -151,6 +156,14 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
 
         // 点击/按下时置顶
         onBringToTop();
+
+        // 全局编辑模式：文字贴纸左键单击等同于普通模式下双击
+        if (isEditMode && sticker.type === 'text') {
+            onDoubleClick?.();
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
 
         // 开始拖拽
         setIsDragging(true);
@@ -575,6 +588,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
 
     // 为文字贴纸计算缩放后的字体大小
     const scaledFontSize = (sticker.style?.fontSize || 40) * viewportScale;
+    const resolvedFontFamily = resolveStickerFontFamily(sticker.style?.fontPreset);
 
     return (
         <>
@@ -602,6 +616,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                             color: getThemeAwareColor(sticker.style?.color || '#1C1C1E', theme),
                             textAlign: sticker.style?.textAlign || 'left',
                             fontSize: scaledFontSize,
+                            fontFamily: resolvedFontFamily,
                         }}
                     >
                         {sticker.content}
@@ -670,6 +685,7 @@ const arePropsEqual = (prev: StickerItemProps, next: StickerItemProps) => {
         prev.sticker.style?.color === next.sticker.style?.color &&
         prev.sticker.style?.textAlign === next.sticker.style?.textAlign &&
         prev.sticker.style?.fontSize === next.sticker.style?.fontSize &&
+        prev.sticker.style?.fontPreset === next.sticker.style?.fontPreset &&
         prev.isSelected === next.isSelected &&
         prev.isCreativeMode === next.isCreativeMode &&
         prev.isEditMode === next.isEditMode &&

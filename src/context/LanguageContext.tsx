@@ -99,6 +99,10 @@ interface Translations {
         l: string;
         cancel: string;
         confirm: string;
+        fontLabel: string;
+        fontHandwritten: string;
+        fontNormal: string;
+        fontCode: string;
         fontSizeIncrease: string;
         fontSizeDecrease: string;
     };
@@ -202,6 +206,10 @@ const translations: Record<Language, Translations> = {
             l: 'L',
             cancel: 'Cancel',
             confirm: 'Confirm',
+            fontLabel: 'Font',
+            fontHandwritten: 'Handwrite',
+            fontNormal: 'Normal',
+            fontCode: 'Code',
             fontSizeIncrease: 'Press + Increase, Shift for larger step',
             fontSizeDecrease: 'Press - Decrease, Shift for larger step',
         }
@@ -303,6 +311,10 @@ const translations: Record<Language, Translations> = {
             l: '大',
             cancel: '取消',
             confirm: '确认',
+            fontLabel: '字体',
+            fontHandwritten: '手写',
+            fontNormal: '普通',
+            fontCode: '代码',
             fontSizeIncrease: '按 + 键增大字号，Shift 增大更多',
             fontSizeDecrease: '按 - 键减小字号，Shift 减小更多',
         }

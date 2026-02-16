@@ -685,8 +685,9 @@
 
 .stickerToolbar {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
     padding: var(--spacing-padding-small);
     background: var(--color-bg-primary);
     backdrop-filter: blur(24px);
@@ -696,6 +697,68 @@
     box-shadow: var(--shadow-combined);
     pointer-events: auto;
     width: fit-content;
+}
+
+.toolbarMainRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toolbarFontRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toolbarFontLabel {
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+.toolbarFontPresetGroup {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: var(--spacing-padding-extrasmall);
+    border-radius: var(--radius-small);
+    background: var(--color-bg-secondary);
+}
+
+.toolbarFontPresetBtn {
+    min-width: 48px;
+    height: 26px;
+    border: none;
+    border-radius: var(--radius-small);
+    background: transparent;
+    color: var(--color-text-primary);
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.toolbarFontPresetBtn:hover {
+    background: var(--color-bg-primary);
+}
+
+.toolbarFontPresetBtn.active {
+    background: var(--blue-500);
+    color: white;
+}
+
+.toolbarFontPreview {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-medium);
+    font-weight: 700;
 }
 
 /* 对齐按钮组 */

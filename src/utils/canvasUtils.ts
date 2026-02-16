@@ -1,4 +1,5 @@
 import { Sticker } from '../types';
+import { resolveStickerFontFamily } from '../constants/stickerFonts';
 
 /**
  * 将 Blob 作为文件下载，并指定文件名。
@@ -77,8 +78,10 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
             return;
         }
 
-        // 匹配 CSS 样式: font-weight 900, line-height 0.9, Bricolage Grotesque
-        measureCtx.font = `900 ${BASE_FONT_SIZE}px "Bricolage Grotesque", sans-serif`;
+        const fontFamily = resolveStickerFontFamily(sticker.style?.fontPreset) || '"Bricolage Grotesque", sans-serif';
+
+        // 匹配 CSS 样式: font-weight 900, line-height 0.9
+        measureCtx.font = `900 ${BASE_FONT_SIZE}px ${fontFamily}`;
 
         // 测量文本内容
         const lines = sticker.content.split('\n');
@@ -129,7 +132,7 @@ export function createTextStickerImage(sticker: Sticker): Promise<Blob | null> {
 
         if (ctx) {
             // 设置文本样式
-            ctx.font = `900 ${fontSize}px "Bricolage Grotesque", sans-serif`;
+            ctx.font = `900 ${fontSize}px ${fontFamily}`;
             ctx.textBaseline = 'middle';
 
             // 根据对齐方式计算文本位置
