@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test:e2e": "playwright test -c .e2e-tests/playwright.config.ts"
+    "test:e2e": "playwright test -c .e2e-tests/playwright.config.ts --project=chromium",
+    "test:e2e:matrix": "playwright test -c .e2e-tests/playwright.config.ts --project=chromium --project=msedge --project=firefox"
   },
   "dependencies": {
     "colord": "^2.9.3",
