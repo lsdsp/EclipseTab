@@ -501,7 +501,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                             </div>
                         </div>
 
-
                     </div>
 
 

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { DockItem, SearchEngine } from '../types';
 import { storage } from '../utils/storage';
-import { DEFAULT_SEARCH_ENGINE } from '../constants/searchEngines';
+import { DEFAULT_SEARCH_ENGINE, GOOGLE_ENGINE, SEARCH_ENGINES } from '../constants/searchEngines';
 import { generateFolderIcon, fetchIcon } from '../utils/iconFetcher';
 import { useSpaces } from './SpacesContext';
 
@@ -11,9 +11,12 @@ import { useSpaces } from './SpacesContext';
 
 interface DockDataContextType {
     dockItems: DockItem[];
+    searchEngines: SearchEngine[];
     selectedSearchEngine: SearchEngine;
     setDockItems: React.Dispatch<React.SetStateAction<DockItem[]>>;
     setSelectedSearchEngine: (engine: SearchEngine) => void;
+    addSearchEngine: (engine: Omit<SearchEngine, 'id'>) => SearchEngine;
+    removeSearchEngine: (engineId: string) => void;
     handleItemSave: (data: Partial<DockItem>, editingItem: DockItem | null) => void;
     handleItemsReorder: (items: DockItem[]) => void;
     handleItemDelete: (item: DockItem) => void;
@@ -66,6 +69,64 @@ interface DockContextType extends DockDataContextType, DockUIContextType, DockDr
     openFolder: DockItem | undefined;
 }
 
+const isValidSearchEngine = (engine: unknown): engine is SearchEngine => {
+    if (!engine || typeof engine !== 'object') return false;
+    const candidate = engine as SearchEngine;
+    return typeof candidate.id === 'string' &&
+        typeof candidate.name === 'string' &&
+        typeof candidate.url === 'string';
+};
+
+const cloneEngine = (engine: SearchEngine): SearchEngine => ({ ...engine });
+
+const normalizeSearchEngines = (engines: SearchEngine[]): SearchEngine[] => {
+    const normalized: SearchEngine[] = [cloneEngine(GOOGLE_ENGINE)];
+    const seenIds = new Set<string>([GOOGLE_ENGINE.id]);
+
+    engines.forEach((engine) => {
+        if (!isValidSearchEngine(engine)) return;
+        if (engine.id === GOOGLE_ENGINE.id) return;
+
+        const id = engine.id.trim();
+        const name = engine.name.trim();
+        const url = engine.url.trim();
+
+        if (!id || !name || !url || seenIds.has(id)) return;
+
+        normalized.push({ id, name, url });
+        seenIds.add(id);
+    });
+
+    return normalized;
+};
+
+const getInitialSearchEngines = (): SearchEngine[] => {
+    const storedEngines = storage.getSearchEngines();
+    if (storedEngines !== null) {
+        return normalizeSearchEngines(storedEngines);
+    }
+    return normalizeSearchEngines(SEARCH_ENGINES);
+};
+
+const getInitialSelectedSearchEngine = (engines: SearchEngine[]): SearchEngine => {
+    const savedEngine = storage.getSearchEngine();
+    if (savedEngine && isValidSearchEngine(savedEngine)) {
+        const matchedEngine = engines.find((engine) => engine.id === savedEngine.id);
+        if (matchedEngine) {
+            return cloneEngine(matchedEngine);
+        }
+        if (engines.length === 0) {
+            return cloneEngine(savedEngine);
+        }
+    }
+
+    if (engines.length > 0) {
+        return cloneEngine(engines[0]);
+    }
+
+    return cloneEngine(DEFAULT_SEARCH_ENGINE);
+};
+
 // ============================================================================
 // Provider 实现
 // ============================================================================
@@ -76,7 +137,11 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 数据状态: dockItems 来自当前 Space
     const [dockItems, setDockItemsInternal] = useState<DockItem[]>(currentSpace.apps);
-    const [selectedSearchEngine, setSelectedSearchEngineState] = useState<SearchEngine>(DEFAULT_SEARCH_ENGINE);
+    const [searchEngines, setSearchEnginesState] = useState<SearchEngine[]>(() => getInitialSearchEngines());
+    const [selectedSearchEngine, setSelectedSearchEngineState] = useState<SearchEngine>(() => {
+        const engines = getInitialSearchEngines();
+        return getInitialSelectedSearchEngine(engines);
+    });
 
     // UI 状态 (中频变化)
     const [isEditMode, setIsEditModeState] = useState(false);
@@ -222,14 +287,34 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // 所以我们在 fetchAllIcons 内部处理 mount 状态，或者使用 ref 跟踪 mount 状态
         }
 
-        // 搜索引擎仍使用独立存储
-        const savedEngine = storage.getSearchEngine();
-        if (savedEngine) {
-            setSelectedSearchEngineState(savedEngine);
-        }
     }, []); // 仅首次运行
 
-    // 保存搜索引擎 (dockItems 存储由 SpacesContext 管理)
+    // 当引擎列表变化时，确保当前选中项有效
+    useEffect(() => {
+        if (searchEngines.length === 0) {
+            const fallback = cloneEngine(DEFAULT_SEARCH_ENGINE);
+            if (selectedSearchEngine.id !== fallback.id || selectedSearchEngine.url !== fallback.url || selectedSearchEngine.name !== fallback.name) {
+                setSelectedSearchEngineState(fallback);
+            }
+            return;
+        }
+
+        const matchedEngine = searchEngines.find((engine) => engine.id === selectedSearchEngine.id);
+        if (!matchedEngine) {
+            setSelectedSearchEngineState(searchEngines[0]);
+            return;
+        }
+
+        if (matchedEngine.name !== selectedSearchEngine.name || matchedEngine.url !== selectedSearchEngine.url) {
+            setSelectedSearchEngineState(matchedEngine);
+        }
+    }, [searchEngines, selectedSearchEngine]);
+
+    // 保存搜索引擎状态 (dockItems 存储由 SpacesContext 管理)
+    useEffect(() => {
+        storage.saveSearchEngines(searchEngines);
+    }, [searchEngines]);
+
     useEffect(() => {
         storage.saveSearchEngine(selectedSearchEngine);
     }, [selectedSearchEngine]);
@@ -269,6 +354,34 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const setSelectedSearchEngine = useCallback((engine: SearchEngine) => {
         setSelectedSearchEngineState(engine);
     }, []);
+
+    const addSearchEngine = useCallback((engine: Omit<SearchEngine, 'id'>): SearchEngine => {
+        const name = engine.name.trim();
+        const url = engine.url.trim();
+        const newEngine: SearchEngine = {
+            id: `engine-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            name,
+            url,
+        };
+
+        setSearchEnginesState((prev) => normalizeSearchEngines([...prev, newEngine]));
+        setSelectedSearchEngineState(newEngine);
+        return newEngine;
+    }, []);
+
+    const removeSearchEngine = useCallback((engineId: string) => {
+        if (engineId === GOOGLE_ENGINE.id) {
+            return;
+        }
+        setSearchEnginesState((prev) => {
+            const nextEngines = normalizeSearchEngines(prev.filter((engine) => engine.id !== engineId));
+            if (selectedSearchEngine.id === engineId) {
+                const nextSelected = nextEngines[0] ?? cloneEngine(DEFAULT_SEARCH_ENGINE);
+                setSelectedSearchEngineState(nextSelected);
+            }
+            return nextEngines;
+        });
+    }, [selectedSearchEngine.id]);
 
     const setOpenFolderId = useCallback((id: string | null) => {
         setOpenFolderIdState(id);
@@ -493,9 +606,12 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const dataValue: DockDataContextType = useMemo(() => ({
         dockItems,
+        searchEngines,
         selectedSearchEngine,
         setDockItems,
         setSelectedSearchEngine,
+        addSearchEngine,
+        removeSearchEngine,
         handleItemSave,
         handleItemsReorder,
         handleItemDelete,
@@ -506,7 +622,10 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleDropOnFolder,
     }), [
         dockItems,
+        searchEngines,
         selectedSearchEngine,
+        addSearchEngine,
+        removeSearchEngine,
         handleItemSave,
         handleItemsReorder,
         handleItemDelete,

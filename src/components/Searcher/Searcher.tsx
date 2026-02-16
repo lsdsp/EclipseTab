@@ -122,7 +122,6 @@ export const Searcher: React.FC<SearcherProps> = ({
       <div className={styles.innerContainer}>
         <div className={styles.divider}></div>
         <div className={styles.searchInfo}>
-          <p className={styles.label}>{t.search.searchBy}</p>
           <div className={styles.searchTool}>
             <p
               className={styles.searchEngine}
@@ -131,9 +130,7 @@ export const Searcher: React.FC<SearcherProps> = ({
                 onSearchEngineClick(rect);
               }}
             >
-              {/* 对于默认搜索引擎使用本地化的名称 */}
-              {searchEngine.id === 'default' ? t.search.systemDefault : searchEngine.name}
-              {t.search.searchBySuffix}
+              {searchEngine.name}
             </p>
           </div>
         </div>

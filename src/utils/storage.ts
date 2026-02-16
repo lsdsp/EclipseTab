@@ -3,6 +3,7 @@ import { DockItem, SearchEngine, SpacesState, createDefaultSpacesState } from '.
 const STORAGE_KEYS = {
   DOCK_ITEMS: 'EclipseTab_dockItems',
   SEARCH_ENGINE: 'EclipseTab_searchEngine',
+  SEARCH_ENGINES: 'EclipseTab_searchEngines',
   // Config (Unified settings)
   CONFIG: 'EclipseTab_config',
 
@@ -240,6 +241,23 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.SEARCH_ENGINE, JSON.stringify(engine));
     } catch (error) {
       console.error('Failed to save search engine:', error);
+    }
+  },
+
+  getSearchEngines(): SearchEngine[] | null {
+    try {
+      const engines = localStorage.getItem(STORAGE_KEYS.SEARCH_ENGINES);
+      return engines ? JSON.parse(engines) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  saveSearchEngines(engines: SearchEngine[]): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SEARCH_ENGINES, JSON.stringify(engines));
+    } catch (error) {
+      console.error('Failed to save search engines:', error);
     }
   },
 

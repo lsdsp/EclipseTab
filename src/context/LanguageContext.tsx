@@ -27,6 +27,13 @@ interface Translations {
         searchBySuffix: string;
         searchButton: string;
         systemDefault: string;
+        custom: string;
+        customName: string;
+        customUrl: string;
+        addCustom: string;
+        invalidUrl: string;
+        deleteConfirm: string;
+        noEngine: string;
     };
     contextMenu: {
         addSticker: string;
@@ -123,6 +130,13 @@ const translations: Record<Language, Translations> = {
             searchBySuffix: '',
             searchButton: 'Search',
             systemDefault: 'System Default',
+            custom: 'Custom',
+            customName: 'Display Name',
+            customUrl: 'Search URL',
+            addCustom: 'Add Custom Engine',
+            invalidUrl: 'Please enter a valid URL.',
+            deleteConfirm: 'Are you sure you want to delete "{name}"?',
+            noEngine: 'No search engines. Add a custom one below.',
         },
         contextMenu: {
             addSticker: 'Add Sticker',
@@ -217,6 +231,13 @@ const translations: Record<Language, Translations> = {
             searchBySuffix: '',
             searchButton: '搜索',
             systemDefault: '系统默认',
+            custom: '自定义',
+            customName: '显示名称',
+            customUrl: '搜索 URL',
+            addCustom: '添加自定义引擎',
+            invalidUrl: '请输入有效的 URL',
+            deleteConfirm: '确定要删除“{name}”吗？',
+            noEngine: '暂无搜索引擎，请在下方添加自定义引擎',
         },
         contextMenu: {
             addSticker: '添加贴纸',

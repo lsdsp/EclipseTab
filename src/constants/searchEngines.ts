@@ -1,16 +1,13 @@
 import { SearchEngine } from '../types';
 
+export const GOOGLE_ENGINE: SearchEngine = {
+  id: 'google',
+  name: 'Google',
+  url: 'https://www.google.com/search?q=',
+};
+
 export const SEARCH_ENGINES: SearchEngine[] = [
-  {
-    id: 'default',
-    name: '系统默认',
-    url: '',
-  },
-  {
-    id: 'google',
-    name: 'Google',
-    url: 'https://www.google.com/search?q=',
-  },
+  GOOGLE_ENGINE,
   {
     id: 'bing',
     name: 'Bing',
@@ -28,6 +25,6 @@ export const SEARCH_ENGINES: SearchEngine[] = [
   },
 ];
 
-// 默认使用 Google 搜索引擎
-export const DEFAULT_SEARCH_ENGINE: SearchEngine = SEARCH_ENGINES.find(e => e.id === 'google')!;
+// 默认回退使用 Google 搜索引擎
+export const DEFAULT_SEARCH_ENGINE: SearchEngine = GOOGLE_ENGINE;
 

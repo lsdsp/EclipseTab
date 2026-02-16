@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback, lazy, Suspense, useEffect, useRef, useLayoutEffect } from 'react';
 import { DockItem } from './types';
-import { SEARCH_ENGINES } from './constants/searchEngines';
 import { useDockData, useDockUI, useDockDrag } from './context/DockContext';
 import { useThemeData } from './context/ThemeContext';
 import { Searcher } from './components/Searcher/Searcher';
@@ -19,6 +18,17 @@ const AddEditModal = lazy(() => import('./components/Modal/AddEditModal').then(m
 const SearchEngineModal = lazy(() => import('./components/Modal/SearchEngineModal').then(m => ({ default: m.SearchEngineModal })));
 const SettingsModal = lazy(() => import('./components/Modal/SettingsModal').then(m => ({ default: m.SettingsModal })));
 
+const applySearchQuery = (template: string, query: string): string => {
+  const encodedQuery = encodeURIComponent(query);
+  if (template.includes('{query}')) {
+    return template.split('{query}').join(encodedQuery);
+  }
+  if (template.includes('%s')) {
+    return template.split('%s').join(encodedQuery);
+  }
+  return `${template}${encodedQuery}`;
+};
+
 function App() {
   // ============================================================================
   // 性能优化: 使用细粒度 Context Hooks 减少不必要的重渲染
@@ -27,8 +37,11 @@ function App() {
   // 数据层 (低频变化) - 仅在 dockItems/searchEngine 变化时重渲染
   const {
     dockItems,
+    searchEngines,
     selectedSearchEngine,
     setSelectedSearchEngine,
+    addSearchEngine,
+    removeSearchEngine,
     handleItemDelete,
     handleItemSave,
     handleItemsReorder,
@@ -173,6 +186,23 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isEditMode) {
+      return;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsEditMode(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isEditMode, setIsEditMode]);
+
   const handleSearch = (query: string) => {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
@@ -194,22 +224,8 @@ function App() {
       // 不是 URL，继续执行搜索
     }
 
-    if (selectedSearchEngine.id === 'default') {
-      // 使用 Chrome Search API (如果在扩展环境)
-      // @ts-ignore - chrome 命名空间
-      if (typeof chrome !== 'undefined' && chrome.search && chrome.search.query) {
-        const disposition = openInNewTab ? 'NEW_TAB' : 'CURRENT_TAB';
-        // @ts-ignore - chrome.search 类型定义
-        chrome.search.query({ text: trimmedQuery, disposition });
-        return;
-      }
-
-      // 开发环境或 API 不可用时的回退方案 (使用 Google)
-      openUrl(`https://www.google.com/search?q=${encodeURIComponent(trimmedQuery)}`);
-      return;
-    }
-
-    const searchUrl = `${selectedSearchEngine.url}${encodeURIComponent(trimmedQuery)}`;
+    const searchTemplate = selectedSearchEngine.url || 'https://www.google.com/search?q=';
+    const searchUrl = applySearchQuery(searchTemplate, trimmedQuery);
     openUrl(searchUrl);
   };
 
@@ -411,9 +427,12 @@ function App() {
         <SearchEngineModal
           isOpen={isSearchEngineModalOpen}
           selectedEngine={selectedSearchEngine}
-          engines={SEARCH_ENGINES}
+          engines={searchEngines}
+          isEditMode={isEditMode}
           onClose={() => setIsSearchEngineModalOpen(false)}
           onSelect={setSelectedSearchEngine}
+          onAddCustomEngine={addSearchEngine}
+          onDeleteEngine={removeSearchEngine}
           anchorRect={searchEngineAnchor}
         />
       </Suspense>
