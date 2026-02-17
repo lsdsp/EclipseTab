@@ -89,7 +89,7 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
         const { url: processedIcon, isFallback } = await fetchAndProcessIcon(normalized, 100);
         setIsUsingFallback(isFallback);
         setIcon(processedIcon);
-      } catch (error) {
+      } catch {
         // 静默失败
       } finally {
         setIsFetchingIcon(false);

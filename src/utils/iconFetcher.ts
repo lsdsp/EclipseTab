@@ -1,4 +1,4 @@
-import { getCachedIcon, setCachedIcon } from './iconCache';
+import { createIconCacheKey, getCachedIcon, setCachedIcon } from './iconCache';
 import { compressIcon } from './imageCompression';
 
 // ============================================================================
@@ -23,13 +23,13 @@ export const fetchIcon = async (url: string, minSize: number = 100): Promise<Ico
     const domain = urlObj.hostname;
 
     // 检查缓存
-    const cached = getCachedIcon(domain);
+    const cached = getCachedIcon(domain, minSize);
     if (cached) {
       return cached;
     }
 
     // 检查是否有进行中的请求 (请求去重)
-    const cacheKey = `${domain}:${minSize}`;
+    const cacheKey = createIconCacheKey(domain, minSize);
     const pending = pendingRequests.get(cacheKey);
     if (pending) {
       return pending;
@@ -71,7 +71,7 @@ export const fetchAndProcessIcon = async (url: string, minSize: number = 100): P
       url: compressedUrl,
       isFallback: false
     };
-  } catch (error) {
+  } catch {
     return { url: generateTextIcon(url), isFallback: true };
   }
 };
@@ -166,7 +166,7 @@ const fetchIconInternal = async (url: string, domain: string, minSize: number): 
         const icon = await probeImage(candidate, 2000);
         // 找到符合条件的图标，立即返回
         const result = { url: icon.url, isFallback: false };
-        setCachedIcon(domain, result);
+        setCachedIcon(domain, minSize, result);
         return result;
       } catch {
         // 继续尝试下一个候选
@@ -190,7 +190,7 @@ const fetchIconInternal = async (url: string, domain: string, minSize: number): 
 
     if (validFallbacks.length > 0) {
       const result = { url: validFallbacks[0].url, isFallback: false };
-      setCachedIcon(domain, result);
+      setCachedIcon(domain, minSize, result);
       return result;
     }
 

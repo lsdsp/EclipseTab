@@ -189,7 +189,7 @@ Focus Spaces 让你为不同场景（工作、学习、娱乐）创建独立的�
 - **删除应用**：编辑模式下点击删除按钮
 - **智能图标**：
   - 自动从网站获取 favicon
-  - 支持图标缓存（localStorage）
+  - 支持运行时 LRU 图标缓存（内存）
   - 导入时自动压缩至 192x192px
 
 #### 文件夹组织
@@ -524,8 +524,8 @@ npm run build
 | **Dock 应用列表** | localStorage | 实时保存每次增删改 |
 | **搜索引擎选择** | localStorage | 自动保存选择 |
 | **主题设置** | localStorage | 主题模式、纹理、背景 |
-| **壁纸存储** | IndexedDB | 高清壁纸（突破 5MB 限制） |
-| **图标缓存** | localStorage | 网站图标缓存 |
+| **壁纸存储** | IndexedDB + localStorage | IndexedDB 存原始壁纸与历史；localStorage 仅存 `wallpaperId` 等元数据 |
+| **图标缓存** | 内存 LRU | 运行时缓存域名图标，刷新后按需重新获取 |
 
 ---
 
@@ -677,10 +677,10 @@ src/
 │
 ├── utils/                 # 工具函数
 │   ├── storage.ts         # localStorage 封装
-│   │                      # 管理: dockItems、searchEngine、theme、wallpaper
+│   │                      # 管理轻量配置/状态与壁纸元数据（wallpaperId）
 │   │
 │   ├── db.ts              # IndexedDB 封装
-│   │                      # 壁纸存储: save、get、remove、getAll
+│   │                      # 壁纸二进制存储: save、get、remove、getAll
 │   │                      # 支持 Blob 存储，突破 5MB 限制
 │   │
 │   ├── animations.ts      # 动画触发函数

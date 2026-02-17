@@ -485,7 +485,16 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 cancelAnimationFrame(positionRafId);
             }
         };
-    }, [isDragging, onPositionChange, updatePhysics]);
+    }, [
+        isDragging,
+        onPositionChange,
+        onDelete,
+        onDragEnd,
+        sticker.x,
+        sticker.y,
+        viewportScale,
+        updatePhysics
+    ]);
 
     // 卸载时清理 RAF
     useEffect(() => {

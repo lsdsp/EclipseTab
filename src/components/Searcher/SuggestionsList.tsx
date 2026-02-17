@@ -39,7 +39,7 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({
         if (listRef.current && !isExiting) {
             scaleFadeIn(listRef.current);
         }
-    }, []);
+    }, [isExiting]);
 
     // 出场动画
     useEffect(() => {

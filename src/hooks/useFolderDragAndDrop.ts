@@ -224,7 +224,7 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
                 cancelAnimationFrame(externalRafId);
             }
         };
-    }, [externalDragItem, items.length, setPlaceholderIndex, captureLayoutSnapshot, strategy, cachedContainerRectRef]);
+    }, [externalDragItem, items.length, setPlaceholderIndex, captureLayoutSnapshot, strategy, cachedContainerRectRef, layoutSnapshotRef]);
 
 
     /**
@@ -264,7 +264,7 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
         if (onDragEnd) {
             onDragEnd();
         }
-    }, [dragRef, onReorder, onDragOut, onDragEnd, setDragState, resetPlaceholderState]);
+    }, [dragRef, onReorder, onDragOut, onDragEnd, setDragState, resetPlaceholderState, performHapticFeedback]);
 
     /**
      * 处理鼠标松开 (Drop) - 两阶段释放
@@ -389,7 +389,7 @@ export const useFolderDragAndDrop = (options: UseFolderDragAndDropOptions) => {
             hasMovedRef,
             thresholdListenerRef
         );
-    }, [isEditMode, setDragState, startDragging, handleMouseMove, handleMouseUp, hasMovedRef, thresholdListenerRef]);
+    }, [isEditMode, setDragState, startDragging, handleMouseMove, handleMouseUp, hasMovedRef, thresholdListenerRef, performHapticFeedback]);
 
     /**
      * 计算 Grid 布局偏移 (使用 Strategy)

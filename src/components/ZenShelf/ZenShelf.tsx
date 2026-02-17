@@ -12,6 +12,20 @@ import { RecycleBinModal } from './RecycleBinModal';
 import { type StickerFontPreset } from '../../constants/stickerFonts';
 import styles from './ZenShelf.module.css';
 
+// UI 元素选择器 - 右键这些区域不会触发上下文菜单
+const UI_SELECTORS = [
+    '[data-dock-container]',
+    '.dock',
+    'header',
+    '[class*="Searcher"]',
+    '[class*="Modal"]',
+    '[class*="Settings"]',
+    '[class*="Editor"]',
+    '[class*="FolderView"]',
+    '[class*="textInputPopup"]',
+    '[class*="contextMenu"]',
+].join(', ');
+
 
 // ============================================================================
 // ZenShelf 主组件
@@ -64,22 +78,6 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         setIsAnyDragging(false);
     }, []);
 
-
-
-    // UI 元素选择器 - 右键这些区域不会触发上下文菜单
-    const UI_SELECTORS = [
-        '[data-dock-container]',
-        '.dock',
-        'header',
-        '[class*="Searcher"]',
-        '[class*="Modal"]',
-        '[class*="Settings"]',
-        '[class*="Editor"]',
-        '[class*="FolderView"]',
-        '[class*="textInputPopup"]',
-        '[class*="contextMenu"]',
-    ].join(', ');
-
     // 上下文菜单的全局右键处理程序
     useEffect(() => {
         const handleContextMenu = (e: MouseEvent) => {
@@ -117,7 +115,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
 
         document.addEventListener('contextmenu', handleContextMenu);
         return () => document.removeEventListener('contextmenu', handleContextMenu);
-    }, [stickers]);
+    }, []);
 
     // 双击背景以快速添加贴纸
     useEffect(() => {
@@ -192,7 +190,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
-    }, [addSticker]);
+    }, [addSticker, viewportScale]);
 
     // 处理文本输入提交
     const handleTextSubmit = useCallback((content: string, style?: { color: string; textAlign: 'left' | 'center' | 'right'; fontSize: number; fontPreset: StickerFontPreset }) => {
@@ -223,7 +221,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         }
         setTextInputPos(null);
         setEditingSticker(null);
-    }, [textInputPos, editingSticker, addSticker, updateSticker]);
+    }, [textInputPos, editingSticker, addSticker, updateSticker, viewportScale]);
 
     const handleTextCancel = useCallback(() => {
         setTextInputPos(null);
@@ -280,7 +278,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
 
         document.addEventListener('paste', handlePaste);
         return () => document.removeEventListener('paste', handlePaste);
-    }, [addSticker]);
+    }, [addSticker, viewportScale]);
 
     return (
         <div

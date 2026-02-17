@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Theme } from '../../context/ThemeContext';
 import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
 import styles from './ThemeModal.module.css';
@@ -41,7 +41,7 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
         }
     }, [isOpen, isVisible]);
 
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         if (modalRef.current) {
             scaleFadeOut(modalRef.current, 200, () => {
                 setIsVisible(false);
@@ -51,7 +51,7 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
             setIsVisible(false);
             onClose();
         }
-    };
+    }, [onClose]);
 
     const handleSelect = (theme: Theme) => {
         onSelect(theme);
@@ -73,7 +73,7 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isOpen]);
+    }, [isOpen, handleClose]);
 
     if (!isVisible) return null;
 

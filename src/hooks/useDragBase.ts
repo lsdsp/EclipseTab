@@ -259,7 +259,7 @@ export const useDragBase = <T extends BaseDragState>(
     const resetPlaceholderState = useCallback(() => {
         setPlaceholderIndex(null);
         lastPlaceholderRef.current = null;
-    }, []);
+    }, [setPlaceholderIndex]);
 
     // 清理外部拖拽状态
     useEffect(() => {

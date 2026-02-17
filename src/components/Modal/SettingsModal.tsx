@@ -23,18 +23,17 @@ interface SettingsModalProps {
     anchorPosition: { x: number; y: number };
 }
 
+const REQUIRED_ORIGINS = [
+    'https://suggestqueries.google.com/*',
+    'https://www.google.com/*',
+    'https://suggestion.baidu.com/*'
+];
+
 // 简单的权限切换组件
 const PermissionToggle: React.FC = () => {
     const [enabled, setEnabled] = useState<boolean | null>(null);
     const [loading, setLoading] = useState(false);
     const { t } = useLanguage();
-
-    // 一致地定义所有必需的源域
-    const REQUIRED_ORIGINS = [
-        'https://suggestqueries.google.com/*',
-        'https://www.google.com/*',
-        'https://suggestion.baidu.com/*'
-    ];
 
     useEffect(() => {
         // 检查初始权限状态

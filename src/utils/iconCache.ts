@@ -13,16 +13,26 @@ type IconCacheValue = { url: string; isFallback: boolean };
 const MAX_CACHE_SIZE = 100; // 最大缓存条目数
 const iconCache = new Map<string, IconCacheValue>();
 
+const normalizeMinSize = (minSize: number): number => {
+    if (!Number.isFinite(minSize) || minSize <= 0) return 0;
+    return Math.floor(minSize);
+};
+
+export const createIconCacheKey = (domain: string, minSize: number = 0): string => {
+    return `${domain}:${normalizeMinSize(minSize)}`;
+};
+
 /**
  * 获取缓存的图标
  * 命中时将条目移到末尾（最近使用）
  */
-export const getCachedIcon = (domain: string): IconCacheValue | undefined => {
-    const cached = iconCache.get(domain);
+export const getCachedIcon = (domain: string, minSize: number = 0): IconCacheValue | undefined => {
+    const cacheKey = createIconCacheKey(domain, minSize);
+    const cached = iconCache.get(cacheKey);
     if (cached) {
         // LRU: 移动到末尾表示最近使用
-        iconCache.delete(domain);
-        iconCache.set(domain, cached);
+        iconCache.delete(cacheKey);
+        iconCache.set(cacheKey, cached);
     }
     return cached;
 };
@@ -31,10 +41,11 @@ export const getCachedIcon = (domain: string): IconCacheValue | undefined => {
  * 设置图标缓存
  * 超出容量时淘汰最久未使用的条目（Map 的第一个条目）
  */
-export const setCachedIcon = (domain: string, icon: IconCacheValue): void => {
+export const setCachedIcon = (domain: string, minSize: number, icon: IconCacheValue): void => {
+    const cacheKey = createIconCacheKey(domain, minSize);
     // 如果已存在，先删除以便重新插入到末尾
-    if (iconCache.has(domain)) {
-        iconCache.delete(domain);
+    if (iconCache.has(cacheKey)) {
+        iconCache.delete(cacheKey);
     }
 
     // 检查容量，淘汰最旧条目
@@ -46,7 +57,7 @@ export const setCachedIcon = (domain: string, icon: IconCacheValue): void => {
         }
     }
 
-    iconCache.set(domain, icon);
+    iconCache.set(cacheKey, icon);
 };
 
 /**

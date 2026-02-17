@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useWallpaperStorage } from '../../hooks/useWallpaperStorage';
 import { WallpaperItem } from '../../utils/db';
@@ -14,7 +14,7 @@ export const WallpaperGallery: React.FC = () => {
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    const loadWallpapers = async () => {
+    const loadWallpapers = useCallback(async () => {
         const wallpapers = await getRecentWallpapers();
         setRecentWallpapers(wallpapers);
 
@@ -24,11 +24,11 @@ export const WallpaperGallery: React.FC = () => {
             newThumbnails[wp.id] = createWallpaperUrl(wp.thumbnail || wp.data);
         });
         setThumbnails(newThumbnails);
-    };
+    }, [createWallpaperUrl, getRecentWallpapers]);
 
     useEffect(() => {
-        loadWallpapers();
-    }, []);
+        void loadWallpapers();
+    }, [loadWallpapers]);
 
     const handleUploadClick = () => {
         fileInputRef.current?.click();

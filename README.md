@@ -208,7 +208,9 @@ Zen Browser 基于 Firefox,需要额外配置才能正常使用 Eclipse Tab:
 ### 🔒 数据与隐私
 
 **数据存储在哪里？**
-- 所有数据存储在本地浏览器中，使用 `localStorage` 和 `IndexedDB`
+- 所有数据存储在本地浏览器中，不会上传云端
+- `localStorage`：空间数据、贴纸数据、主题配置、搜索引擎、壁纸元数据（如 `wallpaperId`）
+- `IndexedDB`：壁纸二进制数据与壁纸历史（大文件主存储）
 - 不会上传到任何云端服务器
 - 您的数据完全属于您自己，我们无法访问
 
@@ -242,8 +244,8 @@ Eclipse Tab 是一个使用现代 Web 技术构建的浏览器扩展项目，90%
 
 **数据存储**
 - 所有数据自动保存到本地
-- 使用 localStorage 和 IndexedDB
-- 支持大容量壁纸存储（突破 5MB 限制）
+- `localStorage` 保存轻量配置与状态
+- `IndexedDB` 保存壁纸原始数据，支持大容量壁纸存储（突破 5MB 限制）
 
 ---
 

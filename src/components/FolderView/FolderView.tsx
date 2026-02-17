@@ -96,7 +96,7 @@ export const FolderView: React.FC<FolderViewProps> = ({
     onFolderPlaceholderChange,
   });
 
-  const items = folder.items || [];
+  const items = useMemo(() => folder.items || [], [folder.items]);
 
   // ==================================================================================
   // 蛇形流体网格布局计算
@@ -162,7 +162,7 @@ export const FolderView: React.FC<FolderViewProps> = ({
     });
 
     return positions;
-  }, [items, dragState.originalIndex, dragState.isDragging, dragState.isAnimatingReturn, placeholderIndex, externalDragItem]);
+  }, [items, dragState.originalIndex, dragState.isDragging, dragState.isAnimatingReturn, placeholderIndex]);
 
   // Calculate Container Dimensions
   // Total visible slots = Items count (internal drag: N, external: N+1)
@@ -182,6 +182,14 @@ export const FolderView: React.FC<FolderViewProps> = ({
   // ==================================================================================
   // Render
   // ==================================================================================
+
+  const handleClose = useCallback(() => {
+    if (containerRef.current) {
+      scaleFadeOut(containerRef.current, 300, onClose);
+    } else {
+      onClose();
+    }
+  }, [onClose]);
 
   // Animate entry
   useEffect(() => {
@@ -210,19 +218,7 @@ export const FolderView: React.FC<FolderViewProps> = ({
       clearTimeout(timeoutId);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
-
-  const handleClose = () => {
-    if (containerRef.current) {
-      scaleFadeOut(containerRef.current, 300, onClose);
-    } else {
-      onClose();
-    }
-  };
-
-  if (items.length === 0 && !externalDragItem) {
-    return null;
-  }
+  }, [handleClose]);
 
   // Positioning
   // Logic from original FolderView: Center logic using estimated width.
@@ -252,6 +248,10 @@ export const FolderView: React.FC<FolderViewProps> = ({
     height: gridHeight,
     width: '100%' as const,
   }), [gridHeight]);
+
+  if (items.length === 0 && !externalDragItem) {
+    return null;
+  }
 
   return createPortal(
     <>

@@ -4,6 +4,7 @@ import { storage } from '../utils/storage';
 import { DEFAULT_SEARCH_ENGINE, GOOGLE_ENGINE, SEARCH_ENGINES } from '../constants/searchEngines';
 import { generateFolderIcon, fetchIcon } from '../utils/iconFetcher';
 import { useSpaces } from './SpacesContext';
+import { shouldSyncDockItemsToSpace } from './dockSync';
 
 // ============================================================================
 // 数据层 Context (低频变化)
@@ -136,7 +137,12 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { currentSpace, updateCurrentSpaceApps } = useSpaces();
 
     // 数据状态: dockItems 来自当前 Space
-    const [dockItems, setDockItemsInternal] = useState<DockItem[]>(currentSpace.apps);
+    // 额外记录 spaceId 用于避免空间切换瞬间把旧空间数据同步到新空间
+    const [dockItemsState, setDockItemsState] = useState<{ spaceId: string; items: DockItem[] }>({
+        spaceId: currentSpace.id,
+        items: currentSpace.apps,
+    });
+    const dockItems = dockItemsState.items;
     const [searchEngines, setSearchEnginesState] = useState<SearchEngine[]>(() => getInitialSearchEngines());
     const [selectedSearchEngine, setSelectedSearchEngineState] = useState<SearchEngine>(() => {
         const engines = getInitialSearchEngines();
@@ -152,27 +158,49 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 当 currentSpace 变化时同步 dockItems
     useEffect(() => {
-        setDockItemsInternal(currentSpace.apps);
+        setDockItemsState({
+            spaceId: currentSpace.id,
+            items: currentSpace.apps,
+        });
     }, [currentSpace.id, currentSpace.apps]);
 
-    // 包装 setDockItems: 同时更新本地状态和 SpacesContext
+    // 包装 setDockItems: 先更新本地状态，再通过 effect 同步到 SpacesContext
     const setDockItems: React.Dispatch<React.SetStateAction<DockItem[]>> = useCallback(
         (action) => {
-            setDockItemsInternal((prev) => {
-                const newItems = typeof action === 'function' ? action(prev) : action;
-                // 同步回 SpacesContext（异步避免渲染循环）
-                setTimeout(() => updateCurrentSpaceApps(newItems), 0);
-                return newItems;
+            setDockItemsState((prev) => {
+                const newItems = typeof action === 'function' ? action(prev.items) : action;
+                return {
+                    spaceId: prev.spaceId,
+                    items: newItems,
+                };
             });
         },
-        [updateCurrentSpaceApps]
+        []
     );
+
+    // 将本地 dockItems 同步回当前空间，替代 setTimeout(0) workaround
+    useEffect(() => {
+        if (
+            !shouldSyncDockItemsToSpace(
+                dockItemsState.spaceId,
+                currentSpace.id,
+                dockItemsState.items,
+                currentSpace.apps
+            )
+        ) {
+            return;
+        }
+
+        updateCurrentSpaceApps(dockItemsState.items);
+    }, [dockItemsState, currentSpace.id, currentSpace.apps, updateCurrentSpaceApps]);
 
     // 初始化: 只在首次安装时加载默认常用网站
     // 注意：这个 ref 确保默认数据只加载一次，新建空间不会自动填充
     const hasLoadedDefaultsRef = React.useRef(false);
 
     useEffect(() => {
+        let isCancelled = false;
+
         // 只在首次运行且当前空间为空时初始化默认数据
         // 使用 hasLoadedDefaultsRef 确保只加载一次
         if (
@@ -206,8 +234,6 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // 异步获取默认项目的图标
             const fetchAllIcons = async () => {
-                let isMounted = true;
-
                 type IconUpdateResult =
                     | { id: string; icon: string; isFolder?: undefined; subItems?: undefined }
                     | { id: string; isFolder: true; subItems: { id: string; icon: string }[]; icon?: undefined }
@@ -221,7 +247,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                 try {
                                     const { url: icon } = await fetchIcon(subItem.url);
                                     return { id: subItem.id, icon };
-                                } catch (e) {
+                                } catch {
                                     return null;
                                 }
                             }
@@ -242,8 +268,8 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         try {
                             const { url: icon } = await fetchIcon(item.url);
                             return { id: item.id, icon };
-                        } catch (e) {
-                            console.error(`Failed to fetch icon for ${item.name}`, e);
+                        } catch (error) {
+                            console.error(`Failed to fetch icon for ${item.name}`, error);
                         }
                     }
                     return null;
@@ -252,7 +278,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // 过滤有效结果
                 const updates = iconResults.filter((r): r is NonNullable<IconUpdateResult> => r !== null);
 
-                if (!isMounted) return;
+                if (isCancelled) return;
 
                 // 安全更新: 仅更新图标，保留用户可能已做的操作（如排序、删除）
                 setDockItems(prev => {
@@ -278,16 +304,16 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         return item;
                     });
                 });
-
-                return () => { isMounted = false; };
             };
 
-            fetchAllIcons();
-            // 注意：useEffect 的 cleanup 实际上不能直接处理 async 函数内部的变量
-            // 所以我们在 fetchAllIcons 内部处理 mount 状态，或者使用 ref 跟踪 mount 状态
+            void fetchAllIcons();
         }
 
-    }, []); // 仅首次运行
+        return () => {
+            isCancelled = true;
+        };
+
+    }, [currentSpace.apps.length, currentSpace.name, dockItems.length, setDockItems]);
 
     // 当引擎列表变化时，确保当前选中项有效
     useEffect(() => {
@@ -404,7 +430,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setOpenFolderIdState(null);
             }
         }
-    }, [openFolderId]);
+    }, [openFolderId, setDockItems]);
 
     const handleItemSave = useCallback((data: Partial<DockItem>, editingItem: DockItem | null) => {
         if (editingItem) {
@@ -434,7 +460,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             setDockItems(prev => [...prev, newItem]);
         }
-    }, []);
+    }, [setDockItems]);
 
     const handleItemsReorder = useCallback((items: DockItem[]) => {
         const updatedItems = items.map((item) => {
@@ -447,7 +473,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return item;
         });
         setDockItems(updatedItems);
-    }, []);
+    }, [setDockItems]);
 
     const handleFolderItemsReorder = useCallback((folderId: string, items: DockItem[]) => {
         setDockItems(prev => prev.map((item) => {
@@ -460,7 +486,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             return item;
         }));
-    }, []);
+    }, [setDockItems]);
 
     const handleFolderItemDelete = useCallback((folderId: string, item: DockItem) => {
         setDockItems(prev => {
@@ -490,7 +516,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             return prev;
         });
-    }, [checkAndDissolveFolderIfNeeded]);
+    }, [checkAndDissolveFolderIfNeeded, setDockItems]);
 
     const handleDragFromFolder = useCallback((item: DockItem, mousePosition: { x: number; y: number }) => {
         if (!openFolderId) return;
@@ -547,7 +573,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             return finalItems;
         });
-    }, [openFolderId, checkAndDissolveFolderIfNeeded]);
+    }, [openFolderId, checkAndDissolveFolderIfNeeded, setDockItems]);
 
     const handleDragToFolder = useCallback((item: DockItem) => {
         if (!openFolderId || item.type === 'folder') return;
@@ -569,7 +595,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return i;
             }).filter(i => i.id !== item.id);
         });
-    }, [openFolderId]);
+    }, [openFolderId, setDockItems]);
 
     const handleDropOnFolder = useCallback((dragItem: DockItem, targetFolder: DockItem) => {
         if (targetFolder.type !== 'folder') return;
@@ -598,7 +624,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return item;
             }).filter(item => item.id !== dragItem.id);
         });
-    }, []);
+    }, [setDockItems]);
 
     // ========================================================================
     // Context Values (使用 useMemo 避免不必要的 Re-render)
@@ -624,6 +650,8 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         dockItems,
         searchEngines,
         selectedSearchEngine,
+        setDockItems,
+        setSelectedSearchEngine,
         addSearchEngine,
         removeSearchEngine,
         handleItemSave,

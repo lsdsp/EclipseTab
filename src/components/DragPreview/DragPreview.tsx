@@ -49,10 +49,6 @@ export const DragPreview: React.FC<DragPreviewProps> = ({
     isDraggingOut = false,
     onAnimationComplete,
 }) => {
-    if (!isActive || !item) {
-        return null;
-    }
-
     // 计算 scale 变换
     const getScale = (): string => {
         if (isPreMerge) return 'scale(0.6)';
@@ -87,6 +83,10 @@ export const DragPreview: React.FC<DragPreviewProps> = ({
             hasCalledCompleteRef.current = false;
         }
     }, [isAnimatingReturn]);
+
+    if (!isActive || !item) {
+        return null;
+    }
 
     const handleTransitionEnd = (e: React.TransitionEvent) => {
         // 只在归位动画的 left/top 过渡完成时触发回调

@@ -184,7 +184,7 @@ export const useDragAndDrop = ({
             itemsRef.current,
             MERGE_DISTANCE_THRESHOLD
         );
-    }, []);
+    }, [itemsRef]);
 
     /** 计算重排序的目标索引 (使用提取的纯函数) */
     const calculateReorderIndex = useCallback((
@@ -192,7 +192,7 @@ export const useDragAndDrop = ({
         snapshot: LayoutItem[]
     ): number => {
         return calculateHorizontalReorderIndex(mouseX, snapshot, itemsRef.current.length);
-    }, []);
+    }, [itemsRef]);
 
     // ========================================================================
     // handleMouseMove - 使用提取的模块 + RAF 节流
@@ -264,6 +264,10 @@ export const useDragAndDrop = ({
         externalDragItem,
         startDragging,
         captureLayoutSnapshot,
+        dragRef,
+        dragElementRef,
+        itemsRef,
+        layoutSnapshotRef,
         cacheDockRect,
         detectDragRegion,
         detectMergeTarget,
@@ -313,7 +317,7 @@ export const useDragAndDrop = ({
             layoutSnapshotRef.current = [];
             wasExternalDragActiveRef.current = false;
         }
-    }, [externalDragItem, handleMouseMove, cacheDockRect, resetDockDragStates]);
+    }, [externalDragItem, handleMouseMove, cacheDockRect, resetDockDragStates, layoutSnapshotRef]);
 
     // 当 items 变化时清理占位符 (drop 完成的信号)
     useEffect(() => {
@@ -322,7 +326,54 @@ export const useDragAndDrop = ({
             layoutSnapshotRef.current = [];
             wasExternalDragActiveRef.current = false;
         }
-    }, [items, setPlaceholderIndex]);
+    }, [items, setPlaceholderIndex, layoutSnapshotRef]);
+
+    // 处理归位动画完成
+    const handleAnimationComplete = useCallback(() => {
+        const state = dragRef.current;
+
+        if (!state.isAnimatingReturn || !state.targetAction || !state.item) {
+            return;
+        }
+
+        // 关键修复：先清理状态，再执行数据更新
+        // 这避免了在动作执行后、状态清理前的一帧渲染中，
+        // getItemTransform 使用旧的 originalIndex/placeholderIndex 计算新的 items 布局
+        const data = state.targetActionData;
+
+        // 先重置所有拖拽状态
+        setDragState(resetDockDragState());
+        setPlaceholderIndex(null);
+
+        // 然后执行数据操作
+        if (data) {
+            // Success vibration
+            performHapticFeedback(HAPTIC_PATTERNS.DROP);
+
+            switch (data.type) {
+                case 'reorder':
+                    onReorder(data.newItems);
+                    break;
+                case 'dropToFolder':
+                    if (onDropToFolder) {
+                        onDropToFolder(data.item, data.targetFolder);
+                    }
+                    break;
+                case 'mergeFolder':
+                    if (onMergeFolder) {
+                        onMergeFolder(data.item, data.targetItem);
+                    }
+                    break;
+                case 'dragToOpenFolder':
+                    if (onDragToOpenFolder) {
+                        onDragToOpenFolder(data.item);
+                    }
+                    break;
+            }
+        }
+
+        if (onDragEnd) onDragEnd();
+    }, [onReorder, onDropToFolder, onMergeFolder, onDragToOpenFolder, onDragEnd, setDragState, setPlaceholderIndex, dragRef, performHapticFeedback]);
 
     // Handle mouse up with animation delay logic
     const handleMouseUp = useCallback(() => {
@@ -502,10 +553,23 @@ export const useDragAndDrop = ({
             if (onDragEnd) onDragEnd();
         }
     }, [
-        strategy, onDropToFolder, onMergeFolder, onDragToOpenFolder, onDragEnd, onReorder,
+        onDropToFolder, onMergeFolder, onDragToOpenFolder, onDragEnd,
         handleMouseMove,
         setDragState, setPlaceholderIndex,
         cleanupDragListeners,
+        dragRef,
+        hasMovedRef,
+        placeholderRef,
+        hoveredFolderRef,
+        hoveredAppRef,
+        itemsRef,
+        isPreMergeRef,
+        layoutSnapshotRef,
+        cachedContainerRectRef,
+        dragElementRef,
+        resetMergeStates,
+        isEditMode,
+        handleAnimationComplete,
         hasFolderPlaceholderActive,
     ]); // Optimized dependencies
 
@@ -532,54 +596,6 @@ export const useDragAndDrop = ({
             }
         }, hasMovedRef, thresholdListenerRef);
     };
-
-    // 处理归位动画完成
-    const handleAnimationComplete = useCallback(() => {
-        const state = dragRef.current;
-
-        if (!state.isAnimatingReturn || !state.targetAction || !state.item) {
-            return;
-        }
-
-        // 关键修复：先清理状态，再执行数据更新
-        // 这避免了在动作执行后、状态清理前的一帧渲染中，
-        // getItemTransform 使用旧的 originalIndex/placeholderIndex 计算新的 items 布局
-        const data = state.targetActionData;
-
-        // 先重置所有拖拽状态
-        setDragState(resetDockDragState());
-        setPlaceholderIndex(null);
-
-        // 然后执行数据操作
-        if (data) {
-            // Success vibration
-            performHapticFeedback(HAPTIC_PATTERNS.DROP);
-
-            switch (data.type) {
-                case 'reorder':
-                    onReorder(data.newItems);
-                    break;
-                case 'dropToFolder':
-                    if (onDropToFolder) {
-                        onDropToFolder(data.item, data.targetFolder);
-                    }
-                    break;
-                case 'mergeFolder':
-                    if (onMergeFolder) {
-                        onMergeFolder(data.item, data.targetItem);
-                    }
-                    break;
-                case 'dragToOpenFolder':
-                    if (onDragToOpenFolder) {
-                        onDragToOpenFolder(data.item);
-                    }
-                    break;
-            }
-        }
-
-        if (onDragEnd) onDragEnd();
-    }, [onReorder, onDropToFolder, onMergeFolder, onDragToOpenFolder, onDragEnd, setDragState, setPlaceholderIndex, dragRef]);
-
 
     // ========================================================================
     // 优化 3: 使用 useMemo 缓存 transform 计算
@@ -626,7 +642,7 @@ export const useDragAndDrop = ({
         dragState.isAnimatingReturn,
         dragState.originalIndex,
         externalDragItem,
-        items.length,
+        items,
         strategy
     ]);
 
@@ -644,7 +660,7 @@ export const useDragAndDrop = ({
             }
             cleanupDragListeners(handleMouseMove, handleMouseUp);
         };
-    }, []);
+    }, [cleanupDragListeners, handleMouseMove, handleMouseUp]);
 
     return {
         dragState,

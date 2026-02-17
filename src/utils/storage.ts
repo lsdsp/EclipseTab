@@ -263,6 +263,7 @@ export const storage = {
 
   getWallpaper(): string | null {
     try {
+      // Legacy compatibility: wallpaper binary is now in IndexedDB; this key only keeps fallback/base64.
       return localStorage.getItem(STORAGE_KEYS.WALLPAPER);
     } catch {
       return null;
@@ -272,6 +273,7 @@ export const storage = {
   saveWallpaper(wallpaper: string | null): void {
     try {
       if (wallpaper) {
+        // Legacy compatibility path. Preferred storage is IndexedDB + wallpaperId.
         localStorage.setItem(STORAGE_KEYS.WALLPAPER, wallpaper);
         localStorage.setItem(STORAGE_KEYS.LAST_WALLPAPER, wallpaper);
       } else {
@@ -284,6 +286,7 @@ export const storage = {
 
   getWallpaperId(): string | null {
     try {
+      // Primary reference to wallpaper binary in IndexedDB.
       return localStorage.getItem(STORAGE_KEYS.WALLPAPER_ID);
     } catch {
       return null;
