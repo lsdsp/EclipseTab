@@ -8,6 +8,7 @@ import { Editor } from './components/Editor/Editor';
 import { Settings } from './components/Settings/Settings';
 import { Background } from './components/Background/Background';
 import { ZenShelf } from './components/ZenShelf';
+import { resolveDockInsertIndex } from './utils/dockInsertIndex';
 import styles from './App.module.css';
 
 // ============================================================================
@@ -256,6 +257,25 @@ function App() {
     handleItemEdit(item, rect);
   }, []);
 
+  const resolveDockInsertIndexFromDom = useCallback((mouseX: number): number => {
+    const dockElement = document.querySelector('[data-dock-container="true"]');
+    if (!dockElement) {
+      return dockItems.length;
+    }
+
+    const dockItemElements = Array.from(dockElement.querySelectorAll('[data-dock-item-wrapper="true"]'));
+    const centers = dockItemElements.map((item) => {
+      const rect = item.getBoundingClientRect();
+      return rect.left + rect.width / 2;
+    });
+    return resolveDockInsertIndex(mouseX, centers);
+  }, [dockItems.length]);
+
+  const handleDragFromFolderToDock = useCallback((item: DockItem, { x }: { x: number; y: number }) => {
+    const insertIndex = resolveDockInsertIndexFromDom(x);
+    handleDragFromFolder(item, insertIndex);
+  }, [handleDragFromFolder, resolveDockInsertIndexFromDom]);
+
   // 根据 CSS 变量更新 SVG 滤镜的描边颜色
   useEffect(() => {
     const updateStrokeColor = () => {
@@ -398,7 +418,7 @@ function App() {
             onItemDelete={(item) => handleFolderItemDelete(openFolder.id, item)}
             onClose={() => { setOpenFolderId(null); setFolderAnchor(null); }}
             onItemsReorder={(items) => handleFolderItemsReorder(openFolder.id, items)}
-            onItemDragOut={handleDragFromFolder}
+            onItemDragOut={handleDragFromFolderToDock}
             anchorRect={folderAnchor}
             onDragStart={(item) => { setDraggingItem(item); setDraggingFromFolder(true); }}
             onDragEnd={() => { setDraggingItem(null); setDraggingFromFolder(false); }}

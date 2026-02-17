@@ -31,8 +31,8 @@ interface SpacesActionsContextType {
     deleteSpace: (spaceId: string) => void;
     renameSpace: (spaceId: string, newName: string) => void;
     updateCurrentSpaceApps: (apps: DockItem[]) => void;
-    importSpace: (data: SpaceExportData) => void;
-    importMultipleSpaces: (data: MultiSpaceExportData) => void;
+    importSpace: (data: SpaceExportData) => Promise<Space>;
+    importMultipleSpaces: (data: MultiSpaceExportData) => Promise<Space[]>;
     pinSpace: (spaceId: string) => void;
     setIsSwitching: (value: boolean) => void;
 }

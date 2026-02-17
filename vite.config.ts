@@ -29,10 +29,10 @@ export default defineConfig({
     },
   },
   // ========================================================================
-  // 性能优化: esbuild 压缩配置 (移除 console 和 debugger)
+  // 仅移除 debugger，保留 warn/error 以便线上排障
   // ========================================================================
   esbuild: {
-    drop: ['console', 'debugger'],
+    drop: ['debugger'],
   },
   build: {
     outDir: 'dist',

@@ -20,6 +20,7 @@ import {
     SUGGESTION_PERMISSION_REQUEST_ORIGINS,
     SUGGESTION_PROVIDER_ORIGINS,
 } from '../../hooks/searchSuggestions';
+import { storage } from '../../utils/storage';
 
 
 interface SettingsModalProps {
@@ -134,6 +135,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     } = useTheme();
 
     const { language, setLanguage, t } = useLanguage();
+    const [allowThirdPartyIconService, setAllowThirdPartyIconService] = useState<boolean>(() =>
+        storage.getAllowThirdPartyIconService()
+    );
 
     const systemTheme = useSystemTheme();
     const [isVisible, setIsVisible] = useState(isOpen);
@@ -215,6 +219,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         setTexture(selectedTexture);
     };
 
+    const handleThirdPartyIconServiceToggle = (next: boolean) => {
+        if (next && !storage.getThirdPartyIconServicePrompted()) {
+            storage.saveThirdPartyIconServicePrompted(true);
+            const accepted = window.confirm(t.settings.thirdPartyIconServiceHint);
+            if (!accepted) {
+                return;
+            }
+        }
+
+        setAllowThirdPartyIconService(next);
+        storage.saveAllowThirdPartyIconService(next);
+    };
+
     const modalStyle: React.CSSProperties = {
         left: `${anchorPosition.x}px`,
         top: `${anchorPosition.y}px`,
@@ -253,8 +270,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
 
     return (
         <>
-            <div className={styles.backdrop} onClick={handleClose} />
-            <div ref={modalRef} className={styles.modal} style={modalStyle}>
+            <div className={styles.backdrop} data-ui-zone="settings-modal" onClick={handleClose} />
+            <div ref={modalRef} className={styles.modal} data-ui-zone="settings-modal" style={modalStyle}>
                 <div className={styles.innerContainer}>
                     {/* 主题部分 */}
                     <div className={styles.iconContainer}>
@@ -473,6 +490,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                         <div className={styles.layoutRow}>
                             <span className={styles.layoutLabel}>{t.settings.suggestions}</span>
                             <PermissionToggle />
+                        </div>
+
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>{t.settings.thirdPartyIconService}</span>
+                            <div className={styles.layoutToggleGroup}>
+                                <div
+                                    className={styles.layoutHighlight}
+                                    style={{
+                                        transform: `translateX(${allowThirdPartyIconService ? 0 : 100}%)`,
+                                    }}
+                                />
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => handleThirdPartyIconServiceToggle(true)}
+                                    title={t.settings.on}
+                                >
+                                    {t.settings.on}
+                                </button>
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => handleThirdPartyIconServiceToggle(false)}
+                                    title={t.settings.off}
+                                >
+                                    {t.settings.off}
+                                </button>
+                            </div>
                         </div>
 
                         <div className={styles.layoutRow}>

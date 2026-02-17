@@ -110,6 +110,7 @@ export const DockContextMenu: React.FC<DockContextMenuProps> = ({
         <div
             ref={menuRef}
             className={styles.contextMenu}
+            data-ui-zone="dock-context-menu"
             style={{ left: adjustedX, top: adjustedY }}
             onClick={(e) => e.stopPropagation()}
         >

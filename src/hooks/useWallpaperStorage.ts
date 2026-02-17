@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { db, WallpaperItem } from '../utils/db';
+import { logger } from '../utils/logger';
+import { enqueueObjectUrl } from '../utils/objectUrlQueue';
 
 export interface UseWallpaperStorageReturn {
     saveWallpaper: (file: File) => Promise<string>;
@@ -13,6 +15,13 @@ export interface UseWallpaperStorageReturn {
 }
 
 const COMPRESSION_THRESHOLD = 15 * 1024 * 1024; // 15MB 压缩阈值
+const MAX_ACTIVE_WALLPAPER_URLS = 2;
+
+export const sortRecentWallpapers = (items: WallpaperItem[]): WallpaperItem[] => {
+    return [...items]
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 6);
+};
 
 const compressImage = async (file: File): Promise<Blob> => {
     if (file.size <= COMPRESSION_THRESHOLD) return file;
@@ -122,6 +131,7 @@ export const useWallpaperStorage = (): UseWallpaperStorageReturn => {
 
     // 性能优化: 使用 useRef 跟踪 URL，避免每次添加 URL 触发重渲染
     const activeUrlsRef = useRef<Set<string>>(new Set());
+    const urlQueueRef = useRef<string[]>([]);
 
     useEffect(() => {
         if (typeof window === 'undefined' || !window.indexedDB) {
@@ -133,14 +143,25 @@ export const useWallpaperStorage = (): UseWallpaperStorageReturn => {
     // 卸载时清理所有创建的 URL
     useEffect(() => {
         const urlsRef = activeUrlsRef;
+        const queueRef = urlQueueRef;
         return () => {
             urlsRef.current.forEach(url => URL.revokeObjectURL(url));
+            urlsRef.current.clear();
+            queueRef.current = [];
         };
     }, []);
 
     const createWallpaperUrl = useCallback((blob: Blob): string => {
         const url = URL.createObjectURL(blob);
         activeUrlsRef.current.add(url);
+        const enqueueResult = enqueueObjectUrl(urlQueueRef.current, url, MAX_ACTIVE_WALLPAPER_URLS);
+        urlQueueRef.current = enqueueResult.nextQueue;
+
+        enqueueResult.expired.forEach((expired) => {
+            activeUrlsRef.current.delete(expired);
+            URL.revokeObjectURL(expired);
+        });
+
         return url;
     }, []);
 
@@ -154,7 +175,7 @@ export const useWallpaperStorage = (): UseWallpaperStorageReturn => {
             const [blobToSave, thumbnailBlob] = await Promise.all([
                 compressImage(file),
                 generateThumbnail(file).catch(err => {
-                    console.warn('Failed to generate thumbnail:', err);
+                    logger.warn('Failed to generate thumbnail:', err);
                     return undefined;
                 })
             ]);
@@ -209,9 +230,7 @@ export const useWallpaperStorage = (): UseWallpaperStorageReturn => {
 
         try {
             const allItems = await db.getAll();
-            // 按 createdAt 降序排序并取前 6 个
-            return allItems
-                .sort((a, b) => b.createdAt - a.createdAt);
+            return sortRecentWallpapers(allItems);
         } catch (err) {
             const error = err instanceof Error ? err : new Error('Failed to get recent wallpapers');
             setError(error);

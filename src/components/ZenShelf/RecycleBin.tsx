@@ -55,6 +55,7 @@ export const RecycleBin: React.FC<RecycleBinProps> = ({ isVisible, onClick }) =>
         <div
             id="sticker-recycle-bin"
             className={getClassName()}
+            data-ui-zone="zen-recycle-bin"
             onClick={onClick}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}

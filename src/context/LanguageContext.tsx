@@ -11,6 +11,8 @@ interface Translations {
         large: string;
         small: string;
         suggestions: string;
+        thirdPartyIconService: string;
+        thirdPartyIconServiceHint: string;
         openInNewTab: string;
         on: string;
         off: string;
@@ -121,6 +123,8 @@ const translations: Record<Language, Translations> = {
             large: 'Large',
             small: 'Small',
             suggestions: 'Suggestions',
+            thirdPartyIconService: '3rd-party Icons',
+            thirdPartyIconServiceHint: 'Enable external favicon services? This may send site domains to third-party providers.',
             openInNewTab: 'New Tab',
             on: 'On',
             off: 'Off',
@@ -229,6 +233,8 @@ const translations: Record<Language, Translations> = {
             large: '大',
             small: '小',
             suggestions: '搜索建议',
+            thirdPartyIconService: '第三方图标',
+            thirdPartyIconServiceHint: '启用第三方图标服务后，网站域名可能会发送给第三方提供者。是否继续？',
             openInNewTab: '新标签页',
             on: '开启',
             off: '关闭',

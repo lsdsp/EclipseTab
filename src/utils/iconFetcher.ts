@@ -1,11 +1,19 @@
 import { createIconCacheKey, getCachedIcon, setCachedIcon } from './iconCache';
 import { compressIcon } from './imageCompression';
+import { storage } from './storage';
+import { logger } from './logger';
 
 // ============================================================================
 // 请求去重: 跟踪进行中的请求，避免重复网络请求
 // ============================================================================
 type IconResult = { url: string; isFallback: boolean };
 const pendingRequests = new Map<string, Promise<IconResult>>();
+type FetchIconOptions = { allowThirdParty?: boolean };
+
+const shouldUseThirdPartyIconService = (allowThirdParty?: boolean): boolean => {
+  if (typeof allowThirdParty === 'boolean') return allowThirdParty;
+  return storage.getAllowThirdPartyIconService();
+};
 
 /**
  * 获取网站图标
@@ -17,26 +25,31 @@ const pendingRequests = new Map<string, Promise<IconResult>>();
  * 5. Google Favicon 服务
  * 6. 生成备用 SVG
  */
-export const fetchIcon = async (url: string, minSize: number = 100): Promise<IconResult> => {
+export const fetchIcon = async (
+  url: string,
+  minSize: number = 100,
+  options?: FetchIconOptions
+): Promise<IconResult> => {
   try {
     const urlObj = new URL(url);
     const domain = urlObj.hostname;
+    const allowThirdParty = shouldUseThirdPartyIconService(options?.allowThirdParty);
 
     // 检查缓存
-    const cached = getCachedIcon(domain, minSize);
+    const cached = getCachedIcon(domain, minSize, allowThirdParty);
     if (cached) {
       return cached;
     }
 
     // 检查是否有进行中的请求 (请求去重)
-    const cacheKey = createIconCacheKey(domain, minSize);
+    const cacheKey = createIconCacheKey(domain, minSize, allowThirdParty);
     const pending = pendingRequests.get(cacheKey);
     if (pending) {
       return pending;
     }
 
     // 创建新请求并缓存 Promise
-    const fetchPromise = fetchIconInternal(url, domain, minSize);
+    const fetchPromise = fetchIconInternal(url, domain, minSize, allowThirdParty);
     pendingRequests.set(cacheKey, fetchPromise);
 
     try {
@@ -55,9 +68,13 @@ export const fetchIcon = async (url: string, minSize: number = 100): Promise<Ico
  * 获取并自动压缩图标
  * 组合了 fetchIcon 和 compressIcon 的逻辑，用于统一 Modal 和其他组件的调用
  */
-export const fetchAndProcessIcon = async (url: string, minSize: number = 100): Promise<{ url: string; isFallback: boolean }> => {
+export const fetchAndProcessIcon = async (
+  url: string,
+  minSize: number = 100,
+  options?: FetchIconOptions
+): Promise<{ url: string; isFallback: boolean }> => {
   try {
-    const fetchResult = await fetchIcon(url, minSize);
+    const fetchResult = await fetchIcon(url, minSize, options);
 
     // 如果是 fallback (生成的文本图标)，直接返回
     if (fetchResult.isFallback) {
@@ -82,7 +99,12 @@ export const fetchAndProcessIcon = async (url: string, minSize: number = 100): P
  * 第一批: 高优先级本地路径 (网络开销小)
  * 第二批: 外部 API 备用 (仅在第一批全部失败时尝试)
  */
-const fetchIconInternal = async (url: string, domain: string, minSize: number): Promise<IconResult> => {
+const fetchIconInternal = async (
+  url: string,
+  domain: string,
+  minSize: number,
+  allowThirdParty: boolean
+): Promise<IconResult> => {
   try {
     const urlObj = new URL(url);
 
@@ -105,13 +127,13 @@ const fetchIconInternal = async (url: string, domain: string, minSize: number): 
       `${origin}/favicon.ico`,
     ];
 
-    // 第二批: 外部 API 备用 (仅在第一批全部失败时尝试)
-    const fallbackCandidates = [
-      // DuckDuckGo Icons API (隐私友好)
-      `https://icons.duckduckgo.com/ip3/${domain}.ico`,
-      // Google Favicon API (最终备用)
-      `https://www.google.com/s2/favicons?domain=${domain}&sz=256`,
-    ];
+    // 第二批: 外部 API 备用 (仅在第一批全部失败且用户允许时尝试)
+    const fallbackCandidates = allowThirdParty
+      ? [
+        `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+        `https://www.google.com/s2/favicons?domain=${domain}&sz=256`,
+      ]
+      : [];
 
     // 单个图片探测函数 (带超时)
     const probeImage = (src: string, timeout: number = 3000): Promise<{ url: string; width: number; height: number }> => {
@@ -166,7 +188,7 @@ const fetchIconInternal = async (url: string, domain: string, minSize: number): 
         const icon = await probeImage(candidate, 2000);
         // 找到符合条件的图标，立即返回
         const result = { url: icon.url, isFallback: false };
-        setCachedIcon(domain, minSize, result);
+        setCachedIcon(domain, minSize, result, allowThirdParty);
         return result;
       } catch {
         // 继续尝试下一个候选
@@ -190,12 +212,13 @@ const fetchIconInternal = async (url: string, domain: string, minSize: number): 
 
     if (validFallbacks.length > 0) {
       const result = { url: validFallbacks[0].url, isFallback: false };
-      setCachedIcon(domain, minSize, result);
+      setCachedIcon(domain, minSize, result, allowThirdParty);
       return result;
     }
 
     throw new Error('未找到高分辨率图标');
-  } catch {
+  } catch (error) {
+    logger.debug('[IconFetcher] fallback to text icon', error);
     // 如果失败，则生成文本图标
     const result = { url: generateTextIcon(url), isFallback: true };
     return result;

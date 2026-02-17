@@ -85,6 +85,7 @@ export const Modal: React.FC<ModalProps> = ({
       <>
         <div
           data-modal="true"
+          data-ui-zone="modal"
           style={{
             position: 'fixed',
             left: `${Math.min(Math.max(Math.round(anchorRect.left + anchorRect.width / 2), 160), window.innerWidth - 160)}px`,
@@ -115,6 +116,7 @@ export const Modal: React.FC<ModalProps> = ({
         {/* 全局外部点击捕获器 */}
         <div
           className={styles.clickAway}
+          data-ui-zone="modal"
           onClick={handleClose}
           style={{ zIndex: 2000 }}
         />
@@ -124,10 +126,11 @@ export const Modal: React.FC<ModalProps> = ({
   }
 
   return (
-    <div className={styles.backdrop} onClick={handleBackdropClick}>
+    <div className={styles.backdrop} data-ui-zone="modal" onClick={handleBackdropClick}>
       <div
         ref={containerRef}
         data-modal="true"
+        data-ui-zone="modal"
         className={`${styles.container} ${className || ''}`}
         onClick={(e) => e.stopPropagation()}
       >

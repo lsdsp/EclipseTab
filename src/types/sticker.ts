@@ -20,9 +20,12 @@ export interface TextStickerStyle {
 export interface Sticker {
     id: string;              // UUID 唯一标识
     type: 'text' | 'image';  // 贴纸类型
-    content: string;         // 文字内容 或 图片Base64/URL
+    content: string;         // 文字内容 或 图片URL（运行时）
     x: number;               // 屏幕 X 坐标 (px)
     y: number;               // 屏幕 Y 坐标 (px)
+    xPct?: number;           // X 百分比坐标 (0-1)
+    yPct?: number;           // Y 百分比坐标 (0-1)
+    assetId?: string;        // 图片贴纸在 IndexedDB 中的资源 ID
     zIndex?: number;         // 层级顺序（双击置顶）
     scale?: number;          // 图片缩放比例（仅图片贴纸）
     style?: TextStickerStyle; // 仅针对文字贴纸的样式

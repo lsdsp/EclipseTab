@@ -28,12 +28,11 @@ const rubberBand = (offset: number, maxOffset: number = 200): number => {
 // Sub-component for individual swipeable items
 const RecycleBinItem: React.FC<{
     sticker: any;
-    viewportScale: number;
     onRestore: (sticker: any) => void;
     onDelete: (item: any) => void;
     t: any;
     index: number;
-}> = ({ sticker, viewportScale, onRestore, onDelete, t, index }) => {
+}> = ({ sticker, onRestore, onDelete, t, index }) => {
     const [offsetX, setOffsetX] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const [isSpringBack, setIsSpringBack] = useState(false);
@@ -239,7 +238,7 @@ const RecycleBinItem: React.FC<{
                             className={styles.textSticker}
                             style={{
                                 color: sticker.style?.color || '#000000',
-                                fontSize: `${(sticker.style?.fontSize || 40) * viewportScale}px`,
+                                fontSize: `${sticker.style?.fontSize || 40}px`,
                                 textAlign: sticker.style?.textAlign || 'center',
                                 lineHeight: 0.95,
                             }}
@@ -267,18 +266,6 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ isOpen, onClos
     const { deletedStickers, restoreSticker, permanentlyDeleteSticker } = useZenShelf();
     const { t } = useLanguage();
     const [isClosing, setIsClosing] = useState(false);
-
-    // Replicate the scaling logic from ZenShelf to match sticker appearance
-    const REFERENCE_WIDTH = 1920;
-    const [viewportScale, setViewportScale] = useState(() => window.innerWidth / REFERENCE_WIDTH);
-
-    useEffect(() => {
-        const handleResize = () => {
-            setViewportScale(window.innerWidth / REFERENCE_WIDTH);
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
 
     // 处理关闭 - 先播放退场动画
     const handleClose = useCallback(() => {
@@ -313,6 +300,7 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ isOpen, onClos
     return ReactDOM.createPortal(
         <div
             className={modalClassName}
+            data-ui-zone="zen-recycle-bin-modal"
             onClick={handleClose}
         >
             <div
@@ -339,7 +327,6 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ isOpen, onClos
                             <RecycleBinItem
                                 key={sticker.id}
                                 sticker={sticker}
-                                viewportScale={viewportScale}
                                 onRestore={restoreSticker}
                                 onDelete={handlePermanentDelete}
                                 t={t}

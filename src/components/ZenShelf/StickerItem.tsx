@@ -56,7 +56,6 @@ interface StickerItemProps {
     onBringToTop: () => void;
     onScaleChange: (scale: number) => void;
     isEditMode?: boolean;
-    viewportScale: number;
     onDoubleClick?: () => void;
     onDragStart?: () => void;
     onDragEnd?: () => void;
@@ -73,7 +72,6 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
     onBringToTop,
     onScaleChange,
     isEditMode,
-    viewportScale,
     onDoubleClick,
     onDragStart,
     onDragEnd,
@@ -205,16 +203,16 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             // RAF 节流 - 保存待处理的位置更新
             // 将屏幕像素位移转换为原始坐标系
             pendingPosition = {
-                x: dragStartRef.current.stickerX + dx / viewportScale,
-                y: dragStartRef.current.stickerY + dy / viewportScale,
+                x: dragStartRef.current.stickerX + dx,
+                y: dragStartRef.current.stickerY + dy,
             };
 
             if (positionRafId === null) {
                 positionRafId = requestAnimationFrame(() => {
                     positionRafId = null;
                     if (pendingPosition && elementRef.current) {
-                        elementRef.current.style.left = `${pendingPosition.x * viewportScale}px`;
-                        elementRef.current.style.top = `${pendingPosition.y * viewportScale}px`;
+                        elementRef.current.style.left = `${pendingPosition.x}px`;
+                        elementRef.current.style.top = `${pendingPosition.y}px`;
                     }
                 });
             }
@@ -333,8 +331,8 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             const stickerHeight = stickerRect.height;
 
             // 计算贴纸屏幕边界
-            const screenX = finalX * viewportScale;
-            const screenY = finalY * viewportScale;
+            const screenX = finalX;
+            const screenY = finalY;
             const stickerScreenRect = {
                 left: screenX,
                 top: screenY,
@@ -378,13 +376,13 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                     // 根据方向应用逃逸位移
                     switch (escapeDirection) {
                         case 'up':
-                            finalY = (bottomRect.top - stickerHeight - UI_ZONES.EDGE_MARGIN) / viewportScale;
+                            finalY = bottomRect.top - stickerHeight - UI_ZONES.EDGE_MARGIN;
                             break;
                         case 'left':
-                            finalX = (bottomRect.left - stickerWidth - UI_ZONES.EDGE_MARGIN) / viewportScale;
+                            finalX = bottomRect.left - stickerWidth - UI_ZONES.EDGE_MARGIN;
                             break;
                         case 'right':
-                            finalX = (bottomRect.right + UI_ZONES.EDGE_MARGIN) / viewportScale;
+                            finalX = bottomRect.right + UI_ZONES.EDGE_MARGIN;
                             break;
                     }
                     needsAdjustment = true;
@@ -398,13 +396,10 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             // 贴纸现在可以自由放置在这些区域
 
             // 确保贴纸保持在屏幕边界内
-            // 将贴纸尺寸转换为原始坐标系以实现正确的边界计算
-            const stickerWidthOriginal = stickerWidth / viewportScale;
-            const stickerHeightOriginal = stickerHeight / viewportScale;
-            const maxX = (windowWidth / viewportScale) - stickerWidthOriginal - (UI_ZONES.EDGE_MARGIN / viewportScale);
-            const maxY = (windowHeight / viewportScale) - stickerHeightOriginal - (UI_ZONES.EDGE_MARGIN / viewportScale);
-            const minX = UI_ZONES.EDGE_MARGIN / viewportScale;
-            const minY = UI_ZONES.EDGE_MARGIN / viewportScale;
+            const maxX = windowWidth - stickerWidth - UI_ZONES.EDGE_MARGIN;
+            const maxY = windowHeight - stickerHeight - UI_ZONES.EDGE_MARGIN;
+            const minX = UI_ZONES.EDGE_MARGIN;
+            const minY = UI_ZONES.EDGE_MARGIN;
 
             // 检查位置是否需要限制（将触发弹回动画）
             let clampedX = finalX;
@@ -440,8 +435,8 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 // （例如，拖走后又弹回同一位置）
                 if (elementRef.current) {
                     elementRef.current.classList.add(styles.bounceBack);
-                    elementRef.current.style.left = `${finalX * viewportScale}px`;
-                    elementRef.current.style.top = `${finalY * viewportScale}px`;
+                    elementRef.current.style.left = `${finalX}px`;
+                    elementRef.current.style.top = `${finalY}px`;
                 }
 
                 setIsBouncing(true);
@@ -492,7 +487,6 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         onDragEnd,
         sticker.x,
         sticker.y,
-        viewportScale,
         updatePhysics
     ]);
 
@@ -592,11 +586,11 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
 
     // 根据缩放比例和视口缩放比例计算实际图片宽度
     const imageWidth = sticker.type === 'image'
-        ? Math.min(imageNaturalWidth, IMAGE_MAX_WIDTH) * (sticker.scale || 1) * viewportScale
+        ? Math.min(imageNaturalWidth, IMAGE_MAX_WIDTH) * (sticker.scale || 1)
         : undefined;
 
     // 为文字贴纸计算缩放后的字体大小
-    const scaledFontSize = (sticker.style?.fontSize || 40) * viewportScale;
+    const scaledFontSize = sticker.style?.fontSize || 40;
     const resolvedFontFamily = resolveStickerFontFamily(sticker.style?.fontPreset);
     const isNormalFontPreset = sticker.style?.fontPreset === 'normal';
     const isCodeFontPreset = sticker.style?.fontPreset === 'code';
@@ -607,8 +601,8 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 ref={elementRef}
                 className={classNames}
                 style={{
-                    left: sticker.x * viewportScale,
-                    top: sticker.y * viewportScale,
+                    left: sticker.x,
+                    top: sticker.y,
                     // 拖拽期间提升 z-index 以保持在 UI 元素之上
                     zIndex: isDragging ? 3000 : (sticker.zIndex || 1),
                 }}
@@ -701,8 +695,7 @@ const arePropsEqual = (prev: StickerItemProps, next: StickerItemProps) => {
         prev.sticker.style?.fontPreset === next.sticker.style?.fontPreset &&
         prev.isSelected === next.isSelected &&
         prev.isCreativeMode === next.isCreativeMode &&
-        prev.isEditMode === next.isEditMode &&
-        prev.viewportScale === next.viewportScale
+        prev.isEditMode === next.isEditMode
     );
 };
 

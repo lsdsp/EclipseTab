@@ -47,10 +47,9 @@ interface TextInputProps {
     initialStyle?: { color: string; textAlign: 'left' | 'center' | 'right'; fontSize?: number; fontPreset?: StickerFontPreset };
     onSubmit: (content: string, style?: { color: string; textAlign: 'left' | 'center' | 'right'; fontSize: number; fontPreset: StickerFontPreset }) => void;
     onCancel: () => void;
-    viewportScale: number;
 }
 
-export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialStyle, onSubmit, onCancel, viewportScale }) => {
+export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', initialStyle, onSubmit, onCancel }) => {
     const { t } = useLanguage();
     const { theme } = useThemeData();
     const inputRef = useRef<HTMLDivElement>(null);
@@ -102,9 +101,9 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
     // 字体大小更改时更新它
     useEffect(() => {
         if (inputRef.current) {
-            inputRef.current.style.fontSize = `${fontSize * viewportScale}px`;
+            inputRef.current.style.fontSize = `${fontSize}px`;
         }
-    }, [fontSize, viewportScale]);
+    }, [fontSize]);
 
     // 触发工具栏和输入框的出场动画
     const triggerExit = useCallback((callback: () => void, animateInput: boolean = true) => {
@@ -290,7 +289,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
                 setPosition({ x: newX, y: newY });
             }
         }
-    }, [x, y, fontSize, viewportScale, position.x, position.y]); // Re-run when size might change
+    }, [x, y, fontSize, position.x, position.y]); // Re-run when size might change
 
     const fontPresetOptions: Array<{ preset: StickerFontPreset; label: string }> = [
         { preset: 'handwritten', label: t.textInput.fontHandwritten },
@@ -302,6 +301,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
         <div
             ref={containerRef}
             className={`${styles.stickerPreviewContainer} ${isExiting ? styles.exiting : ''}`}
+            data-ui-zone="zen-text-input"
             style={{ left: position.x, top: position.y }}
         >
             {/* 实时预览贴纸 - 直接在背景上显示 */}
@@ -318,7 +318,7 @@ export const TextInput: React.FC<TextInputProps> = ({ x, y, initialText = '', in
                     style={{
                         color: getThemeAwareColor(textColor, theme),
                         textAlign: textAlign,
-                        fontSize: `${fontSize * viewportScale}px`,
+                        fontSize: `${fontSize}px`,
                         fontFamily: resolveStickerFontFamily(fontPreset),
                     }}
                     onInput={handleInput}

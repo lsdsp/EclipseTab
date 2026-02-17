@@ -23,7 +23,7 @@ interface DockDataContextType {
     handleItemDelete: (item: DockItem) => void;
     handleFolderItemsReorder: (folderId: string, items: DockItem[]) => void;
     handleFolderItemDelete: (folderId: string, item: DockItem) => void;
-    handleDragFromFolder: (item: DockItem, mousePosition: { x: number; y: number }) => void;
+    handleDragFromFolder: (item: DockItem, insertIndex?: number) => void;
     handleDragToFolder: (item: DockItem) => void;
     handleDropOnFolder: (dragItem: DockItem, targetFolder: DockItem) => void;
 }
@@ -518,7 +518,7 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     }, [checkAndDissolveFolderIfNeeded, setDockItems]);
 
-    const handleDragFromFolder = useCallback((item: DockItem, mousePosition: { x: number; y: number }) => {
+    const handleDragFromFolder = useCallback((item: DockItem, insertIndex: number = -1) => {
         if (!openFolderId) return;
 
         setDockItems(prev => {
@@ -545,31 +545,11 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setOpenFolderIdState(null);
             }
 
-            const dockElement = document.querySelector('[data-dock-container="true"]');
-            if (!dockElement) {
-                const finalItems = [...updatedDockItems];
-                const existingIdx = finalItems.findIndex(i => i.id === item.id);
-                if (existingIdx !== -1) finalItems.splice(existingIdx, 1);
-                finalItems.push(item);
-                return finalItems;
-            }
-
-            const dockItemElements = Array.from(dockElement.querySelectorAll('[data-dock-item-wrapper="true"]'));
-            let insertIndex = updatedDockItems.length;
-
-            for (let i = 0; i < dockItemElements.length; i++) {
-                const rect = dockItemElements[i].getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-
-                if (mousePosition.x < centerX) {
-                    insertIndex = i;
-                    break;
-                }
-            }
-
             let finalItems = updatedDockItems.filter(i => i.id !== item.id);
-            insertIndex = Math.max(0, Math.min(insertIndex, finalItems.length));
-            finalItems.splice(insertIndex, 0, item);
+            const safeInsertIndex = insertIndex < 0
+                ? finalItems.length
+                : Math.max(0, Math.min(insertIndex, finalItems.length));
+            finalItems.splice(safeInsertIndex, 0, item);
 
             return finalItems;
         });

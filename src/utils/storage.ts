@@ -1,4 +1,5 @@
 import { DockItem, SearchEngine, SpacesState, createDefaultSpacesState } from '../types';
+import { logger } from './logger';
 
 const STORAGE_KEYS = {
   DOCK_ITEMS: 'EclipseTab_dockItems',
@@ -34,6 +35,8 @@ interface AppConfig {
   dockPosition: 'center' | 'bottom';
   iconSize: 'large' | 'small';
   openInNewTab: boolean;
+  allowThirdPartyIconService: boolean;
+  thirdPartyIconServicePrompted: boolean;
   texture: string;
   gradient: string | null;
 }
@@ -44,6 +47,8 @@ const DEFAULT_CONFIG: AppConfig = {
   dockPosition: 'bottom',
   iconSize: 'large',
   openInNewTab: false,
+  allowThirdPartyIconService: false,
+  thirdPartyIconServicePrompted: false,
   texture: 'point',
   gradient: null,
 };
@@ -61,6 +66,16 @@ const memoryCache = {
   stickers: null as CacheEntry<import('../types').Sticker[]> | null,
   deletedStickers: null as CacheEntry<import('../types').Sticker[]> | null,
   config: null as CacheEntry<AppConfig> | null,
+};
+
+let storageFailureNotified = false;
+
+const notifyStorageFailure = (): void => {
+  if (storageFailureNotified) return;
+  storageFailureNotified = true;
+
+  if (typeof window === 'undefined') return;
+  window.alert('Storage is full. Please export/clean up data, then try again.');
 };
 
 /**
@@ -136,7 +151,7 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.CONFIG, json);
       memoryCache.config = { data: config, raw: json };
     } catch (error) {
-      console.error('Failed to save config:', error);
+      logger.error('Failed to save config:', error);
     }
   },
 
@@ -190,6 +205,22 @@ export const storage = {
     this.updateConfig({ openInNewTab });
   },
 
+  getAllowThirdPartyIconService(): boolean {
+    return this.getConfig().allowThirdPartyIconService;
+  },
+
+  saveAllowThirdPartyIconService(allowThirdPartyIconService: boolean): void {
+    this.updateConfig({ allowThirdPartyIconService });
+  },
+
+  getThirdPartyIconServicePrompted(): boolean {
+    return this.getConfig().thirdPartyIconServicePrompted;
+  },
+
+  saveThirdPartyIconServicePrompted(thirdPartyIconServicePrompted: boolean): void {
+    this.updateConfig({ thirdPartyIconServicePrompted });
+  },
+
   getTexture(): string {
     return this.getConfig().texture;
   },
@@ -223,7 +254,7 @@ export const storage = {
     try {
       localStorage.setItem(STORAGE_KEYS.DOCK_ITEMS, JSON.stringify(items));
     } catch (error) {
-      console.error('Failed to save dock items:', error);
+      logger.error('Failed to save dock items:', error);
     }
   },
 
@@ -240,7 +271,7 @@ export const storage = {
     try {
       localStorage.setItem(STORAGE_KEYS.SEARCH_ENGINE, JSON.stringify(engine));
     } catch (error) {
-      console.error('Failed to save search engine:', error);
+      logger.error('Failed to save search engine:', error);
     }
   },
 
@@ -257,7 +288,7 @@ export const storage = {
     try {
       localStorage.setItem(STORAGE_KEYS.SEARCH_ENGINES, JSON.stringify(engines));
     } catch (error) {
-      console.error('Failed to save search engines:', error);
+      logger.error('Failed to save search engines:', error);
     }
   },
 
@@ -280,7 +311,7 @@ export const storage = {
         localStorage.removeItem(STORAGE_KEYS.WALLPAPER);
       }
     } catch (error) {
-      console.error('Failed to save wallpaper:', error);
+      logger.error('Failed to save wallpaper:', error);
     }
   },
 
@@ -301,7 +332,7 @@ export const storage = {
         localStorage.removeItem(STORAGE_KEYS.WALLPAPER_ID);
       }
     } catch (error) {
-      console.error('Failed to save wallpaper ID:', error);
+      logger.error('Failed to save wallpaper ID:', error);
     }
   },
 
@@ -321,7 +352,7 @@ export const storage = {
         localStorage.removeItem(STORAGE_KEYS.LAST_WALLPAPER);
       }
     } catch (error) {
-      console.error('Failed to save last wallpaper:', error);
+      logger.error('Failed to save last wallpaper:', error);
     }
   },
 
@@ -355,7 +386,7 @@ export const storage = {
       this.saveSpaces(defaultState);
       return defaultState;
     } catch (error) {
-      console.error('Failed to get spaces:', error);
+      logger.error('Failed to get spaces:', error);
       const fallbackState = createDefaultSpacesState();
       this.saveSpaces(fallbackState);
       return fallbackState;
@@ -368,7 +399,7 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.SPACES, json);
       memoryCache.spaces = { data: state, raw: json };
     } catch (error) {
-      console.error('Failed to save spaces:', error);
+      logger.error('Failed to save spaces:', error);
     }
   },
 
@@ -376,7 +407,7 @@ export const storage = {
     try {
       localStorage.removeItem(STORAGE_KEYS.SPACES);
     } catch (error) {
-      console.error('Failed to clear spaces:', error);
+      logger.error('Failed to clear spaces:', error);
     }
   },
 
@@ -397,7 +428,7 @@ export const storage = {
       }
       return [];
     } catch (error) {
-      console.error('Failed to get stickers:', error);
+      logger.error('Failed to get stickers:', error);
       return [];
     }
   },
@@ -408,7 +439,8 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.STICKERS, json);
       memoryCache.stickers = { data: stickers, raw: json };
     } catch (error) {
-      console.error('Failed to save stickers:', error);
+      logger.error('Failed to save stickers:', error);
+      notifyStorageFailure();
     }
   },
 
@@ -425,7 +457,7 @@ export const storage = {
       }
       return [];
     } catch (error) {
-      console.error('Failed to get deleted stickers:', error);
+      logger.error('Failed to get deleted stickers:', error);
       return [];
     }
   },
@@ -436,7 +468,8 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.DELETED_STICKERS, json);
       memoryCache.deletedStickers = { data: stickers, raw: json };
     } catch (error) {
-      console.error('Failed to save deleted stickers:', error);
+      logger.error('Failed to save deleted stickers:', error);
+      notifyStorageFailure();
     }
   },
 };

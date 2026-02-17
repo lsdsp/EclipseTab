@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sticker, StickerInput, DEFAULT_TEXT_STYLE } from '../types';
 import { storage } from '../utils/storage';
+import {
+    ensureStickerAsset,
+    hydrateStickerForRuntime,
+    removeStickerAssetIfPresent,
+    toStorageSticker,
+} from '../utils/stickerAssets';
+import { normalizeStickerCoordinatesForStorage } from '../utils/stickerCoordinates';
+import { logger } from '../utils/logger';
 
 // 防抖保存延迟 (ms)
 const SAVE_DEBOUNCE_MS = 500;
@@ -39,6 +47,42 @@ const generateId = (): string => {
     return `sticker-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 };
 
+const getViewportSize = () => {
+    if (typeof window === 'undefined') {
+        return { width: 1920, height: 1080 };
+    }
+
+    return {
+        width: Math.max(window.innerWidth, 1),
+        height: Math.max(window.innerHeight, 1),
+    };
+};
+
+const areStickerListsEqual = (left: Sticker[], right: Sticker[]): boolean => {
+    if (left.length !== right.length) return false;
+    return left.every((sticker, index) => {
+        const other = right[index];
+        if (!other) return false;
+
+        return (
+            sticker.id === other.id &&
+            sticker.type === other.type &&
+            sticker.content === other.content &&
+            sticker.assetId === other.assetId &&
+            sticker.x === other.x &&
+            sticker.y === other.y &&
+            sticker.xPct === other.xPct &&
+            sticker.yPct === other.yPct &&
+            sticker.zIndex === other.zIndex &&
+            sticker.scale === other.scale &&
+            sticker.style?.color === other.style?.color &&
+            sticker.style?.textAlign === other.style?.textAlign &&
+            sticker.style?.fontSize === other.style?.fontSize &&
+            sticker.style?.fontPreset === other.style?.fontPreset
+        );
+    });
+};
+
 // ============================================================================
 // Provider 实现
 // ============================================================================
@@ -49,17 +93,102 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [deletedStickers, setDeletedStickers] = useState<Sticker[]>(() => storage.getDeletedStickers());
     const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null);
 
-    // 防抖保存 ref
+    // 保存流程控制
     const saveTimeoutRef = useRef<number>();
+    const hasHydratedRef = useRef(false);
+    const hasSkippedInitialSaveRef = useRef(false);
+    const isMountedRef = useRef(true);
 
-    // 持久化：stickers 变化时防抖保存到 localStorage
     useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
+
+    // 运行时恢复：懒迁移坐标 + 读取已迁移图片资源
+    useEffect(() => {
+        let cancelled = false;
+
+        const hydrateFromStorage = async () => {
+            const viewport = getViewportSize();
+            try {
+                const [hydratedStickers, hydratedDeleted] = await Promise.all([
+                    Promise.all(stickers.map(sticker => hydrateStickerForRuntime(sticker, viewport))),
+                    Promise.all(deletedStickers.map(sticker => hydrateStickerForRuntime(sticker, viewport))),
+                ]);
+
+                if (cancelled) return;
+
+                if (!areStickerListsEqual(stickers, hydratedStickers)) {
+                    setStickers(hydratedStickers);
+                }
+
+                if (!areStickerListsEqual(deletedStickers, hydratedDeleted)) {
+                    setDeletedStickers(hydratedDeleted);
+                }
+            } catch (error) {
+                logger.error('[ZenShelf] Failed to hydrate stickers', error);
+            } finally {
+                if (!cancelled) {
+                    hasHydratedRef.current = true;
+                }
+            }
+        };
+
+        void hydrateFromStorage();
+
+        return () => {
+            cancelled = true;
+        };
+        // 仅初始化执行，后续通过 state 更新驱动
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // 持久化：stickers 变化时防抖保存到 localStorage（图片资源懒迁移到 IndexedDB）
+    useEffect(() => {
+        if (!hasHydratedRef.current) {
+            return;
+        }
+
+        if (!hasSkippedInitialSaveRef.current) {
+            hasSkippedInitialSaveRef.current = true;
+            return;
+        }
+
         if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
         }
+
         saveTimeoutRef.current = window.setTimeout(() => {
-            storage.saveStickers(stickers);
-            storage.saveDeletedStickers(deletedStickers);
+            const persist = async () => {
+                const viewport = getViewportSize();
+                try {
+                    const runtimeStickers = await Promise.all(stickers.map(async (sticker) => {
+                        const normalized = normalizeStickerCoordinatesForStorage(sticker, viewport);
+                        return ensureStickerAsset(normalized);
+                    }));
+                    const runtimeDeleted = await Promise.all(deletedStickers.map(async (sticker) => {
+                        const normalized = normalizeStickerCoordinatesForStorage(sticker, viewport);
+                        return ensureStickerAsset(normalized);
+                    }));
+
+                    if (isMountedRef.current) {
+                        if (!areStickerListsEqual(stickers, runtimeStickers)) {
+                            setStickers(runtimeStickers);
+                        }
+                        if (!areStickerListsEqual(deletedStickers, runtimeDeleted)) {
+                            setDeletedStickers(runtimeDeleted);
+                        }
+                    }
+
+                    storage.saveStickers(runtimeStickers.map(toStorageSticker));
+                    storage.saveDeletedStickers(runtimeDeleted.map(toStorageSticker));
+                } catch (error) {
+                    logger.error('[ZenShelf] Failed to persist stickers', error);
+                }
+            };
+
+            void persist();
         }, SAVE_DEBOUNCE_MS);
 
         return () => {
@@ -68,10 +197,6 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
         };
     }, [stickers, deletedStickers]);
-
-
-
-
 
     // ========================================================================
     // 操作函数
@@ -108,6 +233,10 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 const newDeleted = [stickerToDelete, ...prev];
                 // Limit to 30 items
                 if (newDeleted.length > 30) {
+                    const overflow = newDeleted.slice(30);
+                    overflow.forEach(sticker => {
+                        void removeStickerAssetIfPresent(sticker);
+                    });
                     return newDeleted.slice(0, 30);
                 }
                 return newDeleted;
@@ -131,11 +260,22 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, []);
 
     const permanentlyDeleteSticker = useCallback((id: string) => {
-        setDeletedStickers(prev => prev.filter(s => s.id !== id));
+        setDeletedStickers(prev => {
+            const target = prev.find(sticker => sticker.id === id);
+            if (target) {
+                void removeStickerAssetIfPresent(target);
+            }
+            return prev.filter(sticker => sticker.id !== id);
+        });
     }, []);
 
     const clearRecycleBin = useCallback(() => {
-        setDeletedStickers([]);
+        setDeletedStickers(prev => {
+            prev.forEach(sticker => {
+                void removeStickerAssetIfPresent(sticker);
+            });
+            return [];
+        });
     }, []);
 
     const bringToTop = useCallback((id: string) => {

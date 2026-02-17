@@ -54,6 +54,7 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({
         <ul
             ref={listRef}
             className={styles.suggestionsList}
+            data-ui-zone="search-suggestions"
             style={position}
         >
             {suggestions.map((suggestion, index) => (

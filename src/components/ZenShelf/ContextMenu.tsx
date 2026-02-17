@@ -130,6 +130,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         <div
             ref={menuRef}
             className={styles.contextMenu}
+            data-ui-zone="zen-context-menu"
             style={{ left: adjustedX, top: adjustedY }}
             onClick={(e) => e.stopPropagation()}
         >

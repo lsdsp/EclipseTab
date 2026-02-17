@@ -20,6 +20,11 @@ export default defineConfig({
         'src/context/dockSync.ts',
         'src/utils/iconCache.ts',
         'src/utils/imageCompression.ts',
+        'src/hooks/useWallpaperStorage.ts',
+        'src/utils/stickerCoordinates.ts',
+        'src/utils/stickerAssets.ts',
+        'src/utils/objectUrlQueue.ts',
+        'src/utils/dockInsertIndex.ts',
       ],
       thresholds: {
         statements: 30,

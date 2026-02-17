@@ -257,6 +257,7 @@ export const FolderView: React.FC<FolderViewProps> = ({
     <>
       <div
         className={styles.popupWrapper}
+        data-ui-zone="folder"
         style={popupWrapperStyle}
         onClick={(e) => e.stopPropagation()}
       >
@@ -264,6 +265,7 @@ export const FolderView: React.FC<FolderViewProps> = ({
           ref={containerRef}
           className={`${styles.container} ${styles.popover}`}
           data-folder-view="true"
+          data-ui-zone="folder"
           style={containerStyle}
         >
           <div

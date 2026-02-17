@@ -4,6 +4,8 @@ import { useZenShelf } from '../../context/ZenShelfContext';
 import { Sticker, IMAGE_MAX_WIDTH } from '../../types';
 import { compressStickerImage } from '../../utils/imageCompression';
 import { copyBlobToClipboard, createImageStickerImage, createTextStickerImage, downloadBlob, imageToBlob } from '../../utils/canvasUtils';
+import { db } from '../../utils/db';
+import { resolveStickerPosition, updateStickerPercentCoordinates } from '../../utils/stickerCoordinates';
 import { StickerItem } from './StickerItem';
 import { TextInput } from './TextInput';
 import { ContextMenu } from './ContextMenu';
@@ -12,19 +14,7 @@ import { RecycleBinModal } from './RecycleBinModal';
 import { type StickerFontPreset } from '../../constants/stickerFonts';
 import styles from './ZenShelf.module.css';
 
-// UI 元素选择器 - 右键这些区域不会触发上下文菜单
-const UI_SELECTORS = [
-    '[data-dock-container]',
-    '.dock',
-    'header',
-    '[class*="Searcher"]',
-    '[class*="Modal"]',
-    '[class*="Settings"]',
-    '[class*="Editor"]',
-    '[class*="FolderView"]',
-    '[class*="textInputPopup"]',
-    '[class*="contextMenu"]',
-].join(', ');
+const UI_ZONE_SELECTOR = '[data-ui-zone]';
 
 
 // ============================================================================
@@ -49,18 +39,20 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         stickerId?: string;
     } | null>(null);
 
-    // 响应式缩放的参考宽度（以 1920px 为基准）
-    const REFERENCE_WIDTH = 1920;
-
     const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
 
-    // 用于响应式贴纸尺寸的视口缩放比例
-    const [viewportScale, setViewportScale] = useState(() => window.innerWidth / REFERENCE_WIDTH);
+    const [viewport, setViewport] = useState(() => ({
+        width: Math.max(window.innerWidth, 1),
+        height: Math.max(window.innerHeight, 1),
+    }));
 
     // 处理窗口调整大小以实现响应式贴纸布局
     useEffect(() => {
         const handleResize = () => {
-            setViewportScale(window.innerWidth / REFERENCE_WIDTH);
+            setViewport({
+                width: Math.max(window.innerWidth, 1),
+                height: Math.max(window.innerHeight, 1),
+            });
         };
 
         window.addEventListener('resize', handleResize);
@@ -69,6 +61,20 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
 
     const [editingSticker, setEditingSticker] = useState<Sticker | null>(null);
     const [isAnyDragging, setIsAnyDragging] = useState(false);
+
+    const runtimeStickers = stickers.map((sticker) => ({
+        ...sticker,
+        ...resolveStickerPosition(sticker, viewport),
+    }));
+
+    const resolveImageStickerContent = useCallback(async (sticker: Sticker): Promise<string | null> => {
+        if (sticker.type !== 'image') return null;
+        if (sticker.content) return sticker.content;
+        if (!sticker.assetId) return null;
+
+        const asset = await db.getStickerAsset(sticker.assetId);
+        return asset?.data || null;
+    }, []);
 
     const handleStickerDragStart = useCallback(() => {
         setIsAnyDragging(true);
@@ -84,7 +90,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
             const target = e.target as HTMLElement;
 
             // 不在 UI 元素上显示
-            if (target.closest(UI_SELECTORS)) {
+            if (target.closest(UI_ZONE_SELECTOR)) {
                 return;
             }
 
@@ -122,7 +128,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         const handleDoubleClick = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
 
-            if (target.closest(UI_SELECTORS)) {
+            if (target.closest(UI_ZONE_SELECTOR)) {
                 return;
             }
 
@@ -173,14 +179,22 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
             const compressed = await compressStickerImage(base64);
             const img = new Image();
             img.onload = () => {
-                // 在参考坐标系（1920px 基准）中存储位置
-                const x = (window.innerWidth / 2 - Math.min(img.width, IMAGE_MAX_WIDTH) / 2) / viewportScale;
-                const y = (window.innerHeight / 2 - (img.height * Math.min(img.width, IMAGE_MAX_WIDTH) / img.width) / 2) / viewportScale;
-                addSticker({
+                const x = window.innerWidth / 2 - Math.min(img.width, IMAGE_MAX_WIDTH) / 2;
+                const y = window.innerHeight / 2 - (img.height * Math.min(img.width, IMAGE_MAX_WIDTH) / img.width) / 2;
+                const withPercent = updateStickerPercentCoordinates({
+                    id: '',
                     type: 'image',
                     content: compressed,
                     x,
                     y,
+                }, viewport);
+                addSticker({
+                    type: 'image',
+                    content: compressed,
+                    x: withPercent.x,
+                    y: withPercent.y,
+                    xPct: withPercent.xPct,
+                    yPct: withPercent.yPct,
                 });
             };
             img.src = compressed;
@@ -190,7 +204,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
-    }, [addSticker, viewportScale]);
+    }, [addSticker, viewport]);
 
     // 处理文本输入提交
     const handleTextSubmit = useCallback((content: string, style?: { color: string; textAlign: 'left' | 'center' | 'right'; fontSize: number; fontPreset: StickerFontPreset }) => {
@@ -205,12 +219,26 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                 } : editingSticker.style,
             });
         } else if (textInputPos) {
-            // 在参考坐标系中存储位置
+            const withPercent = updateStickerPercentCoordinates({
+                id: '',
+                type: 'text',
+                content,
+                x: textInputPos.x,
+                y: textInputPos.y,
+                style: style ? {
+                    color: style.color,
+                    textAlign: style.textAlign,
+                    fontSize: style.fontSize,
+                    fontPreset: style.fontPreset,
+                } : undefined,
+            }, viewport);
             addSticker({
                 type: 'text',
                 content,
-                x: textInputPos.x / viewportScale,
-                y: textInputPos.y / viewportScale,
+                x: withPercent.x,
+                y: withPercent.y,
+                xPct: withPercent.xPct,
+                yPct: withPercent.yPct,
                 style: style ? {
                     color: style.color,
                     textAlign: style.textAlign,
@@ -221,7 +249,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         }
         setTextInputPos(null);
         setEditingSticker(null);
-    }, [textInputPos, editingSticker, addSticker, updateSticker, viewportScale]);
+    }, [textInputPos, editingSticker, addSticker, updateSticker, viewport]);
 
     const handleTextCancel = useCallback(() => {
         setTextInputPos(null);
@@ -230,15 +258,15 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
 
     const handleEditSticker = useCallback((sticker: Sticker) => {
         setEditingSticker(sticker);
-        setTextInputPos({ x: sticker.x * viewportScale, y: sticker.y * viewportScale });
-    }, [viewportScale]);
+        setTextInputPos({ x: sticker.x, y: sticker.y });
+    }, []);
 
     // 处理粘贴 - 添加图片贴纸
     useEffect(() => {
         const handlePaste = async (e: ClipboardEvent) => {
             const activeElement = document.activeElement;
             if (activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA') {
-                if (activeElement.closest('[class*="Searcher"]') || activeElement.closest('[class*="textInputPopup"]')) {
+                if (activeElement.closest('[data-ui-zone]')) {
                     return;
                 }
             }
@@ -258,14 +286,22 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                         const compressed = await compressStickerImage(base64);
                         const img = new Image();
                         img.onload = () => {
-                            // 在参考坐标系中存储位置
-                            const x = (window.innerWidth / 2 - Math.min(img.width, IMAGE_MAX_WIDTH) / 2) / viewportScale;
-                            const y = (window.innerHeight / 2 - (img.height * Math.min(img.width, IMAGE_MAX_WIDTH) / img.width) / 2) / viewportScale;
-                            addSticker({
+                            const x = window.innerWidth / 2 - Math.min(img.width, IMAGE_MAX_WIDTH) / 2;
+                            const y = window.innerHeight / 2 - (img.height * Math.min(img.width, IMAGE_MAX_WIDTH) / img.width) / 2;
+                            const withPercent = updateStickerPercentCoordinates({
+                                id: '',
                                 type: 'image',
                                 content: compressed,
                                 x,
                                 y,
+                            }, viewport);
+                            addSticker({
+                                type: 'image',
+                                content: compressed,
+                                x: withPercent.x,
+                                y: withPercent.y,
+                                xPct: withPercent.xPct,
+                                yPct: withPercent.yPct,
                             });
                         };
                         img.src = compressed;
@@ -278,14 +314,14 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
 
         document.addEventListener('paste', handlePaste);
         return () => document.removeEventListener('paste', handlePaste);
-    }, [addSticker, viewportScale]);
+    }, [addSticker, viewport]);
 
     return (
         <div
             ref={canvasRef}
             className={`${styles.canvas} ${isEditMode ? styles.creativeMode : ''} ${isAnyDragging ? styles.dragging : ''}`}
         >
-            {stickers
+            {runtimeStickers
                 .filter((sticker) => !editingSticker || sticker.id !== editingSticker.id)
                 .map((sticker) => (
                     <StickerItem
@@ -295,7 +331,15 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                         isCreativeMode={isEditMode}
                         onSelect={() => selectSticker(sticker.id)}
                         onDelete={() => deleteSticker(sticker.id)}
-                        onPositionChange={(x, y) => updateSticker(sticker.id, { x, y })}
+                        onPositionChange={(x, y) => {
+                            const next = updateStickerPercentCoordinates({ ...sticker, x, y }, viewport);
+                            updateSticker(sticker.id, {
+                                x: next.x,
+                                y: next.y,
+                                xPct: next.xPct,
+                                yPct: next.yPct,
+                            });
+                        }}
                         onStyleChange={(updates) => {
                             if (sticker.style) {
                                 updateSticker(sticker.id, { style: { ...sticker.style, ...updates } });
@@ -306,7 +350,6 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                             updateSticker(sticker.id, { scale });
                         }}
                         isEditMode={isEditMode}
-                        viewportScale={viewportScale}
                         onDoubleClick={() => {
                             if (sticker.type === 'text') {
                                 handleEditSticker(sticker);
@@ -325,7 +368,6 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                     initialStyle={editingSticker?.style}
                     onSubmit={handleTextSubmit}
                     onCancel={handleTextCancel}
-                    viewportScale={viewportScale}
                 />
             )}
 
@@ -347,7 +389,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                     type={contextMenu.type}
                     stickerId={contextMenu.stickerId}
                     isImageSticker={(() => {
-                        const sticker = stickers.find(s => s.id === contextMenu.stickerId);
+                        const sticker = runtimeStickers.find(s => s.id === contextMenu.stickerId);
                         return sticker?.type === 'image';
                     })()}
                     onClose={() => setContextMenu(null)}
@@ -362,7 +404,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                     }}
                     isEditMode={isEditMode}
                     onEditSticker={() => {
-                        const sticker = stickers.find(s => s.id === contextMenu.stickerId);
+                        const sticker = runtimeStickers.find(s => s.id === contextMenu.stickerId);
                         if (sticker) {
                             handleEditSticker(sticker);
                         }
@@ -373,9 +415,11 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                         }
                     }}
                     onCopyImage={async () => {
-                        const sticker = stickers.find(s => s.id === contextMenu.stickerId);
+                        const sticker = runtimeStickers.find(s => s.id === contextMenu.stickerId);
                         if (sticker && sticker.type === 'image') {
                             try {
+                                const source = await resolveImageStickerContent(sticker);
+                                if (!source) return;
                                 const img = new Image();
                                 img.onload = async () => {
                                     const blob = await imageToBlob(img);
@@ -383,14 +427,14 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                                         await copyBlobToClipboard(blob);
                                     }
                                 };
-                                img.src = sticker.content;
+                                img.src = source;
                             } catch (error) {
                                 console.error('Failed to copy image:', error);
                             }
                         }
                     }}
                     onExportImage={async () => {
-                        const sticker = stickers.find(s => s.id === contextMenu.stickerId);
+                        const sticker = runtimeStickers.find(s => s.id === contextMenu.stickerId);
                         if (sticker && sticker.type === 'text') {
                             try {
                                 const blob = await createTextStickerImage(sticker);
@@ -403,16 +447,22 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                         }
                     }}
                     onCopyText={() => {
-                        const sticker = stickers.find(s => s.id === contextMenu.stickerId);
+                        const sticker = runtimeStickers.find(s => s.id === contextMenu.stickerId);
                         if (sticker && sticker.type === 'text') {
                             navigator.clipboard.writeText(sticker.content);
                         }
                     }}
                     onExportImageSticker={async () => {
-                        const sticker = stickers.find(s => s.id === contextMenu.stickerId);
+                        const sticker = runtimeStickers.find(s => s.id === contextMenu.stickerId);
                         if (sticker && sticker.type === 'image') {
                             try {
-                                const blob = await createImageStickerImage(sticker);
+                                const source = await resolveImageStickerContent(sticker);
+                                if (!source) return;
+
+                                const blob = await createImageStickerImage({
+                                    ...sticker,
+                                    content: source,
+                                });
                                 if (blob) {
                                     downloadBlob(blob, `sticker-${Date.now()}.png`);
                                 }
