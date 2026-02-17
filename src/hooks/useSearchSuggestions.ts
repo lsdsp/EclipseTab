@@ -1,10 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { fetchSuggestions, isAbortError } from './searchSuggestions';
+import {
+    fetchSuggestions,
+    isAbortError,
+    requestSuggestionPermissions,
+    SuggestionPermissionStatus,
+} from './searchSuggestions';
 
 interface UseSearchSuggestionsResult {
     suggestions: string[];
     isLoading: boolean;
     error: Error | null;
+    permissionStatus: SuggestionPermissionStatus;
+    requestPermission: () => Promise<boolean>;
 }
 
 /**
@@ -20,7 +27,9 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
-    const latestRequestRef = useRef<string>('');
+    const [permissionStatus, setPermissionStatus] = useState<SuggestionPermissionStatus>('granted');
+    const requestSequenceRef = useRef(0);
+    const latestRequestRef = useRef(0);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchWithDebounce = useCallback(async (searchQuery: string) => {
@@ -30,12 +39,13 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
         if (!trimmedQuery) {
             setSuggestions([]);
             setError(null);
-            latestRequestRef.current = `cleared_${Date.now()}`;
+            setPermissionStatus('granted');
+            latestRequestRef.current = ++requestSequenceRef.current;
             return;
         }
 
         // 跟踪当前请求以处理竞态条件
-        const currentRequestId = `req_${Date.now()}`;
+        const currentRequestId = ++requestSequenceRef.current;
         latestRequestRef.current = currentRequestId;
 
         // 如果存在之前的请求，则将其取消
@@ -48,7 +58,7 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
         setError(null);
 
         try {
-            const results = await fetchSuggestions(trimmedQuery, {
+            const result = await fetchSuggestions(trimmedQuery, {
                 signal: abortControllerRef.current.signal,
                 // 开发环境允许在无扩展权限 API 时获取建议，便于本地调试
                 allowWithoutExtensionPermission: import.meta.env.DEV,
@@ -56,8 +66,9 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
 
             // 仅当这仍然是最新请求时才更新状态
             if (latestRequestRef.current === currentRequestId) {
+                setPermissionStatus(result.permissionStatus);
                 // Limit to 10 suggestions
-                setSuggestions(results.slice(0, 10));
+                setSuggestions(result.suggestions.slice(0, 10));
             }
         } catch (err) {
             if (isAbortError(err)) {
@@ -73,6 +84,14 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
             }
         }
     }, []);
+
+    const requestPermission = useCallback(async () => {
+        const granted = await requestSuggestionPermissions();
+        if (granted && query.trim()) {
+            await fetchWithDebounce(query);
+        }
+        return granted;
+    }, [fetchWithDebounce, query]);
 
     useEffect(() => {
         // Debounce: 300ms
@@ -94,5 +113,5 @@ export function useSearchSuggestions(query: string): UseSearchSuggestionsResult 
         };
     }, []);
 
-    return { suggestions, isLoading, error };
+    return { suggestions, isLoading, error, permissionStatus, requestPermission };
 }

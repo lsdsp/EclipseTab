@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { SearchEngine } from '../../types';
 import styles from './Searcher.module.css';
 import { useSearchSuggestions } from '../../hooks/useSearchSuggestions';
@@ -23,7 +23,8 @@ export const Searcher: React.FC<SearcherProps> = ({
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { suggestions } = useSearchSuggestions(query);
+  const { suggestions, permissionStatus, requestPermission } = useSearchSuggestions(query);
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
 
   // 动画状态管理
   const showSuggestions = isFocused && suggestions.length > 0;
@@ -104,6 +105,22 @@ export const Searcher: React.FC<SearcherProps> = ({
   }, [shouldRender, suggestions]);
 
   const { t } = useLanguage();
+  const shouldShowPermissionPrompt =
+    isFocused &&
+    query.trim().length > 0 &&
+    permissionStatus === 'missing' &&
+    suggestions.length === 0;
+
+  const handleEnableSuggestions = useCallback(async () => {
+    if (isRequestingPermission) return;
+    setIsRequestingPermission(true);
+    try {
+      await requestPermission();
+    } finally {
+      setIsRequestingPermission(false);
+      inputRef.current?.focus();
+    }
+  }, [isRequestingPermission, requestPermission]);
 
   return (
     <header ref={containerRef} className={styles.searcher} style={containerStyle}>
@@ -117,6 +134,23 @@ export const Searcher: React.FC<SearcherProps> = ({
           isExiting={isExiting}
           anchorRect={anchorRect}
         />
+      )}
+
+      {shouldShowPermissionPrompt && (
+        <div className={styles.permissionPrompt}>
+          <span className={styles.permissionPromptText}>{t.search.enableSuggestionsHint}</span>
+          <button
+            type="button"
+            className={styles.permissionPromptButton}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={handleEnableSuggestions}
+            disabled={isRequestingPermission}
+          >
+            {isRequestingPermission
+              ? t.search.enablingSuggestionsAction
+              : t.search.enableSuggestionsAction}
+          </button>
+        </div>
       )}
 
       <div className={styles.innerContainer}>

@@ -24,6 +24,11 @@ const STICKER_COMPRESSION_QUALITY = 0.85;
 let reusableIconCanvas: HTMLCanvasElement | OffscreenCanvas | null = null;
 let reusableIconCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
 
+interface CompressIconOptions {
+    fetchImpl?: typeof fetch;
+    blobToDataUrl?: (blob: Blob) => Promise<string>;
+}
+
 /**
  * 获取可复用的 Canvas (优先使用 OffscreenCanvas)
  */
@@ -39,6 +44,9 @@ function getReusableIconCanvas(width: number, height: number): {
                 reusableIconCanvas = new OffscreenCanvas(width, height);
                 reusableIconCtx = reusableIconCanvas.getContext('2d');
             } else {
+                if (typeof document === 'undefined') {
+                    return null;
+                }
                 // 回退到普通 Canvas
                 reusableIconCanvas = document.createElement('canvas');
                 reusableIconCanvas.width = width;
@@ -64,15 +72,35 @@ function getReusableIconCanvas(width: number, height: number): {
     }
 }
 
-/**
- * 压缩 Base64 图标到指定尺寸 (192x192)
- * 性能优化: 使用复用的 Canvas 实例
- * @param dataUrl Base64 编码的图片
- * @returns 压缩后的 Base64 图片
- */
-export async function compressIcon(dataUrl: string): Promise<string> {
+const isHttpIconUrl = (value: string): boolean => /^https?:\/\//i.test(value);
+
+const readBlobAsDataUrl = (blob: Blob): Promise<string> => {
+    if (typeof FileReader === 'undefined') {
+        return Promise.reject(new Error('FileReader is not available'));
+    }
+
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const result = reader.result;
+            if (typeof result === 'string') {
+                resolve(result);
+                return;
+            }
+            reject(new Error('Failed to read image blob'));
+        };
+        reader.onerror = () => reject(new Error('Failed to read image blob'));
+        reader.readAsDataURL(blob);
+    });
+};
+
+const compressDataUrlIcon = async (dataUrl: string): Promise<string> => {
     // 如果不是有效的 data URL，直接返回
     if (!dataUrl?.startsWith('data:image')) {
+        return dataUrl;
+    }
+
+    if (typeof Image === 'undefined') {
         return dataUrl;
     }
 
@@ -109,6 +137,11 @@ export async function compressIcon(dataUrl: string): Promise<string> {
                 // 转换为 WebP 格式
                 let compressedDataUrl: string;
                 if (canvas instanceof OffscreenCanvas) {
+                    if (typeof document === 'undefined') {
+                        resolve(dataUrl);
+                        return;
+                    }
+
                     // OffscreenCanvas 需要使用 convertToBlob (异步)
                     // 但为了保持同步 API，这里仍使用 HTMLCanvasElement 回退
                     // 注意: OffscreenCanvas 的 toDataURL 在某些浏览器不支持
@@ -147,6 +180,53 @@ export async function compressIcon(dataUrl: string): Promise<string> {
 
         img.src = dataUrl;
     });
+};
+
+/**
+ * 压缩图标到指定尺寸 (192x192)
+ * 支持 data URL 与网络 URL；网络 URL 会先转成 data URL 再压缩
+ * 性能优化: 使用复用的 Canvas 实例
+ * @param iconSource 图标来源（data URL 或 http(s) URL）
+ * @returns 压缩后的 Base64 图片
+ */
+export async function compressIcon(
+    iconSource: string,
+    options: CompressIconOptions = {}
+): Promise<string> {
+    if (!iconSource) {
+        return iconSource;
+    }
+
+    if (iconSource.startsWith('data:image')) {
+        return compressDataUrlIcon(iconSource);
+    }
+
+    if (!isHttpIconUrl(iconSource)) {
+        return iconSource;
+    }
+
+    const { fetchImpl = fetch, blobToDataUrl = readBlobAsDataUrl } = options;
+
+    try {
+        const response = await fetchImpl(iconSource);
+        if (!response.ok) {
+            return iconSource;
+        }
+
+        const iconBlob = await response.blob();
+        if (!iconBlob.type.startsWith('image/')) {
+            return iconSource;
+        }
+
+        const iconDataUrl = await blobToDataUrl(iconBlob);
+        if (!iconDataUrl.startsWith('data:image')) {
+            return iconSource;
+        }
+
+        return await compressDataUrlIcon(iconDataUrl);
+    } catch {
+        return iconSource;
+    }
 }
 
 /**

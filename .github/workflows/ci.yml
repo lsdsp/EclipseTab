@@ -30,8 +30,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Unit tests
-        run: npm run test:unit
+      - name: Unit tests with coverage
+        run: npm run test:unit:cov
 
       - name: Build
         run: npm run build

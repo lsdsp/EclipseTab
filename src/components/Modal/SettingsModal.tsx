@@ -15,6 +15,7 @@ import asteriskIcon from '../../assets/icons/asterisk.svg';
 import circleIcon from '../../assets/icons/texture background/circle-preview.svg';
 import crossIcon from '../../assets/icons/texture background/cross-preview.svg';
 import { WallpaperGallery } from '../WallpaperGallery/WallpaperGallery';
+import { SUGGESTION_PERMISSION_REQUEST_ORIGINS } from '../../hooks/searchSuggestions';
 
 
 interface SettingsModalProps {
@@ -22,12 +23,6 @@ interface SettingsModalProps {
     onClose: () => void;
     anchorPosition: { x: number; y: number };
 }
-
-const REQUIRED_ORIGINS = [
-    'https://suggestqueries.google.com/*',
-    'https://www.google.com/*',
-    'https://suggestion.baidu.com/*'
-];
 
 // 简单的权限切换组件
 const PermissionToggle: React.FC = () => {
@@ -39,7 +34,7 @@ const PermissionToggle: React.FC = () => {
         // 检查初始权限状态
         if (typeof chrome !== 'undefined' && chrome.permissions) {
             chrome.permissions.contains({
-                origins: REQUIRED_ORIGINS
+                origins: [...SUGGESTION_PERMISSION_REQUEST_ORIGINS]
             }, (result) => {
                 setEnabled(result);
             });
@@ -67,7 +62,7 @@ const PermissionToggle: React.FC = () => {
 
         if (enabled) {
             // 移除权限
-            chrome.permissions.remove({ origins: REQUIRED_ORIGINS }, (removed) => {
+            chrome.permissions.remove({ origins: [...SUGGESTION_PERMISSION_REQUEST_ORIGINS] }, (removed) => {
                 if (removed) {
                     setEnabled(false);
                 }
@@ -75,7 +70,7 @@ const PermissionToggle: React.FC = () => {
             });
         } else {
             // 请求权限
-            chrome.permissions.request({ origins: REQUIRED_ORIGINS }, (granted) => {
+            chrome.permissions.request({ origins: [...SUGGESTION_PERMISSION_REQUEST_ORIGINS] }, (granted) => {
                 if (granted) {
                     setEnabled(true);
                 }

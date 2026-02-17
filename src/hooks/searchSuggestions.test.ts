@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchSuggestions } from './searchSuggestions';
+import { fetchSuggestions, requestSuggestionPermissions } from './searchSuggestions';
 
 const createJsonResponse = (data: unknown, ok: boolean = true): Response => {
   return {
@@ -48,7 +48,10 @@ describe('fetchSuggestions', () => {
       fetchImpl: fetchMock as unknown as typeof fetch,
     });
 
-    expect(result).toEqual(['hello world', 'hello kitty']);
+    expect(result).toEqual({
+      suggestions: ['hello world', 'hello kitty'],
+      permissionStatus: 'granted',
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -66,13 +69,40 @@ describe('fetchSuggestions', () => {
       fetchImpl: fetchMock as unknown as typeof fetch,
     });
 
-    expect(result).toEqual(['hello from baidu']);
+    expect(result).toEqual({
+      suggestions: ['hello from baidu'],
+      permissionStatus: 'granted',
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect((fetchMock.mock.calls[0] as [string])[0]).toContain('suggestqueries.google.com');
     expect((fetchMock.mock.calls[1] as [string])[0]).toContain('suggestion.baidu.com');
   });
 
-  it('returns empty array when extension permission API denies access', async () => {
+  it('uses Baidu directly when Google permission is missing', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(createJsonResponse(['hello', ['hello from baidu']]));
+    const hasPermissionForOrigin = vi.fn(async (origin: string) => origin.includes('baidu'));
+    setChrome({
+      permissions: {
+        contains: (_permissions: { origins: string[] }, callback: (result: boolean) => void) =>
+          callback(true),
+      },
+      runtime: {},
+    });
+
+    const result = await fetchSuggestions('hello', {
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      hasPermissionForOrigin,
+    });
+
+    expect(result).toEqual({
+      suggestions: ['hello from baidu'],
+      permissionStatus: 'granted',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect((fetchMock.mock.calls[0] as [string])[0]).toContain('suggestion.baidu.com');
+  });
+
+  it('returns missing permission status when both suggestion origins are denied', async () => {
     const fetchMock = vi.fn();
     const chromeMock = {
       permissions: {
@@ -87,7 +117,24 @@ describe('fetchSuggestions', () => {
       fetchImpl: fetchMock as unknown as typeof fetch,
     });
 
-    expect(result).toEqual([]);
+    expect(result).toEqual({
+      suggestions: [],
+      permissionStatus: 'missing',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('returns unavailable permission status when extension permissions API is absent', async () => {
+    const fetchMock = vi.fn();
+
+    const result = await fetchSuggestions('hello', {
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({
+      suggestions: [],
+      permissionStatus: 'unavailable',
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -103,5 +150,22 @@ describe('fetchSuggestions', () => {
     ).rejects.toMatchObject({ name: 'AbortError' });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('requests optional host permissions when API is available', async () => {
+    const chromeMock = {
+      permissions: {
+        request: (_permissions: { origins: string[] }, callback: (result: boolean) => void) =>
+          callback(true),
+      },
+      runtime: {},
+    };
+    setChrome(chromeMock);
+
+    await expect(requestSuggestionPermissions()).resolves.toBe(true);
+  });
+
+  it('returns false when permission request API is unavailable', async () => {
+    await expect(requestSuggestionPermissions()).resolves.toBe(false);
   });
 });

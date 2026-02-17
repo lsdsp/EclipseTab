@@ -15,6 +15,50 @@
   box-shadow: var(--shadow-small);
 }
 
+.permissionPrompt {
+  margin-bottom: var(--spacing-padding-small);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-padding-small);
+  padding: 10px 12px;
+  border-radius: var(--radius-default-in);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.permissionPromptText {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.permissionPromptButton {
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-small);
+  padding: 6px 10px;
+  font-family: var(--font-family);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+  transition: opacity var(--transition-fast), background-color var(--transition-fast);
+}
+
+.permissionPromptButton:hover {
+  background: var(--color-bg-hover, var(--color-bg-secondary));
+}
+
+.permissionPromptButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* 内层容器 - 包含搜索输入和按钮 */
 .innerContainer {
   background: var(--color-bg-secondary);

@@ -26,6 +26,9 @@ interface Translations {
         searchBy: string;
         searchBySuffix: string;
         searchButton: string;
+        enableSuggestionsHint: string;
+        enableSuggestionsAction: string;
+        enablingSuggestionsAction: string;
         systemDefault: string;
         custom: string;
         customName: string;
@@ -133,6 +136,9 @@ const translations: Record<Language, Translations> = {
             searchBy: 'Search by',
             searchBySuffix: '',
             searchButton: 'Search',
+            enableSuggestionsHint: 'Enable search suggestions to see autocomplete.',
+            enableSuggestionsAction: 'Enable',
+            enablingSuggestionsAction: 'Enabling...',
             systemDefault: 'System Default',
             custom: 'Custom',
             customName: 'Display Name',
@@ -238,6 +244,9 @@ const translations: Record<Language, Translations> = {
             searchBy: '使用',
             searchBySuffix: '',
             searchButton: '搜索',
+            enableSuggestionsHint: '开启搜索建议后可显示自动补全',
+            enableSuggestionsAction: '启用建议',
+            enablingSuggestionsAction: '启用中...',
             systemDefault: '系统默认',
             custom: '自定义',
             customName: '显示名称',
