@@ -18,13 +18,18 @@ export interface SuggestionFetchResult {
     permissionStatus: SuggestionPermissionStatus;
 }
 
-const GOOGLE_PERMISSION_ORIGIN = 'https://suggestqueries.google.com/*';
-const BAIDU_PERMISSION_ORIGIN = 'https://suggestion.baidu.com/*';
+export const GOOGLE_SUGGESTION_PERMISSION_ORIGIN = 'https://suggestqueries.google.com/*';
+export const BAIDU_SUGGESTION_PERMISSION_ORIGIN = 'https://suggestion.baidu.com/*';
+
+export const SUGGESTION_PROVIDER_ORIGINS = [
+    GOOGLE_SUGGESTION_PERMISSION_ORIGIN,
+    BAIDU_SUGGESTION_PERMISSION_ORIGIN,
+] as const;
 
 export const SUGGESTION_PERMISSION_REQUEST_ORIGINS = [
-    GOOGLE_PERMISSION_ORIGIN,
+    GOOGLE_SUGGESTION_PERMISSION_ORIGIN,
     'https://www.google.com/*',
-    BAIDU_PERMISSION_ORIGIN,
+    BAIDU_SUGGESTION_PERMISSION_ORIGIN,
 ] as const;
 
 const SUGGESTION_API: Record<'google' | 'baidu', SuggestionApiConfig> = {
@@ -177,8 +182,8 @@ export async function fetchSuggestions(
     const permissionApiAvailable = hasExtensionPermissionApi();
     if (permissionApiAvailable) {
         const [hasGooglePermission, hasBaiduPermission] = await Promise.all([
-            hasPermissionForOrigin(GOOGLE_PERMISSION_ORIGIN),
-            hasPermissionForOrigin(BAIDU_PERMISSION_ORIGIN),
+            hasPermissionForOrigin(GOOGLE_SUGGESTION_PERMISSION_ORIGIN),
+            hasPermissionForOrigin(BAIDU_SUGGESTION_PERMISSION_ORIGIN),
         ]);
         canUseGoogle = hasGooglePermission;
         canUseBaidu = hasBaiduPermission;

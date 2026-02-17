@@ -15,6 +15,12 @@
   box-shadow: var(--shadow-small);
 }
 
+@media (max-width: 600px) {
+  .searcher {
+    min-width: 0;
+  }
+}
+
 .permissionPrompt {
   margin-bottom: var(--spacing-padding-small);
   display: flex;
@@ -165,6 +171,8 @@
   border: none;
   flex-shrink: 0;
   color: var(--color-text-primary);
+  appearance: none;
+  font: inherit;
 }
 
 /* 星号图标 */

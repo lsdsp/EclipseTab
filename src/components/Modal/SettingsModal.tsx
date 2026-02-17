@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Theme, useTheme, Texture } from '../../context/ThemeContext';
 import { useSystemTheme } from '../../hooks/useSystemTheme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -15,7 +15,11 @@ import asteriskIcon from '../../assets/icons/asterisk.svg';
 import circleIcon from '../../assets/icons/texture background/circle-preview.svg';
 import crossIcon from '../../assets/icons/texture background/cross-preview.svg';
 import { WallpaperGallery } from '../WallpaperGallery/WallpaperGallery';
-import { SUGGESTION_PERMISSION_REQUEST_ORIGINS } from '../../hooks/searchSuggestions';
+import {
+    checkSuggestionPermissionForOrigin,
+    SUGGESTION_PERMISSION_REQUEST_ORIGINS,
+    SUGGESTION_PROVIDER_ORIGINS,
+} from '../../hooks/searchSuggestions';
 
 
 interface SettingsModalProps {
@@ -28,35 +32,35 @@ interface SettingsModalProps {
 const PermissionToggle: React.FC = () => {
     const [enabled, setEnabled] = useState<boolean | null>(null);
     const [loading, setLoading] = useState(false);
+    const [permissionApiAvailable, setPermissionApiAvailable] = useState(true);
     const { t } = useLanguage();
 
-    useEffect(() => {
-        // 检查初始权限状态
-        if (typeof chrome !== 'undefined' && chrome.permissions) {
-            chrome.permissions.contains({
-                origins: [...SUGGESTION_PERMISSION_REQUEST_ORIGINS]
-            }, (result) => {
-                setEnabled(result);
-            });
-        } else {
-            // 开发模式回退 - 检查本地存储
-            const savedState = localStorage.getItem('search_suggestions_enabled');
-            setEnabled(savedState === 'true');
+    const refreshPermissionState = useCallback(async () => {
+        if (typeof chrome === 'undefined' || !chrome.permissions?.contains) {
+            setPermissionApiAvailable(false);
+            setEnabled(false);
+            return;
         }
+
+        setPermissionApiAvailable(true);
+        const [googleAvailable, baiduAvailable] = await Promise.all(
+            SUGGESTION_PROVIDER_ORIGINS.map((origin) =>
+                checkSuggestionPermissionForOrigin(origin)
+            )
+        );
+        setEnabled(googleAvailable || baiduAvailable);
     }, []);
 
+    useEffect(() => {
+        void refreshPermissionState();
+    }, [refreshPermissionState]);
+
     const handleToggle = () => {
-        if (loading || enabled === null) return;
+        if (loading || enabled === null || !permissionApiAvailable) return;
         setLoading(true);
 
-        // 开发模式回退：如果缺少 chrome API，模拟切换并保存到本地存储
         if (typeof chrome === 'undefined' || !chrome.permissions) {
-            setTimeout(() => {
-                const newState = !enabled;
-                setEnabled(newState);
-                localStorage.setItem('search_suggestions_enabled', String(newState));
-                setLoading(false);
-            }, 300);
+            setLoading(false);
             return;
         }
 
@@ -64,7 +68,7 @@ const PermissionToggle: React.FC = () => {
             // 移除权限
             chrome.permissions.remove({ origins: [...SUGGESTION_PERMISSION_REQUEST_ORIGINS] }, (removed) => {
                 if (removed) {
-                    setEnabled(false);
+                    void refreshPermissionState();
                 }
                 setLoading(false);
             });
@@ -72,7 +76,7 @@ const PermissionToggle: React.FC = () => {
             // 请求权限
             chrome.permissions.request({ origins: [...SUGGESTION_PERMISSION_REQUEST_ORIGINS] }, (granted) => {
                 if (granted) {
-                    setEnabled(true);
+                    void refreshPermissionState();
                 }
                 setLoading(false);
             });
@@ -91,15 +95,17 @@ const PermissionToggle: React.FC = () => {
             )}
             <button
                 className={styles.layoutToggleOption}
-                onClick={enabled === true ? undefined : handleToggle}
+                onClick={enabled === true || !permissionApiAvailable ? undefined : handleToggle}
                 title={t.settings.on}
+                disabled={!permissionApiAvailable || loading}
             >
                 {t.settings.on}
             </button>
             <button
                 className={styles.layoutToggleOption}
-                onClick={enabled === false ? undefined : handleToggle}
+                onClick={enabled === false || !permissionApiAvailable ? undefined : handleToggle}
                 title={t.settings.off}
+                disabled={!permissionApiAvailable || loading}
             >
                 {t.settings.off}
             </button>
@@ -501,7 +507,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                     {/* 页脚 - GitHub 链接 */}
                     <div className={styles.footer}>
                         <a
-                            href="https://github.com/ENCRE0520/EclipseTab"
+                            href="https://github.com/lsdsp/EclipseTab"
                             target="_blank"
                             rel="noopener noreferrer"
                             className={styles.githubLink}

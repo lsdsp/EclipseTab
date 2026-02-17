@@ -22,6 +22,7 @@ export const Searcher: React.FC<SearcherProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimerRef = useRef<number | null>(null);
 
   const { suggestions, permissionStatus, requestPermission } = useSearchSuggestions(query);
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
@@ -48,6 +49,14 @@ export const Searcher: React.FC<SearcherProps> = ({
   useEffect(() => {
     // 自动聚焦搜索框
     inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (blurTimerRef.current !== null) {
+        window.clearTimeout(blurTimerRef.current);
+      }
+    };
   }, []);
 
   // 当建议列表变化时重置激活索引
@@ -153,7 +162,7 @@ export const Searcher: React.FC<SearcherProps> = ({
         </div>
       )}
 
-      <div className={styles.innerContainer}>
+      <form className={styles.innerContainer} onSubmit={handleSubmit}>
         <div className={styles.divider}></div>
         <div className={styles.searchInfo}>
           <div className={styles.searchTool}>
@@ -177,14 +186,26 @@ export const Searcher: React.FC<SearcherProps> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
+            onFocus={() => {
+              if (blurTimerRef.current !== null) {
+                window.clearTimeout(blurTimerRef.current);
+                blurTimerRef.current = null;
+              }
+              setIsFocused(true);
+            }}
             onBlur={() => {
               // 延迟隐藏建议列表以允许点击事件触发
-              setTimeout(() => setIsFocused(false), 200);
+              if (blurTimerRef.current !== null) {
+                window.clearTimeout(blurTimerRef.current);
+              }
+              blurTimerRef.current = window.setTimeout(() => {
+                setIsFocused(false);
+                blurTimerRef.current = null;
+              }, 200);
             }}
           />
         </div>
-        <div className={styles.iconContainer} onClick={handleSubmit}>
+        <button type="submit" className={styles.iconContainer}>
           <div className={styles.asteriskIcon}>
             {/* search.svg */}
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -199,8 +220,8 @@ export const Searcher: React.FC<SearcherProps> = ({
               <path d="M15 2.25C15.1989 2.25 15.3897 2.32902 15.5303 2.46967C15.671 2.61032 15.75 2.80109 15.75 3V4.083C15.75 5.31525 15.75 6.28575 15.6863 7.0665C15.6211 7.86375 15.4861 8.529 15.1778 9.1335C14.7043 10.1214 13.9009 10.9246 12.9128 11.4278C12.3083 11.7353 11.6431 11.871 10.8458 11.9363C10.0651 12 9.09461 12 7.86236 12H4.83986L7.30961 14.4697C7.4463 14.6112 7.52189 14.8007 7.52019 14.9973C7.51848 15.1939 7.43959 15.3821 7.30054 15.5211C7.16148 15.6602 6.97338 15.739 6.77672 15.7408C6.58007 15.7425 6.39062 15.6669 6.24911 15.5302L2.49911 11.7802C2.35851 11.6396 2.27952 11.4488 2.27952 11.25C2.27952 11.0511 2.35851 10.8604 2.49911 10.7197L6.24911 6.96975C6.39062 6.83313 6.58007 6.75754 6.77672 6.75924C6.97338 6.76095 7.16148 6.83983 7.30054 6.97889C7.43959 7.11794 7.51848 7.30605 7.52019 7.5027C7.52189 7.69935 7.4463 7.8888 7.30961 8.03025L4.83986 10.5H7.82936C9.10211 10.5 10.0111 10.5 10.7243 10.4415C11.4278 10.3837 11.8741 10.2735 12.2318 10.0913C12.9373 9.73173 13.5109 9.15808 13.8705 8.4525C14.0528 8.09475 14.1631 7.6485 14.2208 6.945C14.2786 6.23175 14.2793 5.32275 14.2793 4.05V3C14.2793 2.80109 14.3583 2.61032 14.499 2.46967C14.6396 2.32902 14.8304 2.25 15.0293 2.25H15Z" fill="currentColor" />
             </svg>
           </div>
-        </div>
-      </div>
+        </button>
+      </form>
     </header>
   );
 };

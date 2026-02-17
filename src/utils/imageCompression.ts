@@ -94,6 +94,42 @@ const readBlobAsDataUrl = (blob: Blob): Promise<string> => {
     });
 };
 
+const convertCanvasToDataUrl = async (
+    canvas: HTMLCanvasElement | OffscreenCanvas,
+    quality: number
+): Promise<string | null> => {
+    try {
+        if (typeof OffscreenCanvas !== 'undefined' && canvas instanceof OffscreenCanvas) {
+            if (typeof canvas.convertToBlob === 'function') {
+                const blob = await canvas.convertToBlob({ type: 'image/webp', quality });
+                return await readBlobAsDataUrl(blob);
+            }
+
+            if (typeof document === 'undefined') {
+                return null;
+            }
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            if (!tempCtx) {
+                return null;
+            }
+            tempCtx.drawImage(canvas, 0, 0);
+            return tempCanvas.toDataURL('image/webp', quality);
+        }
+
+        if (typeof HTMLCanvasElement !== 'undefined' && canvas instanceof HTMLCanvasElement) {
+            return canvas.toDataURL('image/webp', quality);
+        }
+    } catch {
+        return null;
+    }
+
+    return null;
+};
+
 const compressDataUrlIcon = async (dataUrl: string): Promise<string> => {
     // 如果不是有效的 data URL，直接返回
     if (!dataUrl?.startsWith('data:image')) {
@@ -107,7 +143,7 @@ const compressDataUrlIcon = async (dataUrl: string): Promise<string> => {
     return new Promise((resolve, _reject) => {
         const img = new Image();
 
-        img.onload = () => {
+        img.onload = async () => {
             try {
                 // 计算目标尺寸（保持宽高比，最大边为 ICON_TARGET_SIZE）
                 let { width, height } = img;
@@ -135,30 +171,13 @@ const compressDataUrlIcon = async (dataUrl: string): Promise<string> => {
                 ctx.drawImage(img, 0, 0, width, height);
 
                 // 转换为 WebP 格式
-                let compressedDataUrl: string;
-                if (canvas instanceof OffscreenCanvas) {
-                    if (typeof document === 'undefined') {
-                        resolve(dataUrl);
-                        return;
-                    }
-
-                    // OffscreenCanvas 需要使用 convertToBlob (异步)
-                    // 但为了保持同步 API，这里仍使用 HTMLCanvasElement 回退
-                    // 注意: OffscreenCanvas 的 toDataURL 在某些浏览器不支持
-                    // 如果需要完全异步处理，可以重构为使用 convertToBlob
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = width;
-                    tempCanvas.height = height;
-                    const tempCtx = tempCanvas.getContext('2d');
-                    if (tempCtx) {
-                        tempCtx.drawImage(canvas as OffscreenCanvas, 0, 0);
-                        compressedDataUrl = tempCanvas.toDataURL('image/webp', ICON_COMPRESSION_QUALITY);
-                    } else {
-                        resolve(dataUrl);
-                        return;
-                    }
-                } else {
-                    compressedDataUrl = canvas.toDataURL('image/webp', ICON_COMPRESSION_QUALITY);
+                const compressedDataUrl = await convertCanvasToDataUrl(
+                    canvas,
+                    ICON_COMPRESSION_QUALITY
+                );
+                if (!compressedDataUrl) {
+                    resolve(dataUrl);
+                    return;
                 }
 
                 // 如果压缩后更大（极少数情况），返回原图
@@ -240,10 +259,14 @@ export async function compressStickerImage(dataUrl: string): Promise<string> {
         return dataUrl;
     }
 
+    if (typeof Image === 'undefined') {
+        return dataUrl;
+    }
+
     return new Promise((resolve) => {
         const img = new Image();
 
-        img.onload = () => {
+        img.onload = async () => {
             try {
                 let { width, height } = img;
 
@@ -262,21 +285,13 @@ export async function compressStickerImage(dataUrl: string): Promise<string> {
                 const { canvas, ctx } = canvasData;
                 ctx.drawImage(img, 0, 0, width, height);
 
-                let compressedDataUrl: string;
-                if (canvas instanceof OffscreenCanvas) {
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = width;
-                    tempCanvas.height = height;
-                    const tempCtx = tempCanvas.getContext('2d');
-                    if (tempCtx) {
-                        tempCtx.drawImage(canvas as OffscreenCanvas, 0, 0);
-                        compressedDataUrl = tempCanvas.toDataURL('image/webp', STICKER_COMPRESSION_QUALITY);
-                    } else {
-                        resolve(dataUrl);
-                        return;
-                    }
-                } else {
-                    compressedDataUrl = canvas.toDataURL('image/webp', STICKER_COMPRESSION_QUALITY);
+                const compressedDataUrl = await convertCanvasToDataUrl(
+                    canvas,
+                    STICKER_COMPRESSION_QUALITY
+                );
+                if (!compressedDataUrl) {
+                    resolve(dataUrl);
+                    return;
                 }
 
                 if (compressedDataUrl.length > dataUrl.length) {
@@ -306,23 +321,36 @@ export async function compressStickerImage(dataUrl: string): Promise<string> {
  * @returns 压缩图标后的 DockItem 数组
  */
 export async function compressIconsInItems(items: DockItem[]): Promise<DockItem[]> {
-    return Promise.all(
-        items.map(async (item) => {
-            const compressedItem = { ...item };
+    return compressIconsInItemsSequential(items, compressIcon);
+}
 
-            // 压缩项目本身的图标
-            if (compressedItem.icon) {
-                compressedItem.icon = await compressIcon(compressedItem.icon);
-            }
+type CompressIconFn = (iconSource: string) => Promise<string>;
 
-            // 如果是文件夹，递归压缩子项
-            if (compressedItem.type === 'folder' && compressedItem.items) {
-                compressedItem.items = await compressIconsInItems(compressedItem.items);
-            }
+export async function compressIconsInItemsSequential(
+    items: DockItem[],
+    compressIconFn: CompressIconFn
+): Promise<DockItem[]> {
+    const compressedItems: DockItem[] = [];
 
-            return compressedItem;
-        })
-    );
+    // 串行压缩，避免共享可复用 Canvas 时的并发覆盖问题
+    for (const item of items) {
+        const compressedItem = { ...item };
+
+        if (compressedItem.icon) {
+            compressedItem.icon = await compressIconFn(compressedItem.icon);
+        }
+
+        if (compressedItem.type === 'folder' && compressedItem.items) {
+            compressedItem.items = await compressIconsInItemsSequential(
+                compressedItem.items,
+                compressIconFn
+            );
+        }
+
+        compressedItems.push(compressedItem);
+    }
+
+    return compressedItems;
 }
 
 /**
