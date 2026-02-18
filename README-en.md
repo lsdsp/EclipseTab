@@ -33,9 +33,11 @@ Eclipse Tab is a powerful browser new tab extension, centered around **Zen Shelf
 - Deletion workflow upgraded: engines can be removed in global edit mode with user confirmation.
 - Safety constraints enforced: Google is fixed at the top and cannot be deleted; saved engines can never drop to zero.
 - Search behavior improved: added a **New Tab** setting to control whether search opens in a new tab.
+- Privacy enhancement: added a **Third-Party Icon Service** toggle, disabled by default with a first-time consent prompt.
 - Search UI simplified: removed redundant labels such as "Search by / Use", top "Use", and "System Default".
 - Edit mode enhanced: `Esc` now exits global edit mode by default; in edit mode, single left-click on a text sticker opens edit directly.
 - Sticker typography expanded: added **Handwrite / Normal / Code** font presets in sticker configuration.
+- Storage strategy upgraded: wallpapers and sticker image assets are stored in IndexedDB, while localStorage keeps lightweight settings and metadata.
 
 <br>
 
@@ -109,7 +111,7 @@ After installation, open a new tab:
 
 ```
 1️⃣ Add Apps → Click edit button to add websites
-2️⃣ Create Spaces → Right-click space switcher button to create workspaces
+2️⃣ Create Spaces → Right-click the space switcher button on the far right of the Dock
 3️⃣ Capture Ideas → Double-click to add stickers
 4️⃣ Personalize → Set themes and wallpapers
 ```
@@ -190,12 +192,14 @@ After installation, open a new tab:
 - **Export as Image**: Text stickers can be exported as images for sharing
 - **Auto Bring to Top**: Clicking a sticker automatically brings it to the front
 - **Recycle Bin**: Restore or clear deleted stickers from the bin at the screen edge
+- **Storage Optimization**: Sticker image assets are stored in IndexedDB for better stability with larger content
 
 ### 🚀 Dock Tips
 
 - **Edit Mode Access**: Click the edit button in the top-right corner, long-press a Dock icon, or use the right-click menu to enter edit mode
 - **Create Folders**: Drag one app onto another to automatically create a folder
 - **Auto Dissolve**: Folders with less than 2 apps automatically dissolve
+- **Icon Privacy**: Third-party icon service is off by default; when off, only site-owned icon paths are tried, then local generated fallback is used
 
 ### 🌐 Focus Spaces Tips
 
@@ -209,9 +213,21 @@ After installation, open a new tab:
 ### 🔒 Data & Privacy
 
 **Where is data stored?**
-- All data is stored locally in your browser using `localStorage` and `IndexedDB`
+- All data is stored locally in your browser
+- `localStorage`: spaces, theme settings, search engines, sticker metadata (position/style/assetId), wallpaper metadata (such as `wallpaperId`)
+- `IndexedDB`: wallpaper binary data/history and sticker image assets (primary large-file storage)
 - No data is uploaded to any cloud servers
 - Your data is completely yours, we cannot access it
+
+**Does the third-party icon service upload data?**
+- Disabled by default.
+- When disabled, Eclipse Tab only tries site-owned icon paths (such as `apple-touch-icon` / `favicon.ico`), then falls back to local generated icons.
+- Requests to third-party icon service happen only after you enable it and confirm the first-time prompt.
+- After enabling, the site domain may be sent to the third-party icon service solely for favicon retrieval.
+
+**Do search suggestions require extra permissions?**
+- Search suggestion permission is optional.
+- If not enabled, basic search still works normally (manual input + Enter).
 
 **Is user data uploaded?**
 - No. Eclipse Tab does not collect or upload any user data
@@ -242,8 +258,8 @@ Eclipse Tab is a browser extension project built with modern web technologies, w
 
 **Data Storage**
 - All data automatically saved locally
-- Uses localStorage and IndexedDB
-- Supports large-capacity wallpaper storage (breaks 5MB limit)
+- `localStorage` stores lightweight settings and metadata
+- `IndexedDB` stores large resources such as wallpapers and sticker image assets (breaks 5MB limit)
 
 ---
 

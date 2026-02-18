@@ -12,8 +12,9 @@ Eclipse Tab ("we", "our", or "us") is dedicated to protecting your privacy. This
 
 ## 2. External Services
 Eclipse Tab interacts with third-party services only in the following specific scenarios:
-* **Search Suggestions:** When you type in the search bar, your query is sent directly to the selected search engine provider (e.g., Google, Bing, DuckDuckGo) to retrieve auto-completion suggestions.
-* **Favicons:** To display website icons in the Dock, the extension may fetch images from the target website.
+* **Search Suggestions (Optional):** Search suggestion capability is optional. If enabled, your query text is sent directly to the selected search engine provider (e.g., Google, Bing, DuckDuckGo) to retrieve auto-completion suggestions. If not enabled, basic manual search remains available.
+* **Favicons:** To display website icons in the Dock, Eclipse Tab first tries icon paths from the target website itself (such as `apple-touch-icon` or `favicon.ico`).
+* **Third-Party Icon Service (Optional):** This feature is disabled by default. Only after you enable and confirm it, the site domain may be sent to a third-party icon service to retrieve favicon assets.
 
 ## 3. User Consent
 By installing and using Eclipse Tab, you consent to the local processing of data as described in this policy.
