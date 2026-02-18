@@ -83,6 +83,10 @@ jobs:
         if: runner.os == 'Windows' && matrix.browsers != ''
         run: npx playwright install ${{ matrix.browsers }}
 
+      - name: Install Playwright ffmpeg (Windows msedge)
+        if: runner.os == 'Windows' && matrix.browsers == ''
+        run: npx playwright install ffmpeg
+
       - name: Run Playwright regression
         run: npx playwright test -c .e2e-tests/playwright.config.ts --project=${{ matrix.project }}
 
