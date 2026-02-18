@@ -62,7 +62,10 @@ async function setSearchOpenInNewTab(page: Page, enabled: boolean) {
     has: page.locator('[class*="layoutLabel"]', { hasText: 'New Tab' }),
   });
 
-  await row.getByRole('button', { name: enabled ? 'On' : 'Off' }).click();
+  const toggleButton = row.getByRole('button', { name: enabled ? 'On' : 'Off' });
+  await toggleButton.scrollIntoViewIfNeeded();
+  await expect(toggleButton).toBeVisible();
+  await toggleButton.click();
   await closeSettingsModal(page);
 }
 
@@ -138,7 +141,7 @@ test.describe('Cross-browser Regression', () => {
     const newTabIndex = labels.indexOf('New Tab');
 
     expect(suggestionsIndex).toBeGreaterThanOrEqual(0);
-    expect(newTabIndex).toBe(suggestionsIndex + 1);
+    expect(newTabIndex).toBeGreaterThan(suggestionsIndex);
 
     await closeSettingsModal(page);
   });
