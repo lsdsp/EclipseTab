@@ -75,8 +75,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
-      - name: Install Playwright browsers
-        if: matrix.browsers != ''
+      - name: Install Playwright browsers (Linux)
+        if: runner.os == 'Linux'
+        run: npx playwright install --with-deps ${{ matrix.browsers }}
+
+      - name: Install Playwright browsers (Windows)
+        if: runner.os == 'Windows' && matrix.browsers != ''
         run: npx playwright install ${{ matrix.browsers }}
 
       - name: Run Playwright regression
