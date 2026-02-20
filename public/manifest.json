@@ -18,6 +18,9 @@
     "permissions": [
         "search"
     ],
+    "optional_permissions": [
+        "bookmarks"
+    ],
     "optional_host_permissions": [
         "https://suggestqueries.google.com/*",
         "https://www.google.com/*",

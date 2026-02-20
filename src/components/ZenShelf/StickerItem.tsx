@@ -3,7 +3,9 @@ import { Sticker, IMAGE_MAX_WIDTH } from '../../types';
 import { FloatingToolbar } from './FloatingToolbar';
 import { useThemeData } from '../../context/ThemeContext';
 import { resolveStickerFontFamily } from '../../constants/stickerFonts';
+import { AlignmentGuide, computeSnappedPosition } from '../../utils/whiteboard';
 import styles from './ZenShelf.module.css';
+import pinIcon from '../../assets/icons/pin.svg';
 
 // ============================================================================
 // 文字贴纸的主题感知颜色反转
@@ -49,7 +51,7 @@ interface StickerItemProps {
     sticker: Sticker;
     isSelected: boolean;
     isCreativeMode: boolean;
-    onSelect: () => void;
+    onSelect: (appendSelection: boolean) => void;
     onDelete: () => void;
     onPositionChange: (x: number, y: number) => void;
     onStyleChange: (updates: Partial<Sticker['style']>) => void;
@@ -59,6 +61,10 @@ interface StickerItemProps {
     onDoubleClick?: () => void;
     onDragStart?: () => void;
     onDragEnd?: () => void;
+    isLocked?: boolean;
+    snapToGrid?: boolean;
+    gridSize?: number;
+    onGuidesChange?: (guides: AlignmentGuide[]) => void;
 }
 
 const StickerItemComponent: React.FC<StickerItemProps> = ({
@@ -75,6 +81,10 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
     onDoubleClick,
     onDragStart,
     onDragEnd,
+    isLocked = false,
+    snapToGrid = false,
+    gridSize = 16,
+    onGuidesChange,
 }) => {
     const { theme } = useThemeData();
     const elementRef = useRef<HTMLDivElement>(null);
@@ -146,10 +156,12 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             return;
         }
 
-        // 在创意模式（Creative Mode）下，贴纸不应该是可选的（弹出窗口/轮廓），
-        // 但它们仍然应该是可拖拽的。
-        if (isCreativeMode && !isEditMode) {
-            onSelect();
+        onSelect(e.shiftKey);
+
+        if (isLocked) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
         }
 
         // 点击/按下时置顶
@@ -206,6 +218,37 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 x: dragStartRef.current.stickerX + dx,
                 y: dragStartRef.current.stickerY + dy,
             };
+
+            if (elementRef.current) {
+                const movingRect = elementRef.current.getBoundingClientRect();
+                const targetRects = Array.from(document.querySelectorAll<HTMLElement>('[data-sticker-id]'))
+                    .filter(el => el.dataset.stickerId && el.dataset.stickerId !== sticker.id)
+                    .map((el) => {
+                        const rect = el.getBoundingClientRect();
+                        return {
+                            id: el.dataset.stickerId || '',
+                            left: rect.left,
+                            top: rect.top,
+                            width: rect.width,
+                            height: rect.height,
+                        };
+                    });
+
+                const snapped = computeSnappedPosition({
+                    x: pendingPosition.x,
+                    y: pendingPosition.y,
+                    width: movingRect.width,
+                    height: movingRect.height,
+                    targets: targetRects,
+                    gridEnabled: snapToGrid,
+                    gridSize,
+                });
+                pendingPosition = {
+                    x: snapped.x,
+                    y: snapped.y,
+                };
+                onGuidesChange?.(snapped.guides);
+            }
 
             if (positionRafId === null) {
                 positionRafId = requestAnimationFrame(() => {
@@ -283,6 +326,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 setIsDragging(false);
                 isDraggingRef.current = false;
                 dragStartRef.current = null;
+                onGuidesChange?.([]);
                 onDragEnd?.();
                 return;
             }
@@ -308,6 +352,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                     setIsDragging(false);
                     isDraggingRef.current = false;
                     dragStartRef.current = null;
+                    onGuidesChange?.([]);
                     onDragEnd?.();
 
                     // Actual delete after animation
@@ -451,6 +496,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             setIsDragging(false);
             isDraggingRef.current = false;
             dragStartRef.current = null;
+            onGuidesChange?.([]);
             onDragEnd?.();
 
             // Clear dragOver state
@@ -479,14 +525,20 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             if (positionRafId !== null) {
                 cancelAnimationFrame(positionRafId);
             }
+            onGuidesChange?.([]);
         };
     }, [
         isDragging,
+        gridSize,
+        isLocked,
+        onGuidesChange,
         onPositionChange,
         onDelete,
         onDragEnd,
+        snapToGrid,
         sticker.x,
         sticker.y,
+        sticker.id,
         updatePhysics
     ]);
 
@@ -500,6 +552,9 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
 
     // 调整大小控制柄开始
     const handleResizeStart = (e: React.MouseEvent) => {
+        if (isLocked) {
+            return;
+        }
         e.preventDefault();
         e.stopPropagation();
 
@@ -582,6 +637,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         isDropDeleting && styles.dropDelete,
         isSelected && styles.selected,
         isCreativeMode && styles.creativeHover,
+        isLocked && styles.stickerLocked,
     ].filter(Boolean).join(' ');
 
     // 根据缩放比例和视口缩放比例计算实际图片宽度
@@ -642,16 +698,24 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                             draggable={false}
                             onLoad={handleImageLoad}
                         />
-                        {/* 调整大小控制柄 - 仅在悬停时可见 */}
-                        <div
-                            className={styles.resizeHandle}
-                            onMouseDown={handleResizeStart}
-                        />
+                        {!isLocked && (
+                            <div
+                                className={styles.resizeHandle}
+                                onMouseDown={handleResizeStart}
+                            />
+                        )}
                     </div>
                 )}
 
+                {isLocked && (
+                    <span
+                        className={styles.lockBadge}
+                        style={{ WebkitMaskImage: `url(${pinIcon})`, maskImage: `url(${pinIcon})` }}
+                    />
+                )}
+
                 {/* 删除按钮 - 在创意模式下悬停时可见 */}
-                {isCreativeMode && !isEditMode && (
+                {isCreativeMode && !isEditMode && !isLocked && (
                     <button
                         className={styles.deleteButton}
                         onClick={(e) => {
@@ -695,7 +759,10 @@ const arePropsEqual = (prev: StickerItemProps, next: StickerItemProps) => {
         prev.sticker.style?.fontPreset === next.sticker.style?.fontPreset &&
         prev.isSelected === next.isSelected &&
         prev.isCreativeMode === next.isCreativeMode &&
-        prev.isEditMode === next.isEditMode
+        prev.isEditMode === next.isEditMode &&
+        prev.isLocked === next.isLocked &&
+        prev.snapToGrid === next.snapToGrid &&
+        prev.gridSize === next.gridSize
     );
 };
 

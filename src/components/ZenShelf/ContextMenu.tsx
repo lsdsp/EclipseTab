@@ -10,6 +10,10 @@ import uploadIcon from '../../assets/icons/upload.svg';
 import editIcon from '../../assets/icons/edit.svg';
 import exportIcon from '../../assets/icons/export.svg';
 import settingsIcon from '../../assets/icons/setting2.svg';
+import pinIcon from '../../assets/icons/pin.svg';
+import asteriskIcon from '../../assets/icons/asterisk.svg';
+import slashIcon from '../../assets/icons/slash.svg';
+import monitorIcon from '../../assets/icons/monitor.svg';
 
 // ============================================================================
 // ContextMenu Component - Right-click context menu
@@ -23,6 +27,20 @@ interface ContextMenuProps {
     isImageSticker?: boolean;
     onClose: () => void;
     onAddSticker: () => void;
+    onAddTodoTemplate?: () => void;
+    onAddMeetingTemplate?: () => void;
+    onAddIdeaTemplate?: () => void;
+    hasSelection?: boolean;
+    canGroupSelection?: boolean;
+    canUngroupSelection?: boolean;
+    canLockSelection?: boolean;
+    canUnlockSelection?: boolean;
+    isGridSnapEnabled?: boolean;
+    onGroupSelection?: () => void;
+    onUngroupSelection?: () => void;
+    onLockSelection?: () => void;
+    onUnlockSelection?: () => void;
+    onToggleGridSnap?: () => void;
     onUploadImage: () => void;
     onToggleEditMode: () => void;
     isEditMode: boolean;
@@ -42,6 +60,20 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     isImageSticker,
     onClose,
     onAddSticker,
+    onAddTodoTemplate,
+    onAddMeetingTemplate,
+    onAddIdeaTemplate,
+    hasSelection = false,
+    canGroupSelection = false,
+    canUngroupSelection = false,
+    canLockSelection = false,
+    canUnlockSelection = false,
+    isGridSnapEnabled = true,
+    onGroupSelection,
+    onUngroupSelection,
+    onLockSelection,
+    onUnlockSelection,
+    onToggleGridSnap,
     onUploadImage,
     onToggleEditMode,
     isEditMode,
@@ -101,8 +133,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     }, []);
 
     // Adjust position to stay within viewport
-    const menuWidth = 180;
-    const menuHeight = type === 'background' ? 180 : 200; // Approximate menu heights
+    const menuWidth = 220;
+    const hasWhiteboardActions = isEditMode && (hasSelection || Boolean(onToggleGridSnap));
+    const menuHeight = type === 'background'
+        ? (hasWhiteboardActions ? 520 : 330)
+        : (hasWhiteboardActions ? 430 : 220); // Approximate menu heights
     const padding = 10;
 
     // Calculate adjusted position, ensuring menu stays within viewport on all edges
@@ -126,6 +161,59 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         adjustedY = padding;
     }
 
+    const renderWhiteboardActions = () => {
+        if (!isEditMode) return null;
+        if (!hasSelection && !onToggleGridSnap) return null;
+
+        return (
+            <>
+                <div className={styles.menuDivider} />
+                {onToggleGridSnap && (
+                    <button className={styles.menuItem} onClick={() => { onToggleGridSnap(); onClose(); }}>
+                        <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${monitorIcon})`, maskImage: `url(${monitorIcon})` }} />
+                        <span>{isGridSnapEnabled ? t.contextMenu.disableGridSnap : t.contextMenu.enableGridSnap}</span>
+                    </button>
+                )}
+                {hasSelection && (
+                    <>
+                        <button
+                            className={styles.menuItem}
+                            disabled={!canGroupSelection}
+                            onClick={() => { onGroupSelection?.(); onClose(); }}
+                        >
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${asteriskIcon})`, maskImage: `url(${asteriskIcon})` }} />
+                            <span>{t.contextMenu.groupSelection}</span>
+                        </button>
+                        <button
+                            className={styles.menuItem}
+                            disabled={!canUngroupSelection}
+                            onClick={() => { onUngroupSelection?.(); onClose(); }}
+                        >
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${slashIcon})`, maskImage: `url(${slashIcon})` }} />
+                            <span>{t.contextMenu.ungroupSelection}</span>
+                        </button>
+                        <button
+                            className={styles.menuItem}
+                            disabled={!canLockSelection}
+                            onClick={() => { onLockSelection?.(); onClose(); }}
+                        >
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${pinIcon})`, maskImage: `url(${pinIcon})` }} />
+                            <span>{t.contextMenu.lockSelection}</span>
+                        </button>
+                        <button
+                            className={styles.menuItem}
+                            disabled={!canUnlockSelection}
+                            onClick={() => { onUnlockSelection?.(); onClose(); }}
+                        >
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${pinIcon})`, maskImage: `url(${pinIcon})` }} />
+                            <span>{t.contextMenu.unlockSelection}</span>
+                        </button>
+                    </>
+                )}
+            </>
+        );
+    };
+
     return createPortal(
         <div
             ref={menuRef}
@@ -143,6 +231,18 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${plusIcon})`, maskImage: `url(${plusIcon})` }} />
                             <span>{t.contextMenu.addSticker}</span>
                         </button>
+                        <button className={styles.menuItem} onClick={() => { onAddTodoTemplate?.(); onClose(); }}>
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
+                            <span>{t.contextMenu.addTodoTemplate}</span>
+                        </button>
+                        <button className={styles.menuItem} onClick={() => { onAddMeetingTemplate?.(); onClose(); }}>
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
+                            <span>{t.contextMenu.addMeetingTemplate}</span>
+                        </button>
+                        <button className={styles.menuItem} onClick={() => { onAddIdeaTemplate?.(); onClose(); }}>
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
+                            <span>{t.contextMenu.addIdeaTemplate}</span>
+                        </button>
                         <button className={styles.menuItem} onClick={() => { onUploadImage(); onClose(); }}>
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${uploadIcon})`, maskImage: `url(${uploadIcon})` }} />
                             <span>{t.contextMenu.uploadImage}</span>
@@ -155,6 +255,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${settingsIcon})`, maskImage: `url(${settingsIcon})` }} />
                             <span>{t.contextMenu.settings}</span>
                         </button>
+                        {renderWhiteboardActions()}
                     </>
                 ) : (
                     <>
@@ -185,6 +286,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                                 </button>
                             </>
                         )}
+                        {renderWhiteboardActions()}
                         <button className={`${styles.menuItem} ${styles.danger}`} onClick={() => { onDeleteSticker?.(); onClose(); }}>
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${trashIcon})`, maskImage: `url(${trashIcon})` }} />
                             <span>{t.contextMenu.deleteSticker}</span>

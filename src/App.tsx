@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, lazy, Suspense, useEffect, useRef, useL
 import { DockItem } from './types';
 import { useDockData, useDockUI, useDockDrag } from './context/DockContext';
 import { useThemeData } from './context/ThemeContext';
+import { useLanguage } from './context/LanguageContext';
 import { Searcher } from './components/Searcher/Searcher';
 import { Dock } from './components/Dock/Dock';
 import { Editor } from './components/Editor/Editor';
@@ -10,6 +11,8 @@ import { Background } from './components/Background/Background';
 import { ZenShelf } from './components/ZenShelf';
 import { resolveDockInsertIndex } from './utils/dockInsertIndex';
 import styles from './App.module.css';
+import { useUndo } from './context/UndoContext';
+import { UndoSnackbar } from './components/UndoSnackbar/UndoSnackbar';
 
 // ============================================================================
 // 性能优化: 懒加载非核心组件，减少初始包大小
@@ -38,11 +41,13 @@ function App() {
   // 数据层 (低频变化) - 仅在 dockItems/searchEngine 变化时重渲染
   const {
     dockItems,
+    recentImportedIds,
     searchEngines,
     selectedSearchEngine,
     setSelectedSearchEngine,
     addSearchEngine,
     removeSearchEngine,
+    restoreDeletedDockItem,
     handleItemDelete,
     handleItemSave,
     handleItemsReorder,
@@ -68,6 +73,8 @@ function App() {
 
   // 布局设置
   const { dockPosition, openInNewTab } = useThemeData();
+  const { language } = useLanguage();
+  const { showUndo } = useUndo();
 
   // 计算派生状态
   const openFolder = useMemo(
@@ -247,6 +254,61 @@ function App() {
     setEditingItem(null);
   };
 
+  const handleDockItemDelete = useCallback((item: DockItem) => {
+    const message = language === 'zh'
+      ? `确定要删除 "${item.name}" 吗？${item.type === 'folder' ? '文件夹内的所有内容也将被删除。' : ''}`
+      : `Delete "${item.name}"?${item.type === 'folder' ? ' All items inside this folder will also be removed.' : ''}`;
+
+    if (!window.confirm(message)) {
+      return;
+    }
+
+    const record = handleItemDelete(item);
+    if (!record) return;
+
+    showUndo(
+      language === 'zh' ? `已删除：${item.name}` : `Deleted: ${item.name}`,
+      () => {
+        restoreDeletedDockItem(record.id);
+      }
+    );
+  }, [handleItemDelete, language, restoreDeletedDockItem, showUndo]);
+
+  const handleDockItemsReorderWithUndo = useCallback((items: DockItem[]) => {
+    const previous = dockItems;
+    const sameOrder =
+      previous.length === items.length &&
+      previous.every((item, index) => item.id === items[index]?.id);
+
+    handleItemsReorder(items);
+    if (sameOrder) {
+      return;
+    }
+    showUndo(
+      language === 'zh' ? 'Dock 已调整，可撤销' : 'Dock reordered',
+      () => {
+        handleItemsReorder(previous);
+      }
+    );
+  }, [dockItems, handleItemsReorder, language, showUndo]);
+
+  const handleFolderItemDeleteWithUndo = useCallback((folderId: string, item: DockItem) => {
+    const message = language === 'zh'
+      ? `确定要删除 "${item.name}" 吗？`
+      : `Delete "${item.name}"?`;
+    if (!window.confirm(message)) return;
+
+    const record = handleFolderItemDelete(folderId, item);
+    if (!record) return;
+
+    showUndo(
+      language === 'zh' ? `已删除：${item.name}` : `Deleted: ${item.name}`,
+      () => {
+        restoreDeletedDockItem(record.id);
+      }
+    );
+  }, [handleFolderItemDelete, language, restoreDeletedDockItem, showUndo]);
+
   const handleFolderItemClick = useCallback((item: DockItem) => {
     if (item.url) {
       window.open(item.url, '_blank');
@@ -364,12 +426,12 @@ function App() {
           isEditMode={isEditMode}
           onItemClick={handleItemClick}
           onItemEdit={handleItemEdit}
-          onItemDelete={handleItemDelete}
+          onItemDelete={handleDockItemDelete}
           onItemAdd={(rect) => {
             setAddIconAnchor(rect ?? null);
             handleItemAdd();
           }}
-          onItemsReorder={handleItemsReorder}
+          onItemsReorder={handleDockItemsReorderWithUndo}
           onDropToFolder={handleDropOnFolder}
           onDragToOpenFolder={handleDragToFolder}
           onHoverOpenFolder={handleHoverOpenFolder}
@@ -378,6 +440,7 @@ function App() {
           onDragStart={(item) => setDraggingItem(item)}
           onDragEnd={() => setDraggingItem(null)}
           externalDragItem={draggingItem}
+          highlightedItemIds={recentImportedIds}
         />
       </div>
       {/* 左上角触发热点：悬停显示设置按钮 */}
@@ -415,7 +478,7 @@ function App() {
             isEditMode={isEditMode}
             onItemClick={handleFolderItemClick}
             onItemEdit={handleFolderItemEdit}
-            onItemDelete={(item) => handleFolderItemDelete(openFolder.id, item)}
+            onItemDelete={(item) => handleFolderItemDeleteWithUndo(openFolder.id, item)}
             onClose={() => { setOpenFolderId(null); setFolderAnchor(null); }}
             onItemsReorder={(items) => handleFolderItemsReorder(openFolder.id, items)}
             onItemDragOut={handleDragFromFolderToDock}
@@ -471,6 +534,7 @@ function App() {
           />
         </Suspense>
       )}
+      <UndoSnackbar />
     </div>
   );
 }

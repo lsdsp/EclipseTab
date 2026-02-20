@@ -3,7 +3,7 @@ node_modules/
 AGENTS.md
 .serena/
 .vscode
-*建议.md
+*建议*.md
 *错误*.md
 
 # 自动化测试临时文件

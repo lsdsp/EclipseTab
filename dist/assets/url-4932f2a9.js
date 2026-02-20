@@ -1,0 +1,1 @@
+const n=t=>{const r=t.trim();return r?/^(https?:)?\/\//i.test(r)?r:`https://${r}`:""},e=t=>{try{return new URL(n(t)),!0}catch{return!1}},s=t=>{try{return new URL(n(t)).hostname}catch{return""}};export{s as g,e as i,n};

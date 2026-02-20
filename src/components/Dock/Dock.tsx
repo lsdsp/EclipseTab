@@ -11,6 +11,7 @@ import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import { useDockDrag, useDockUI } from '../../context/DockContext';
 import { useSpaces } from '../../context/SpacesContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUndo } from '../../context/UndoContext';
 import { generateFolderIcon } from '../../utils/iconFetcher';
 import {
     EASE_SWIFT,
@@ -36,6 +37,7 @@ interface DockProps {
     externalDragItem?: DockItemType | null;
     onDragStart?: (item: DockItemType) => void;
     onDragEnd?: () => void;
+    highlightedItemIds?: string[];
 }
 
 export const Dock: React.FC<DockProps> = ({
@@ -54,11 +56,13 @@ export const Dock: React.FC<DockProps> = ({
     externalDragItem,
     onDragStart,
     onDragEnd,
+    highlightedItemIds = [],
 }) => {
     const innerRef = useRef<HTMLDivElement>(null);
     const { folderPlaceholderActive } = useDockDrag();
     const { setIsEditMode } = useDockUI();
-    const { t } = useLanguage();
+    const { language, t } = useLanguage();
+    const { showUndo } = useUndo();
 
     // Focus Spaces 集成
     const {
@@ -71,6 +75,7 @@ export const Dock: React.FC<DockProps> = ({
         addSpace,
         renameSpace,
         deleteSpace,
+        restoreDeletedSpace,
         importSpace,
         importMultipleSpaces,
         pinSpace,
@@ -378,6 +383,7 @@ export const Dock: React.FC<DockProps> = ({
                                 staggerIndex={index}
                                 isDropTarget={isMergeTarget}
                                 isMergeTarget={isMergeTarget}
+                                isRecentlyImported={highlightedItemIds.includes(item.id)}
                                 onLongPress={onLongPressEdit}
                                 onMouseDown={e => handleMouseDown(e, item, index)}
                                 onContextMenu={(x, y, rect) => handleItemContextMenu(item, x, y, rect)}
@@ -452,7 +458,15 @@ export const Dock: React.FC<DockProps> = ({
                     setShowSpaceMenu(false);
                 }}
                 onDelete={() => {
-                    deleteSpace(currentSpace.id);
+                    const deleted = deleteSpace(currentSpace.id);
+                    if (deleted) {
+                        showUndo(
+                            language === 'zh' ? `已删除空间：${deleted.space.name}` : `Deleted space: ${deleted.space.name}`,
+                            () => {
+                                restoreDeletedSpace(deleted.id);
+                            }
+                        );
+                    }
                     setShowSpaceMenu(false);
                 }}
                 onImport={(data) => {

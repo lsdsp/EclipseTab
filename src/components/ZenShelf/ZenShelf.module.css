@@ -27,6 +27,50 @@
     cursor: crosshair;
 }
 
+.gridOverlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(to right, rgba(0, 122, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 122, 255, 0.08) 1px, transparent 1px);
+    background-size: 16px 16px;
+}
+
+.alignmentGuide {
+    position: absolute;
+    pointer-events: none;
+    z-index: 2000;
+}
+
+.verticalGuide {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+}
+
+.horizontalGuide {
+    left: 0;
+    right: 0;
+    height: 1px;
+}
+
+.alignGuide {
+    background: rgba(0, 122, 255, 0.65);
+}
+
+.gridGuide {
+    background: rgba(0, 122, 255, 0.35);
+}
+
+.selectionBox {
+    position: absolute;
+    pointer-events: none;
+    border: 1px dashed var(--blue-500);
+    background: rgba(0, 122, 255, 0.08);
+    z-index: 1900;
+}
+
 /* ===== 贴纸基础样式 ===== */
 
 /* 贴纸通用样式 - 核心贴纸效果 */
@@ -108,6 +152,29 @@
 .sticker.selected {
     outline: 2px dashed var(--blue-500);
     outline-offset: 8px;
+}
+
+.stickerLocked {
+    cursor: default;
+    opacity: 0.9;
+}
+
+.lockBadge {
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    width: 18px;
+    height: 18px;
+    background: var(--color-text-secondary);
+    pointer-events: none;
+    z-index: 12;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    opacity: 0.85;
 }
 
 /* ===== 文字贴纸 ===== */
@@ -597,6 +664,12 @@
 
 .menuItem:active {
     background: var(--color-bg-tertiary);
+}
+
+.menuItem:disabled {
+    opacity: 0.45;
+    cursor: default;
+    background: transparent;
 }
 
 /* 危险操作 (删除) */
@@ -1099,6 +1172,12 @@
     opacity: 0.8;
 }
 
+.recycleBinMetaText {
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+    opacity: 0.85;
+}
+
 .recycleBinCloseWrapper {
     backdrop-filter: blur(40px);
     -webkit-backdrop-filter: blur(40px);
@@ -1148,6 +1227,157 @@
     /* gap: 24px; Removed gap to allow margin collapse animation */
     padding: 0px;
     overflow-y: auto;
+}
+
+.recycleBinActionRow {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    margin-bottom: 8px;
+}
+
+.recycleBinActionButtonDanger {
+    width: 100%;
+    border: none;
+    border-radius: 8px;
+    background: var(--color-bg-primary);
+    color: var(--red-error);
+    font-family: var(--font-family);
+    font-size: 13px;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.recycleBinActionButtonDanger:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.recycleBinViewToggle {
+    width: 100%;
+    max-width: 600px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.recycleBinViewButton {
+    border: none;
+    border-radius: 8px;
+    background: var(--color-bg-primary);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family);
+    font-size: 13px;
+    padding: 7px 10px;
+    cursor: pointer;
+}
+
+.recycleBinViewButtonActive {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+}
+
+.recycleBinSectionTitle {
+    width: 100%;
+    max-width: 600px;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.recycleBinSingleList {
+    width: 100%;
+    max-width: 600px;
+    padding-bottom: 24px;
+}
+
+.recycleBinLists {
+    width: 100%;
+    max-width: 900px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+    padding-bottom: 24px;
+}
+
+.recycleBinListCard {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-medium);
+    padding: 10px;
+    min-height: 120px;
+}
+
+.recycleBinListTitle {
+    color: var(--color-text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.recycleBinListItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.recycleBinListItem:last-child {
+    border-bottom: none;
+}
+
+.recycleBinListItemInfo {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.recycleBinListItemName {
+    color: var(--color-text-primary);
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recycleBinListItemMeta {
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+}
+
+.recycleBinListItemRestore {
+    border: none;
+    border-radius: 6px;
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family);
+    font-size: 12px;
+    padding: 5px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.recycleBinListItemRestore:hover {
+    color: var(--color-text-primary);
+}
+
+.recycleBinListEmpty {
+    color: var(--color-text-tertiary);
+    font-size: 12px;
+    opacity: 0.85;
+    padding: 6px 0;
+}
+
+@media (max-width: 900px) {
+    .recycleBinLists {
+        max-width: 600px;
+        grid-template-columns: 1fr;
+    }
 }
 
 

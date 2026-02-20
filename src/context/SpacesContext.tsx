@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Space, SpacesState, DockItem, createDefaultSpace } from '../types';
+import { SPACE_RECYCLE_LIMIT } from '../constants/recycle';
+import {
+    Space,
+    SpacesState,
+    DockItem,
+    DeletedSpaceRecord,
+    clampRecycleRecords,
+    createDefaultSpace,
+} from '../types';
 import { storage } from '../utils/storage';
 import { SpaceExportData, MultiSpaceExportData, createSpaceFromImport, createSpacesFromMultiImport } from '../utils/spaceExportImport';
 
@@ -12,6 +20,7 @@ interface SpacesDataContextType {
     spaces: Space[];
     activeSpaceId: string;
     isSwitching: boolean;
+    deletedSpaces: DeletedSpaceRecord[];
 
     // 派生
     currentSpace: Space;
@@ -28,9 +37,12 @@ interface SpacesActionsContextType {
     switchToNextSpace: () => void;
     switchToSpace: (spaceId: string) => void;
     addSpace: (name?: string) => void;
-    deleteSpace: (spaceId: string) => void;
+    deleteSpace: (spaceId: string) => DeletedSpaceRecord | null;
+    restoreDeletedSpace: (recordId: string) => Space | null;
+    clearDeletedSpaces: () => void;
     renameSpace: (spaceId: string, newName: string) => void;
     updateCurrentSpaceApps: (apps: DockItem[]) => void;
+    updateSpaceApps: (spaceId: string, apps: DockItem[]) => void;
     importSpace: (data: SpaceExportData) => Promise<Space>;
     importMultipleSpaces: (data: MultiSpaceExportData) => Promise<Space[]>;
     pinSpace: (spaceId: string) => void;
@@ -59,6 +71,9 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
         const loaded = storage.getSpaces();
         return loaded;
     });
+    const [deletedSpaces, setDeletedSpaces] = useState<DeletedSpaceRecord[]>(() =>
+        clampRecycleRecords(storage.getDeletedSpaces(), Date.now(), SPACE_RECYCLE_LIMIT)
+    );
     const [isSwitching, setIsSwitching] = useState(false);
 
     // 跟踪是否已完成首次渲染
@@ -100,6 +115,23 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
             }
         };
     }, [spacesState]);
+
+    const deletedSaveTimeoutRef = useRef<number>();
+    useEffect(() => {
+        if (deletedSaveTimeoutRef.current) {
+            clearTimeout(deletedSaveTimeoutRef.current);
+        }
+
+        deletedSaveTimeoutRef.current = window.setTimeout(() => {
+            storage.saveDeletedSpaces(deletedSpaces);
+        }, 500);
+
+        return () => {
+            if (deletedSaveTimeoutRef.current) {
+                clearTimeout(deletedSaveTimeoutRef.current);
+            }
+        };
+    }, [deletedSpaces]);
 
     // ============================================================================
     // 空间切换操作
@@ -143,14 +175,22 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
         }));
     }, [spaces.length]);
 
-    const deleteSpace = useCallback((spaceId: string) => {
+    const deleteSpace = useCallback((spaceId: string): DeletedSpaceRecord | null => {
         if (spaces.length <= 1) {
             console.warn('[SpacesContext] Cannot delete the last space');
-            return;
+            return null;
         }
 
         const deleteIndex = spaces.findIndex(s => s.id === spaceId);
-        if (deleteIndex === -1) return;
+        if (deleteIndex === -1) return null;
+
+        const target = spaces[deleteIndex];
+        const record: DeletedSpaceRecord = {
+            id: `deleted_space_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            deletedAt: Date.now(),
+            originalIndex: deleteIndex,
+            space: target,
+        };
 
         // 确定删除后要跳转到的空间
         let newActiveId = activeSpaceId;
@@ -165,7 +205,53 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
             spaces: prev.spaces.filter(s => s.id !== spaceId),
             activeSpaceId: newActiveId,
         }));
+        setDeletedSpaces(prev => clampRecycleRecords([record, ...prev], Date.now(), SPACE_RECYCLE_LIMIT));
+        return record;
     }, [spaces, activeSpaceId]);
+
+    const restoreDeletedSpace = useCallback((recordId: string): Space | null => {
+        const record = deletedSpaces.find(item => item.id === recordId);
+        if (!record) return null;
+
+        const existingNames = new Set(spaces.map(space => space.name.trim().toLowerCase()));
+        let restoredName = record.space.name;
+        if (existingNames.has(restoredName.trim().toLowerCase())) {
+            let index = 1;
+            while (existingNames.has(`${record.space.name} (${index})`.trim().toLowerCase())) {
+                index += 1;
+            }
+            restoredName = `${record.space.name} (${index})`;
+        }
+
+        const existingIds = new Set(spaces.map(space => space.id));
+        const restoredId = existingIds.has(record.space.id)
+            ? crypto.randomUUID()
+            : record.space.id;
+
+        const restoredSpace: Space = {
+            ...record.space,
+            id: restoredId,
+            name: restoredName,
+        };
+
+        setSpacesState(prev => {
+            const next = [...prev.spaces];
+            const insertIndex = Math.min(Math.max(record.originalIndex, 0), next.length);
+            next.splice(insertIndex, 0, restoredSpace);
+            return {
+                ...prev,
+                spaces: next,
+                activeSpaceId: prev.activeSpaceId || restoredSpace.id,
+            };
+        });
+
+        setDeletedSpaces(prev => prev.filter(item => item.id !== recordId));
+        return restoredSpace;
+    }, [deletedSpaces, spaces]);
+
+    const clearDeletedSpaces = useCallback(() => {
+        setDeletedSpaces([]);
+    }, []);
 
     const renameSpace = useCallback((spaceId: string, newName: string) => {
         if (!newName.trim()) return;
@@ -246,6 +332,15 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
         }));
     }, []);
 
+    const updateSpaceApps = useCallback((spaceId: string, apps: DockItem[]) => {
+        setSpacesState(prev => ({
+            ...prev,
+            spaces: prev.spaces.map(space =>
+                space.id === spaceId ? { ...space, apps } : space
+            ),
+        }));
+    }, []);
+
     // ============================================================================
     // Context Values (分离数据和操作，减少重渲染)
     // ============================================================================
@@ -254,17 +349,21 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
         spaces,
         activeSpaceId,
         isSwitching,
+        deletedSpaces,
         currentSpace,
         currentIndex,
-    }), [spaces, activeSpaceId, isSwitching, currentSpace, currentIndex]);
+    }), [spaces, activeSpaceId, isSwitching, deletedSpaces, currentSpace, currentIndex]);
 
     const actionsValue = useMemo<SpacesActionsContextType>(() => ({
         switchToNextSpace,
         switchToSpace,
         addSpace,
         deleteSpace,
+        restoreDeletedSpace,
+        clearDeletedSpaces,
         renameSpace,
         updateCurrentSpaceApps,
+        updateSpaceApps,
         importSpace,
         importMultipleSpaces,
         pinSpace,
@@ -274,8 +373,11 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
         switchToSpace,
         addSpace,
         deleteSpace,
+        restoreDeletedSpace,
+        clearDeletedSpaces,
         renameSpace,
         updateCurrentSpaceApps,
+        updateSpaceApps,
         importSpace,
         importMultipleSpaces,
         pinSpace,

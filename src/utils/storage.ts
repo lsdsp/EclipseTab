@@ -1,7 +1,14 @@
-import { DockItem, SearchEngine, SpacesState, createDefaultSpacesState } from '../types';
+import {
+  DockItem,
+  SearchEngine,
+  SpacesState,
+  createDefaultSpacesState,
+  DeletedDockItemRecord,
+  DeletedSpaceRecord,
+} from '../types';
 import { logger } from './logger';
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   DOCK_ITEMS: 'EclipseTab_dockItems',
   SEARCH_ENGINE: 'EclipseTab_searchEngine',
   SEARCH_ENGINES: 'EclipseTab_searchEngines',
@@ -26,14 +33,18 @@ const STORAGE_KEYS = {
   STICKERS: 'EclipseTab_stickers',
   // Deleted Stickers (Recycle Bin)
   DELETED_STICKERS: 'EclipseTab_deletedStickers',
+  // Dock/Space Recycle Bin
+  DELETED_DOCK_ITEMS: 'EclipseTab_deletedDockItems',
+  DELETED_SPACES: 'EclipseTab_deletedSpaces',
 } as const;
 
 // Unified Configuration Interface
-interface AppConfig {
+export interface AppConfig {
   theme: string;
   followSystem: boolean;
   dockPosition: 'center' | 'bottom';
   iconSize: 'large' | 'small';
+  gridSnapEnabled: boolean;
   openInNewTab: boolean;
   allowThirdPartyIconService: boolean;
   thirdPartyIconServicePrompted: boolean;
@@ -46,6 +57,7 @@ const DEFAULT_CONFIG: AppConfig = {
   followSystem: true,
   dockPosition: 'bottom',
   iconSize: 'large',
+  gridSnapEnabled: true,
   openInNewTab: false,
   allowThirdPartyIconService: false,
   thirdPartyIconServicePrompted: false,
@@ -65,6 +77,8 @@ const memoryCache = {
   spaces: null as CacheEntry<SpacesState> | null,
   stickers: null as CacheEntry<import('../types').Sticker[]> | null,
   deletedStickers: null as CacheEntry<import('../types').Sticker[]> | null,
+  deletedDockItems: null as CacheEntry<DeletedDockItemRecord[]> | null,
+  deletedSpaces: null as CacheEntry<DeletedSpaceRecord[]> | null,
   config: null as CacheEntry<AppConfig> | null,
 };
 
@@ -195,6 +209,14 @@ export const storage = {
 
   saveIconSize(iconSize: 'large' | 'small'): void {
     this.updateConfig({ iconSize });
+  },
+
+  getGridSnapEnabled(): boolean {
+    return this.getConfig().gridSnapEnabled;
+  },
+
+  saveGridSnapEnabled(gridSnapEnabled: boolean): void {
+    this.updateConfig({ gridSnapEnabled });
   },
 
   getOpenInNewTab(): boolean {
@@ -471,5 +493,74 @@ export const storage = {
       logger.error('Failed to save deleted stickers:', error);
       notifyStorageFailure();
     }
+  },
+
+  getDeletedDockItems(): DeletedDockItemRecord[] {
+    try {
+      const cached = getCached(STORAGE_KEYS.DELETED_DOCK_ITEMS, memoryCache.deletedDockItems);
+      if (cached) return cached;
+
+      const json = localStorage.getItem(STORAGE_KEYS.DELETED_DOCK_ITEMS);
+      if (!json) return [];
+
+      const parsed = JSON.parse(json) as DeletedDockItemRecord[];
+      memoryCache.deletedDockItems = { data: parsed, raw: json };
+      return parsed;
+    } catch (error) {
+      logger.error('Failed to get deleted dock items:', error);
+      return [];
+    }
+  },
+
+  saveDeletedDockItems(records: DeletedDockItemRecord[]): void {
+    try {
+      const json = JSON.stringify(records);
+      localStorage.setItem(STORAGE_KEYS.DELETED_DOCK_ITEMS, json);
+      memoryCache.deletedDockItems = { data: records, raw: json };
+    } catch (error) {
+      logger.error('Failed to save deleted dock items:', error);
+      notifyStorageFailure();
+    }
+  },
+
+  getDeletedSpaces(): DeletedSpaceRecord[] {
+    try {
+      const cached = getCached(STORAGE_KEYS.DELETED_SPACES, memoryCache.deletedSpaces);
+      if (cached) return cached;
+
+      const json = localStorage.getItem(STORAGE_KEYS.DELETED_SPACES);
+      if (!json) return [];
+
+      const parsed = JSON.parse(json) as DeletedSpaceRecord[];
+      memoryCache.deletedSpaces = { data: parsed, raw: json };
+      return parsed;
+    } catch (error) {
+      logger.error('Failed to get deleted spaces:', error);
+      return [];
+    }
+  },
+
+  saveDeletedSpaces(records: DeletedSpaceRecord[]): void {
+    try {
+      const json = JSON.stringify(records);
+      localStorage.setItem(STORAGE_KEYS.DELETED_SPACES, json);
+      memoryCache.deletedSpaces = { data: records, raw: json };
+    } catch (error) {
+      logger.error('Failed to save deleted spaces:', error);
+      notifyStorageFailure();
+    }
+  },
+
+  getManagedStorageKeys(): string[] {
+    return Object.values(STORAGE_KEYS);
+  },
+
+  resetMemoryCache(): void {
+    memoryCache.spaces = null;
+    memoryCache.stickers = null;
+    memoryCache.deletedStickers = null;
+    memoryCache.deletedDockItems = null;
+    memoryCache.deletedSpaces = null;
+    memoryCache.config = null;
   },
 };

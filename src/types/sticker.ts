@@ -28,6 +28,8 @@ export interface Sticker {
     assetId?: string;        // 图片贴纸在 IndexedDB 中的资源 ID
     zIndex?: number;         // 层级顺序（双击置顶）
     scale?: number;          // 图片缩放比例（仅图片贴纸）
+    groupId?: string;        // 白板分组 ID（可选）
+    locked?: boolean;        // 是否锁定（锁定后不可拖拽/编辑）
     style?: TextStickerStyle; // 仅针对文字贴纸的样式
 }
 

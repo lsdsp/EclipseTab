@@ -77,6 +77,16 @@ describe('stickerAssets', () => {
     expect(persisted.assetId).toBe('asset_456');
   });
 
+  it('keeps group/lock metadata when stripping image content', () => {
+    const sticker = createImageSticker({ assetId: 'asset_789', groupId: 'group_1', locked: true });
+
+    const persisted = toStorageSticker(sticker);
+
+    expect(persisted.content).toBe('');
+    expect(persisted.groupId).toBe('group_1');
+    expect(persisted.locked).toBe(true);
+  });
+
   it('normalizes coordinates and strips content in one pass', async () => {
     dbMock.saveStickerAsset.mockResolvedValue('asset_2');
     const sticker = createImageSticker({ x: 960, y: 540 });

@@ -1,10 +1,12 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useDockUI } from '../../context/DockContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useZenShelf } from '../../context/ZenShelfContext';
 import { Sticker, IMAGE_MAX_WIDTH } from '../../types';
 import { compressStickerImage } from '../../utils/imageCompression';
 import { copyBlobToClipboard, createImageStickerImage, createTextStickerImage, downloadBlob, imageToBlob } from '../../utils/canvasUtils';
 import { db } from '../../utils/db';
+import { storage } from '../../utils/storage';
 import { resolveStickerPosition, updateStickerPercentCoordinates } from '../../utils/stickerCoordinates';
 import { StickerItem } from './StickerItem';
 import { TextInput } from './TextInput';
@@ -12,6 +14,18 @@ import { ContextMenu } from './ContextMenu';
 import { RecycleBin } from './RecycleBin';
 import { RecycleBinModal } from './RecycleBinModal';
 import { type StickerFontPreset } from '../../constants/stickerFonts';
+import {
+    AlignmentGuide,
+    computeSelectionActionState,
+    createRuntimeGroupId,
+    lockSelection,
+    normalizeSelectionRect,
+    rectOverlaps,
+    resolveMoveStickerIds,
+    toggleLockSelection,
+    unlockSelection,
+} from '../../utils/whiteboard';
+import { buildStickerTemplate, StickerTemplateType } from '../../utils/stickerTemplates';
 import styles from './ZenShelf.module.css';
 
 const UI_ZONE_SELECTOR = '[data-ui-zone]';
@@ -28,8 +42,9 @@ interface ZenShelfProps {
 export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
     const canvasRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { stickers, selectedStickerId, addSticker, updateSticker, deleteSticker, selectSticker, bringToTop } = useZenShelf();
+    const { stickers, addSticker, updateSticker, deleteSticker, selectSticker, bringToTop } = useZenShelf();
     const { isEditMode, setIsEditMode } = useDockUI();
+    const { language } = useLanguage();
 
     const [textInputPos, setTextInputPos] = useState<{ x: number; y: number } | null>(null);
     const [contextMenu, setContextMenu] = useState<{
@@ -40,6 +55,17 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
     } | null>(null);
 
     const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
+    const [selectedStickerIds, setSelectedStickerIds] = useState<string[]>([]);
+    const [selectionBox, setSelectionBox] = useState<{
+        startX: number;
+        startY: number;
+        currentX: number;
+        currentY: number;
+        append: boolean;
+    } | null>(null);
+    const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
+    const [gridSnapEnabled, setGridSnapEnabled] = useState(() => storage.getGridSnapEnabled());
+    const [snapModifierPressed, setSnapModifierPressed] = useState(false);
 
     const [viewport, setViewport] = useState(() => ({
         width: Math.max(window.innerWidth, 1),
@@ -66,6 +92,40 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         ...sticker,
         ...resolveStickerPosition(sticker, viewport),
     }));
+    const groupMap = useMemo<Record<string, string | undefined>>(() => {
+        const map: Record<string, string | undefined> = {};
+        stickers.forEach((sticker) => {
+            if (sticker.groupId) {
+                map[sticker.id] = sticker.groupId;
+            }
+        });
+        return map;
+    }, [stickers]);
+    const lockedStickerIds = useMemo(
+        () => stickers.filter((sticker) => sticker.locked).map((sticker) => sticker.id),
+        [stickers]
+    );
+    const selectedStickerIdSet = useMemo(() => new Set(selectedStickerIds), [selectedStickerIds]);
+    const lockedStickerIdSet = useMemo(() => new Set(lockedStickerIds), [lockedStickerIds]);
+    const effectiveGridSnap = gridSnapEnabled !== snapModifierPressed;
+    const selectionActionState = useMemo(() => computeSelectionActionState({
+        selectedStickerIds,
+        groupMap,
+        lockedStickerIds,
+    }), [groupMap, lockedStickerIds, selectedStickerIds]);
+
+    useEffect(() => {
+        const existingIds = new Set(stickers.map((sticker) => sticker.id));
+        setSelectedStickerIds(prev => prev.filter(id => existingIds.has(id)));
+    }, [stickers]);
+
+    useEffect(() => {
+        storage.saveGridSnapEnabled(gridSnapEnabled);
+    }, [gridSnapEnabled]);
+
+    useEffect(() => {
+        selectSticker(selectedStickerIds[0] ?? null);
+    }, [selectedStickerIds, selectSticker]);
 
     const resolveImageStickerContent = useCallback(async (sticker: Sticker): Promise<string | null> => {
         if (sticker.type !== 'image') return null;
@@ -76,12 +136,70 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         return asset?.data || null;
     }, []);
 
+    const applyStickerPosition = useCallback((sticker: Sticker, x: number, y: number) => {
+        const next = updateStickerPercentCoordinates({ ...sticker, x, y }, viewport);
+        updateSticker(sticker.id, {
+            x: next.x,
+            y: next.y,
+            xPct: next.xPct,
+            yPct: next.yPct,
+        });
+    }, [updateSticker, viewport]);
+
+    const handleStickerSelect = useCallback((stickerId: string, appendSelection: boolean) => {
+        setSelectedStickerIds((prev) => {
+            if (appendSelection) {
+                if (prev.includes(stickerId)) {
+                    return prev.filter((id) => id !== stickerId);
+                }
+                return [...prev, stickerId];
+            }
+            return [stickerId];
+        });
+    }, []);
+
+    const handleStickerPositionChange = useCallback((sticker: Sticker, x: number, y: number) => {
+        const dx = x - sticker.x;
+        const dy = y - sticker.y;
+        const moveTargetIds = resolveMoveStickerIds({
+            activeStickerId: sticker.id,
+            selectedStickerIds,
+            groupMap,
+            lockedStickerIds,
+        });
+
+        if (moveTargetIds.length === 0) {
+            return;
+        }
+
+        const runtimeStickerMap = new Map(runtimeStickers.map((item) => [item.id, item]));
+        moveTargetIds.forEach((moveId) => {
+            const targetSticker = runtimeStickerMap.get(moveId);
+            if (!targetSticker) return;
+            const targetX = moveId === sticker.id ? x : targetSticker.x + dx;
+            const targetY = moveId === sticker.id ? y : targetSticker.y + dy;
+            applyStickerPosition(targetSticker, targetX, targetY);
+        });
+    }, [applyStickerPosition, groupMap, lockedStickerIds, runtimeStickers, selectedStickerIds]);
+
+    const handleNudgeSelection = useCallback((dx: number, dy: number) => {
+        if (selectedStickerIds.length === 0) return;
+        const runtimeStickerMap = new Map(runtimeStickers.map((item) => [item.id, item]));
+        selectedStickerIds.forEach((id) => {
+            if (lockedStickerIdSet.has(id)) return;
+            const sticker = runtimeStickerMap.get(id);
+            if (!sticker) return;
+            applyStickerPosition(sticker, sticker.x + dx, sticker.y + dy);
+        });
+    }, [applyStickerPosition, lockedStickerIdSet, runtimeStickers, selectedStickerIds]);
+
     const handleStickerDragStart = useCallback(() => {
         setIsAnyDragging(true);
     }, []);
 
     const handleStickerDragEnd = useCallback(() => {
         setIsAnyDragging(false);
+        setAlignmentGuides([]);
     }, []);
 
     // 上下文菜单的全局右键处理程序
@@ -100,6 +218,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                 e.preventDefault();
                 const stickerId = stickerEl.dataset.stickerId;
                 if (stickerId) {
+                    setSelectedStickerIds(prev => prev.includes(stickerId) ? prev : [stickerId]);
                     setContextMenu({
                         x: e.clientX,
                         y: e.clientY,
@@ -148,7 +267,7 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         return () => document.removeEventListener('dblclick', handleDoubleClick);
     }, [textInputPos]);
 
-    // 热键：Delete 键删除贴纸
+    // 热键：Delete 删除、方向键微调、分组/解组、锁定、网格吸附切换
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -158,15 +277,200 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                     return;
                 }
 
-                if (selectedStickerId) {
-                    deleteSticker(selectedStickerId);
+                if (selectedStickerIds.length > 0) {
+                    const deletingIds = selectedStickerIds.filter((id) => !lockedStickerIdSet.has(id));
+                    deletingIds.forEach((id) => deleteSticker(id));
+                    setSelectedStickerIds(prev => prev.filter((id) => !deletingIds.includes(id)));
                 }
+                return;
+            }
+
+            if (!isEditMode) return;
+
+            const activeElement = document.activeElement;
+            if (activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA') {
+                return;
+            }
+
+            if (e.key === 'Alt') {
+                setSnapModifierPressed(true);
+                return;
+            }
+
+            if (
+                (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
+                selectedStickerIds.length > 0
+            ) {
+                e.preventDefault();
+                const step = e.shiftKey ? 10 : 1;
+                if (e.key === 'ArrowUp') handleNudgeSelection(0, -step);
+                if (e.key === 'ArrowDown') handleNudgeSelection(0, step);
+                if (e.key === 'ArrowLeft') handleNudgeSelection(-step, 0);
+                if (e.key === 'ArrowRight') handleNudgeSelection(step, 0);
+                return;
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    if (selectedStickerIds.length === 0) return;
+                    selectedStickerIds.forEach((id) => {
+                        if (groupMap[id]) {
+                            updateSticker(id, { groupId: undefined });
+                        }
+                    });
+                    return;
+                }
+
+                if (selectedStickerIds.length < 2) return;
+                const nextGroupId = createRuntimeGroupId();
+                selectedStickerIds.forEach((id) => {
+                    if (groupMap[id] !== nextGroupId) {
+                        updateSticker(id, { groupId: nextGroupId });
+                    }
+                });
+                return;
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
+                e.preventDefault();
+                const nextLockedIds = toggleLockSelection(lockedStickerIds, selectedStickerIds);
+                const nextLockedSet = new Set(nextLockedIds);
+                selectedStickerIds.forEach((id) => {
+                    const shouldLock = nextLockedSet.has(id);
+                    if (lockedStickerIdSet.has(id) !== shouldLock) {
+                        updateSticker(id, { locked: shouldLock ? true : undefined });
+                    }
+                });
+                return;
+            }
+
+            if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'g') {
+                e.preventDefault();
+                setGridSnapEnabled(prev => !prev);
+            }
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Alt') {
+                setSnapModifierPressed(false);
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedStickerId, deleteSticker]);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [
+        deleteSticker,
+        groupMap,
+        handleNudgeSelection,
+        isEditMode,
+        lockedStickerIdSet,
+        lockedStickerIds,
+        selectedStickerIds,
+        updateSticker,
+    ]);
+
+    useEffect(() => {
+        if (!isEditMode) {
+            setSelectionBox(null);
+            return;
+        }
+
+        const handleMouseDown = (e: MouseEvent) => {
+            if (e.button !== 0) return;
+            const target = e.target as HTMLElement;
+            if (target.closest(UI_ZONE_SELECTOR)) return;
+            if (target.closest('[data-sticker-id]')) return;
+            if (textInputPos) return;
+
+            setSelectionBox({
+                startX: e.clientX,
+                startY: e.clientY,
+                currentX: e.clientX,
+                currentY: e.clientY,
+                append: e.shiftKey,
+            });
+
+            if (!e.shiftKey) {
+                setSelectedStickerIds([]);
+            }
+            e.preventDefault();
+        };
+
+        document.addEventListener('mousedown', handleMouseDown);
+        return () => document.removeEventListener('mousedown', handleMouseDown);
+    }, [isEditMode, textInputPos]);
+
+    useEffect(() => {
+        if (!selectionBox) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            setSelectionBox(prev => prev ? {
+                ...prev,
+                currentX: e.clientX,
+                currentY: e.clientY,
+            } : prev);
+        };
+
+        const handleMouseUp = () => {
+            setSelectionBox((current) => {
+                if (!current) return null;
+
+                const normalized = normalizeSelectionRect(
+                    current.startX,
+                    current.startY,
+                    current.currentX,
+                    current.currentY
+                );
+                const minSize = 4;
+                const width = normalized.right - normalized.left;
+                const height = normalized.bottom - normalized.top;
+
+                if (width < minSize && height < minSize) {
+                    if (!current.append) {
+                        setSelectedStickerIds([]);
+                    }
+                    return null;
+                }
+
+                const selectedIdsFromBox = runtimeStickers
+                    .map((sticker) => {
+                        const element = document.querySelector<HTMLElement>(`[data-sticker-id="${sticker.id}"]`);
+                        if (!element) return null;
+                        const rect = element.getBoundingClientRect();
+                        const stickerRect = {
+                            left: rect.left,
+                            top: rect.top,
+                            right: rect.right,
+                            bottom: rect.bottom,
+                        };
+                        return rectOverlaps(normalized, stickerRect) ? sticker.id : null;
+                    })
+                    .filter((id): id is string => Boolean(id));
+
+                setSelectedStickerIds(prev => {
+                    if (current.append) {
+                        const merged = new Set([...prev, ...selectedIdsFromBox]);
+                        return Array.from(merged);
+                    }
+                    return selectedIdsFromBox;
+                });
+                return null;
+            });
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [runtimeStickers, selectionBox]);
 
     // 处理图片文件选择
     const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -256,6 +560,67 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
         setEditingSticker(null);
     }, []);
 
+    const handleAddTemplateSticker = useCallback((template: StickerTemplateType, x: number, y: number) => {
+        const templateInput = buildStickerTemplate({
+            template,
+            language,
+            x,
+            y,
+        });
+        const withPercent = updateStickerPercentCoordinates({
+            id: '',
+            ...templateInput,
+        }, viewport);
+        addSticker({
+            ...templateInput,
+            x: withPercent.x,
+            y: withPercent.y,
+            xPct: withPercent.xPct,
+            yPct: withPercent.yPct,
+        });
+    }, [addSticker, language, viewport]);
+
+    const handleGroupSelection = useCallback(() => {
+        if (selectedStickerIds.length < 2) return;
+        const nextGroupId = createRuntimeGroupId();
+        selectedStickerIds.forEach((id) => {
+            if (groupMap[id] !== nextGroupId) {
+                updateSticker(id, { groupId: nextGroupId });
+            }
+        });
+    }, [groupMap, selectedStickerIds, updateSticker]);
+
+    const handleUngroupSelection = useCallback(() => {
+        if (selectedStickerIds.length === 0) return;
+        selectedStickerIds.forEach((id) => {
+            if (groupMap[id]) {
+                updateSticker(id, { groupId: undefined });
+            }
+        });
+    }, [groupMap, selectedStickerIds, updateSticker]);
+
+    const handleLockSelection = useCallback(() => {
+        if (selectedStickerIds.length === 0) return;
+        const nextLockedIds = lockSelection(lockedStickerIds, selectedStickerIds);
+        const nextLockedSet = new Set(nextLockedIds);
+        selectedStickerIds.forEach((id) => {
+            if (!lockedStickerIdSet.has(id) && nextLockedSet.has(id)) {
+                updateSticker(id, { locked: true });
+            }
+        });
+    }, [lockedStickerIdSet, lockedStickerIds, selectedStickerIds, updateSticker]);
+
+    const handleUnlockSelection = useCallback(() => {
+        if (selectedStickerIds.length === 0) return;
+        const nextLockedIds = unlockSelection(lockedStickerIds, selectedStickerIds);
+        const nextLockedSet = new Set(nextLockedIds);
+        selectedStickerIds.forEach((id) => {
+            if (lockedStickerIdSet.has(id) && !nextLockedSet.has(id)) {
+                updateSticker(id, { locked: undefined });
+            }
+        });
+    }, [lockedStickerIdSet, lockedStickerIds, selectedStickerIds, updateSticker]);
+
     const handleEditSticker = useCallback((sticker: Sticker) => {
         setEditingSticker(sticker);
         setTextInputPos({ x: sticker.x, y: sticker.y });
@@ -321,25 +686,49 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
             ref={canvasRef}
             className={`${styles.canvas} ${isEditMode ? styles.creativeMode : ''} ${isAnyDragging ? styles.dragging : ''}`}
         >
+            {isEditMode && effectiveGridSnap && (
+                <div className={styles.gridOverlay} />
+            )}
+
+            {isEditMode && alignmentGuides.map((guide, index) => (
+                <div
+                    key={`${guide.orientation}-${guide.position}-${guide.source}-${index}`}
+                    className={[
+                        styles.alignmentGuide,
+                        guide.orientation === 'vertical' ? styles.verticalGuide : styles.horizontalGuide,
+                        guide.source === 'grid' ? styles.gridGuide : styles.alignGuide,
+                    ].join(' ')}
+                    style={
+                        guide.orientation === 'vertical'
+                            ? { left: `${guide.position}px` }
+                            : { top: `${guide.position}px` }
+                    }
+                />
+            ))}
+
+            {selectionBox && (
+                <div
+                    className={styles.selectionBox}
+                    style={{
+                        left: `${Math.min(selectionBox.startX, selectionBox.currentX)}px`,
+                        top: `${Math.min(selectionBox.startY, selectionBox.currentY)}px`,
+                        width: `${Math.abs(selectionBox.currentX - selectionBox.startX)}px`,
+                        height: `${Math.abs(selectionBox.currentY - selectionBox.startY)}px`,
+                    }}
+                />
+            )}
+
             {runtimeStickers
                 .filter((sticker) => !editingSticker || sticker.id !== editingSticker.id)
                 .map((sticker) => (
                     <StickerItem
                         key={sticker.id}
                         sticker={sticker}
-                        isSelected={selectedStickerId === sticker.id}
+                        isSelected={selectedStickerIdSet.has(sticker.id)}
                         isCreativeMode={isEditMode}
-                        onSelect={() => selectSticker(sticker.id)}
+                        onSelect={(appendSelection) => handleStickerSelect(sticker.id, appendSelection)}
                         onDelete={() => deleteSticker(sticker.id)}
-                        onPositionChange={(x, y) => {
-                            const next = updateStickerPercentCoordinates({ ...sticker, x, y }, viewport);
-                            updateSticker(sticker.id, {
-                                x: next.x,
-                                y: next.y,
-                                xPct: next.xPct,
-                                yPct: next.yPct,
-                            });
-                        }}
+                        onPositionChange={(x, y) => handleStickerPositionChange(sticker, x, y)}
                         onStyleChange={(updates) => {
                             if (sticker.style) {
                                 updateSticker(sticker.id, { style: { ...sticker.style, ...updates } });
@@ -347,7 +736,21 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                         }}
                         onBringToTop={() => bringToTop(sticker.id)}
                         onScaleChange={(scale) => {
-                            updateSticker(sticker.id, { scale });
+                            const stickerGroupId = groupMap[sticker.id];
+                            if (!stickerGroupId) {
+                                updateSticker(sticker.id, { scale });
+                                return;
+                            }
+
+                            const groupedIds = Object.entries(groupMap)
+                                .filter(([, groupId]) => groupId === stickerGroupId)
+                                .map(([id]) => id);
+                            groupedIds.forEach((groupedId) => {
+                                if (lockedStickerIdSet.has(groupedId)) return;
+                                const groupedSticker = runtimeStickers.find(item => item.id === groupedId);
+                                if (!groupedSticker || groupedSticker.type !== 'image') return;
+                                updateSticker(groupedSticker.id, { scale });
+                            });
                         }}
                         isEditMode={isEditMode}
                         onDoubleClick={() => {
@@ -357,6 +760,9 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                         }}
                         onDragStart={handleStickerDragStart}
                         onDragEnd={handleStickerDragEnd}
+                        isLocked={lockedStickerIdSet.has(sticker.id)}
+                        snapToGrid={effectiveGridSnap}
+                        onGuidesChange={setAlignmentGuides}
                     />
                 ))}
 
@@ -388,6 +794,26 @@ export const ZenShelf: React.FC<ZenShelfProps> = ({ onOpenSettings }) => {
                     y={contextMenu.y}
                     type={contextMenu.type}
                     stickerId={contextMenu.stickerId}
+                    onAddTodoTemplate={() => {
+                        handleAddTemplateSticker('todo', contextMenu.x, contextMenu.y);
+                    }}
+                    onAddMeetingTemplate={() => {
+                        handleAddTemplateSticker('meeting', contextMenu.x, contextMenu.y);
+                    }}
+                    onAddIdeaTemplate={() => {
+                        handleAddTemplateSticker('idea', contextMenu.x, contextMenu.y);
+                    }}
+                    hasSelection={selectionActionState.hasSelection}
+                    canGroupSelection={selectionActionState.canGroup}
+                    canUngroupSelection={selectionActionState.canUngroup}
+                    canLockSelection={selectionActionState.canLock}
+                    canUnlockSelection={selectionActionState.canUnlock}
+                    isGridSnapEnabled={gridSnapEnabled}
+                    onGroupSelection={handleGroupSelection}
+                    onUngroupSelection={handleUngroupSelection}
+                    onLockSelection={handleLockSelection}
+                    onUnlockSelection={handleUnlockSelection}
+                    onToggleGridSnap={() => setGridSnapEnabled(prev => !prev)}
                     isImageSticker={(() => {
                         const sticker = runtimeStickers.find(s => s.id === contextMenu.stickerId);
                         return sticker?.type === 'image';

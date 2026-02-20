@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useZenShelf } from '../../context/ZenShelfContext';
+import { useDockData } from '../../context/DockContext';
+import { useSpaces } from '../../context/SpacesContext';
+import { DOCK_RECYCLE_LIMIT, SPACE_RECYCLE_LIMIT, STICKER_RECYCLE_LIMIT } from '../../constants/recycle';
+import { estimateRecycleBytes, formatBytes } from '../../utils/storageDashboard';
 import styles from './ZenShelf.module.css';
 import { useLanguage } from '../../context/LanguageContext';
 import TrashIcon from '../../assets/icons/trash.svg';
@@ -11,6 +15,59 @@ interface RecycleBinModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
+
+type RecycleViewType = 'stickers' | 'dock' | 'space';
+export const DEFAULT_RECYCLE_VIEW: RecycleViewType = 'stickers';
+
+export const buildRecycleBinQuotaText = (
+    language: 'zh' | 'en',
+    counts: { stickers: number; dock: number; spaces: number }
+): string => {
+    if (language === 'zh') {
+        return `配额：贴纸 ${counts.stickers}/${STICKER_RECYCLE_LIMIT} · Dock ${counts.dock}/${DOCK_RECYCLE_LIMIT} · 空间 ${counts.spaces}/${SPACE_RECYCLE_LIMIT}`;
+    }
+    return `Quota: Stickers ${counts.stickers}/${STICKER_RECYCLE_LIMIT} · Dock ${counts.dock}/${DOCK_RECYCLE_LIMIT} · Space ${counts.spaces}/${SPACE_RECYCLE_LIMIT}`;
+};
+
+export const buildRecycleBinUsageText = (language: 'zh' | 'en', recycleBytes: number): string => {
+    if (language === 'zh') {
+        return `回收站占用：${formatBytes(recycleBytes)}`;
+    }
+    return `Recycle usage: ${formatBytes(recycleBytes)}`;
+};
+
+const buildDeletedSummaryText = (
+    language: 'zh' | 'en',
+    counts: { stickers: number; dock: number; spaces: number }
+): string => {
+    if (language === 'zh') {
+        return `当前删除项：贴纸 ${counts.stickers} · Dock ${counts.dock} · 空间 ${counts.spaces}`;
+    }
+    return `Deleted now: Stickers ${counts.stickers} · Dock ${counts.dock} · Space ${counts.spaces}`;
+};
+
+export const getRecycleViewLabel = (language: 'zh' | 'en', view: RecycleViewType): string => {
+    if (language === 'zh') {
+        if (view === 'stickers') return '贴纸';
+        if (view === 'dock') return 'Dock';
+        return '空间';
+    }
+
+    if (view === 'stickers') return 'Stickers';
+    if (view === 'dock') return 'Dock';
+    return 'Space';
+};
+
+const formatDeletedAt = (deletedAt: number, language: 'zh' | 'en'): string => {
+    const locale = language === 'zh' ? 'zh-CN' : 'en-US';
+    return new Date(deletedAt).toLocaleString(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
 
 // 橡皮筋效果计算 - 超过最大值后阻力逐渐增加
 const rubberBand = (offset: number, maxOffset: number = 200): number => {
@@ -263,9 +320,43 @@ const RecycleBinItem: React.FC<{
 
 
 export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ isOpen, onClose }) => {
-    const { deletedStickers, restoreSticker, permanentlyDeleteSticker } = useZenShelf();
-    const { t } = useLanguage();
+    const { deletedStickers, restoreSticker, permanentlyDeleteSticker, clearRecycleBin } = useZenShelf();
+    const {
+        deletedDockItems,
+        restoreDeletedDockItem,
+        clearDeletedDockItems,
+    } = useDockData();
+    const {
+        deletedSpaces,
+        restoreDeletedSpace,
+        clearDeletedSpaces,
+    } = useSpaces();
+    const { t, language } = useLanguage();
     const [isClosing, setIsClosing] = useState(false);
+    const [activeView, setActiveView] = useState<RecycleViewType>(DEFAULT_RECYCLE_VIEW);
+
+    const recycleCounts = {
+        stickers: deletedStickers.length,
+        dock: deletedDockItems.length,
+        spaces: deletedSpaces.length,
+    };
+    const recycleQuotaText = buildRecycleBinQuotaText(language, {
+        stickers: recycleCounts.stickers,
+        dock: recycleCounts.dock,
+        spaces: recycleCounts.spaces,
+    });
+    const recycleSummaryText = buildDeletedSummaryText(language, recycleCounts);
+    const recycleUsageText = buildRecycleBinUsageText(
+        language,
+        estimateRecycleBytes(deletedDockItems, deletedSpaces, deletedStickers)
+    );
+    const allRecycleBinsEmpty = recycleCounts.stickers === 0 && recycleCounts.dock === 0 && recycleCounts.spaces === 0;
+    const activeViewCount = activeView === 'stickers'
+        ? recycleCounts.stickers
+        : (activeView === 'dock' ? recycleCounts.dock : recycleCounts.spaces);
+
+    const sortedDeletedDockItems = [...deletedDockItems].sort((left, right) => right.deletedAt - left.deletedAt);
+    const sortedDeletedSpaces = [...deletedSpaces].sort((left, right) => right.deletedAt - left.deletedAt);
 
     // 处理关闭 - 先播放退场动画
     const handleClose = useCallback(() => {
@@ -282,10 +373,23 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ isOpen, onClos
         permanentlyDeleteSticker(sticker.id);
     }, [permanentlyDeleteSticker]);
 
+    const handleClearAllRecycleBins = useCallback(() => {
+        const confirmed = window.confirm(
+            language === 'zh'
+                ? '确认清空 Dock/空间/贴纸回收站？清空后不可恢复。'
+                : 'Clear dock/space/sticker recycle bins? This cannot be undone.'
+        );
+        if (!confirmed) return;
+        clearDeletedDockItems();
+        clearDeletedSpaces();
+        clearRecycleBin();
+    }, [clearDeletedDockItems, clearDeletedSpaces, clearRecycleBin, language]);
+
     // 重置关闭状态
     useEffect(() => {
         if (isOpen) {
             setIsClosing(false);
+            setActiveView(DEFAULT_RECYCLE_VIEW);
         }
     }, [isOpen]);
 
@@ -310,7 +414,8 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ isOpen, onClos
                 <div className={styles.recycleBinHeader}>
                     <div className={styles.headerTextWrapper}>
                         <h2 className={styles.recycleBinTitle}>{t.space.recycleBin || "Recycle Bin"}</h2>
-                        <span className={styles.recycleBinSubtitle}>{t.space.restoreHint || "Swipe left to restore, swipe right to delete"} · {t.space.recycleBinLimitHint}</span>
+                        <span className={styles.recycleBinSubtitle}>{t.space.restoreHint || "Swipe left to restore, swipe right to delete"} · {recycleQuotaText}</span>
+                        <span className={styles.recycleBinMetaText}>{recycleSummaryText} · {recycleUsageText}</span>
                     </div>
                     <button className={styles.recycleBinCloseWrapper} onClick={handleClose}>
                         <div className={styles.recycleBinCloseInner}>
@@ -322,18 +427,29 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ isOpen, onClos
                 </div>
 
                 <div className={styles.recycleBinGrid}>
-                    {deletedStickers.length > 0 ? (
-                        deletedStickers.map((sticker, index) => (
-                            <RecycleBinItem
-                                key={sticker.id}
-                                sticker={sticker}
-                                onRestore={restoreSticker}
-                                onDelete={handlePermanentDelete}
-                                t={t}
-                                index={index}
-                            />
-                        ))
-                    ) : (
+                    <div className={styles.recycleBinActionRow}>
+                        <button
+                            className={styles.recycleBinActionButtonDanger}
+                            onClick={handleClearAllRecycleBins}
+                            disabled={allRecycleBinsEmpty}
+                        >
+                            {language === 'zh' ? '清空回收站' : 'Empty Recycle Bin'}
+                        </button>
+                    </div>
+
+                    <div className={styles.recycleBinViewToggle}>
+                        {(['stickers', 'dock', 'space'] as RecycleViewType[]).map((view) => (
+                            <button
+                                key={view}
+                                className={`${styles.recycleBinViewButton} ${activeView === view ? styles.recycleBinViewButtonActive : ''}`}
+                                onClick={() => setActiveView(view)}
+                            >
+                                {getRecycleViewLabel(language, view)}
+                            </button>
+                        ))}
+                    </div>
+
+                    {allRecycleBinsEmpty ? (
                         <div className={styles.emptyState}>
                             <img src={TrashCanEmpty} alt="Empty Recycle Bin" className={styles.emptyStateIcon} />
                             <span className={styles.emptyStateText}>
@@ -343,6 +459,86 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ isOpen, onClos
                                 {t.space?.emptyRecycleBinHint || "Deleted stickers will appear here"}
                             </span>
                         </div>
+                    ) : activeViewCount === 0 ? (
+                        <div className={styles.recycleBinListEmpty}>
+                            {activeView === 'stickers'
+                                ? (language === 'zh' ? '暂无已删除贴纸' : 'No deleted stickers')
+                                : activeView === 'dock'
+                                    ? (language === 'zh' ? '暂无 Dock 删除项' : 'No deleted Dock items')
+                                    : (language === 'zh' ? '暂无空间删除项' : 'No deleted spaces')}
+                        </div>
+                    ) : (
+                        <>
+                            {activeView === 'stickers' ? (
+                                <>
+                                    <div className={styles.recycleBinSectionTitle}>
+                                        {language === 'zh' ? '贴纸（左滑还原 / 右滑删除）' : 'Stickers (swipe left restore / right delete)'}
+                                    </div>
+                                    {deletedStickers.map((sticker, index) => (
+                                        <RecycleBinItem
+                                            key={sticker.id}
+                                            sticker={sticker}
+                                            onRestore={restoreSticker}
+                                            onDelete={handlePermanentDelete}
+                                            t={t}
+                                            index={index}
+                                        />
+                                    ))}
+                                </>
+                            ) : activeView === 'dock' ? (
+                                <div className={styles.recycleBinSingleList}>
+                                    <div className={styles.recycleBinListCard}>
+                                        <div className={styles.recycleBinListTitle}>
+                                            {language === 'zh' ? `Dock（${sortedDeletedDockItems.length}）` : `Dock (${sortedDeletedDockItems.length})`}
+                                        </div>
+                                        {sortedDeletedDockItems.map((record) => (
+                                            <div key={record.id} className={styles.recycleBinListItem}>
+                                                <div className={styles.recycleBinListItemInfo}>
+                                                    <span className={styles.recycleBinListItemName}>
+                                                        {record.item.name || (language === 'zh' ? '未命名项' : 'Untitled')}
+                                                    </span>
+                                                    <span className={styles.recycleBinListItemMeta}>
+                                                        {formatDeletedAt(record.deletedAt, language)}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    className={styles.recycleBinListItemRestore}
+                                                    onClick={() => restoreDeletedDockItem(record.id)}
+                                                >
+                                                    {language === 'zh' ? '还原' : 'Restore'}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className={styles.recycleBinSingleList}>
+                                    <div className={styles.recycleBinListCard}>
+                                        <div className={styles.recycleBinListTitle}>
+                                            {language === 'zh' ? `空间（${sortedDeletedSpaces.length}）` : `Space (${sortedDeletedSpaces.length})`}
+                                        </div>
+                                        {sortedDeletedSpaces.map((record) => (
+                                            <div key={record.id} className={styles.recycleBinListItem}>
+                                                <div className={styles.recycleBinListItemInfo}>
+                                                    <span className={styles.recycleBinListItemName}>
+                                                        {record.space.name || (language === 'zh' ? '未命名空间' : 'Untitled Space')}
+                                                    </span>
+                                                    <span className={styles.recycleBinListItemMeta}>
+                                                        {formatDeletedAt(record.deletedAt, language)}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    className={styles.recycleBinListItemRestore}
+                                                    onClick={() => restoreDeletedSpace(record.id)}
+                                                >
+                                                    {language === 'zh' ? '还原' : 'Restore'}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

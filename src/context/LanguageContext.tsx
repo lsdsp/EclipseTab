@@ -42,6 +42,15 @@ interface Translations {
     };
     contextMenu: {
         addSticker: string;
+        addTodoTemplate: string;
+        addMeetingTemplate: string;
+        addIdeaTemplate: string;
+        groupSelection: string;
+        ungroupSelection: string;
+        lockSelection: string;
+        unlockSelection: string;
+        enableGridSnap: string;
+        disableGridSnap: string;
         uploadImage: string;
         editMode: string;
         exitEditMode: string;
@@ -154,6 +163,15 @@ const translations: Record<Language, Translations> = {
         },
         contextMenu: {
             addSticker: 'Add Sticker',
+            addTodoTemplate: 'Add TODO Template',
+            addMeetingTemplate: 'Add Meeting Template',
+            addIdeaTemplate: 'Add Idea Template',
+            groupSelection: 'Group Selection',
+            ungroupSelection: 'Ungroup Selection',
+            lockSelection: 'Lock Selection',
+            unlockSelection: 'Unlock Selection',
+            enableGridSnap: 'Enable Grid Snap',
+            disableGridSnap: 'Disable Grid Snap',
             uploadImage: 'Upload Image',
             editMode: 'Edit Mode',
             exitEditMode: 'Exit Edit Mode',
@@ -204,7 +222,7 @@ const translations: Record<Language, Translations> = {
             restoreHint: 'Swipe left to restore, swipe right to delete',
             emptyRecycleBin: 'No deleted items',
             emptyRecycleBinHint: 'Deleted stickers will appear here',
-            recycleBinLimitHint: 'Recycle bin stores up to 30 items',
+            recycleBinLimitHint: 'Recycle bin stores up to 50 stickers',
         },
         dock: {
             emptyHint: 'Right-click or use top-right button to enter edit mode and add icons',
@@ -264,6 +282,15 @@ const translations: Record<Language, Translations> = {
         },
         contextMenu: {
             addSticker: '添加贴纸',
+            addTodoTemplate: '添加 TODO 模板',
+            addMeetingTemplate: '添加会议纪要模板',
+            addIdeaTemplate: '添加灵感卡片模板',
+            groupSelection: '分组所选贴纸',
+            ungroupSelection: '解组所选贴纸',
+            lockSelection: '锁定所选贴纸',
+            unlockSelection: '解锁所选贴纸',
+            enableGridSnap: '启用网格吸附',
+            disableGridSnap: '关闭网格吸附',
             uploadImage: '上传图片',
             editMode: '编辑模式',
             exitEditMode: '退出编辑',
@@ -314,7 +341,7 @@ const translations: Record<Language, Translations> = {
             restoreHint: '左滑还原，右滑删除',
             emptyRecycleBin: '没有已删除的项目',
             emptyRecycleBinHint: '删除的贴纸将在这里显示',
-            recycleBinLimitHint: '回收站最多存储30条贴纸',
+            recycleBinLimitHint: '回收站最多存储50条贴纸',
         },
         dock: {
             emptyHint: '右键或点击右上角进入编辑模式添加图标',

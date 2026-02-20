@@ -15,6 +15,7 @@ interface DockItemProps {
   isDropTarget?: boolean;
   /** 是否为合并目标（触发脉冲动画） */
   isMergeTarget?: boolean;
+  isRecentlyImported?: boolean;
   onLongPress?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
   /** 右键菜单回调，传递位置和元素rect */
@@ -31,6 +32,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
   staggerIndex: _staggerIndex,
   isDropTarget = false,
   isMergeTarget = false,
+  isRecentlyImported = false,
   onLongPress,
   onMouseDown,
   onContextMenu,
@@ -133,7 +135,7 @@ const DockItemComponent: React.FC<DockItemProps> = ({
 
   return (
     <div
-      className={`${styles.dockItem} ${isEditMode ? styles.editMode : ''} ${isDragging ? styles.dragging : ''} ${isDropTarget ? styles.dropTarget : ''} ${isMergeTarget ? styles.pulse : ''}`}
+      className={`${styles.dockItem} ${isEditMode ? styles.editMode : ''} ${isDragging ? styles.dragging : ''} ${isDropTarget ? styles.dropTarget : ''} ${isMergeTarget ? styles.pulse : ''} ${isRecentlyImported ? styles.recentImported : ''}`}
       style={{ animationDelay }}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
@@ -204,6 +206,7 @@ const arePropsEqual = (prev: DockItemProps, next: DockItemProps) => {
     prev.isDragging !== next.isDragging ||
     prev.isDropTarget !== next.isDropTarget ||
     prev.isMergeTarget !== next.isMergeTarget ||
+    prev.isRecentlyImported !== next.isRecentlyImported ||
     prev.staggerIndex !== next.staggerIndex
   ) {
     return false;

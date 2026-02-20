@@ -20,6 +20,16 @@ declare namespace chrome {
         export function request(permissions: { origins?: string[], permissions?: string[] }, callback?: (granted: boolean) => void): Promise<boolean>;
         export function remove(permissions: { origins?: string[], permissions?: string[] }, callback?: (removed: boolean) => void): Promise<boolean>;
     }
+    export namespace bookmarks {
+        export interface BookmarkTreeNode {
+            id: string;
+            title?: string;
+            url?: string;
+            children?: BookmarkTreeNode[];
+        }
+
+        export function getTree(callback: (results: BookmarkTreeNode[]) => void): void;
+    }
     export namespace runtime {
         export const lastError: { message?: string } | undefined;
     }

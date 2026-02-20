@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { DockItem, SearchEngine } from '../types';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { DockItem, SearchEngine, DeletedDockItemRecord, clampRecycleRecords } from '../types';
+import { DOCK_RECYCLE_LIMIT } from '../constants/recycle';
 import { storage } from '../utils/storage';
 import { DEFAULT_SEARCH_ENGINE, GOOGLE_ENGINE, SEARCH_ENGINES } from '../constants/searchEngines';
 import { generateFolderIcon, fetchIcon } from '../utils/iconFetcher';
@@ -12,17 +13,22 @@ import { shouldSyncDockItemsToSpace } from './dockSync';
 
 interface DockDataContextType {
     dockItems: DockItem[];
+    deletedDockItems: DeletedDockItemRecord[];
+    recentImportedIds: string[];
     searchEngines: SearchEngine[];
     selectedSearchEngine: SearchEngine;
     setDockItems: React.Dispatch<React.SetStateAction<DockItem[]>>;
+    appendDockItems: (items: DockItem[]) => void;
+    restoreDeletedDockItem: (recordId: string) => DockItem | null;
+    clearDeletedDockItems: () => void;
     setSelectedSearchEngine: (engine: SearchEngine) => void;
     addSearchEngine: (engine: Omit<SearchEngine, 'id'>) => SearchEngine;
     removeSearchEngine: (engineId: string) => void;
     handleItemSave: (data: Partial<DockItem>, editingItem: DockItem | null) => void;
     handleItemsReorder: (items: DockItem[]) => void;
-    handleItemDelete: (item: DockItem) => void;
+    handleItemDelete: (item: DockItem) => DeletedDockItemRecord | null;
     handleFolderItemsReorder: (folderId: string, items: DockItem[]) => void;
-    handleFolderItemDelete: (folderId: string, item: DockItem) => void;
+    handleFolderItemDelete: (folderId: string, item: DockItem) => DeletedDockItemRecord | null;
     handleDragFromFolder: (item: DockItem, insertIndex?: number) => void;
     handleDragToFolder: (item: DockItem) => void;
     handleDropOnFolder: (dragItem: DockItem, targetFolder: DockItem) => void;
@@ -134,7 +140,7 @@ const getInitialSelectedSearchEngine = (engines: SearchEngine[]): SearchEngine =
 
 export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // 从 SpacesContext 获取当前空间的 apps
-    const { currentSpace, updateCurrentSpaceApps } = useSpaces();
+    const { spaces, currentSpace, updateCurrentSpaceApps, updateSpaceApps } = useSpaces();
 
     // 数据状态: dockItems 来自当前 Space
     // 额外记录 spaceId 用于避免空间切换瞬间把旧空间数据同步到新空间
@@ -148,6 +154,11 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const engines = getInitialSearchEngines();
         return getInitialSelectedSearchEngine(engines);
     });
+    const [deletedDockItems, setDeletedDockItems] = useState<DeletedDockItemRecord[]>(() =>
+        clampRecycleRecords(storage.getDeletedDockItems(), Date.now(), DOCK_RECYCLE_LIMIT)
+    );
+    const [recentImportedIds, setRecentImportedIds] = useState<string[]>([]);
+    const importedHighlightTimerRef = useRef<number | null>(null);
 
     // UI 状态 (中频变化)
     const [isEditMode, setIsEditModeState] = useState(false);
@@ -177,6 +188,70 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         []
     );
+
+    const appendDockItems = useCallback((items: DockItem[]) => {
+        if (items.length === 0) return;
+        setDockItems(prev => [...prev, ...items]);
+        setRecentImportedIds(items.map(item => item.id));
+        if (importedHighlightTimerRef.current) {
+            clearTimeout(importedHighlightTimerRef.current);
+        }
+        importedHighlightTimerRef.current = window.setTimeout(() => {
+            setRecentImportedIds([]);
+            importedHighlightTimerRef.current = null;
+        }, 4000);
+    }, [setDockItems]);
+
+    const clearDeletedDockItems = useCallback(() => {
+        setDeletedDockItems([]);
+    }, []);
+
+    const restoreDeletedDockItem = useCallback((recordId: string): DockItem | null => {
+        const record = deletedDockItems.find(item => item.id === recordId);
+        if (!record) return null;
+
+        const restoreIntoSpace = (items: DockItem[]): DockItem[] => {
+            const insertAt = Math.min(Math.max(record.originalIndex, 0), items.length);
+            if (!record.parentFolderId) {
+                const next = [...items];
+                next.splice(insertAt, 0, record.item);
+                return next;
+            }
+
+            const folderIndex = items.findIndex(item => item.id === record.parentFolderId && item.type === 'folder');
+            if (folderIndex === -1) {
+                const fallback = [...items];
+                fallback.splice(insertAt, 0, record.item);
+                return fallback;
+            }
+
+            const folder = items[folderIndex];
+            const folderItems = [...(folder.items || [])];
+            const folderInsertIndex = Math.min(Math.max(record.originalIndex, 0), folderItems.length);
+            folderItems.splice(folderInsertIndex, 0, record.item);
+
+            const next = [...items];
+            next[folderIndex] = {
+                ...folder,
+                items: folderItems,
+                icon: generateFolderIcon(folderItems),
+            };
+            return next;
+        };
+
+        if (record.spaceId === currentSpace.id) {
+            setDockItems(prev => restoreIntoSpace(prev));
+        } else {
+            const targetSpace = spaces.find(space => space.id === record.spaceId);
+            if (!targetSpace) {
+                return null;
+            }
+            updateSpaceApps(record.spaceId, restoreIntoSpace(targetSpace.apps || []));
+        }
+
+        setDeletedDockItems(prev => prev.filter(item => item.id !== recordId));
+        return record.item;
+    }, [currentSpace.id, deletedDockItems, setDockItems, spaces, updateSpaceApps]);
 
     // 将本地 dockItems 同步回当前空间，替代 setTimeout(0) workaround
     useEffect(() => {
@@ -345,6 +420,18 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         storage.saveSearchEngine(selectedSearchEngine);
     }, [selectedSearchEngine]);
 
+    useEffect(() => {
+        storage.saveDeletedDockItems(deletedDockItems);
+    }, [deletedDockItems]);
+
+    useEffect(() => {
+        return () => {
+            if (importedHighlightTimerRef.current) {
+                clearTimeout(importedHighlightTimerRef.current);
+            }
+        };
+    }, []);
+
     // 辅助函数: 检查并在需要时解散文件夹
     const checkAndDissolveFolderIfNeeded = useCallback((folderId: string, updatedItems: DockItem[]): DockItem[] => {
         const folder = updatedItems.find(i => i.id === folderId);
@@ -367,6 +454,21 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         return updatedItems;
+    }, []);
+
+    const createDeletedRecord = useCallback((item: DockItem, originalIndex: number, parentFolderId?: string): DeletedDockItemRecord => {
+        return {
+            id: `deleted_dock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            deletedAt: Date.now(),
+            spaceId: currentSpace.id,
+            originalIndex,
+            item,
+            parentFolderId,
+        };
+    }, [currentSpace.id]);
+
+    const pushDeletedRecord = useCallback((record: DeletedDockItemRecord) => {
+        setDeletedDockItems(prev => clampRecycleRecords([record, ...prev], Date.now(), DOCK_RECYCLE_LIMIT));
     }, []);
 
     // ========================================================================
@@ -420,17 +522,19 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 数据操作 (低频)
     // ========================================================================
 
-    const handleItemDelete = useCallback((item: DockItem) => {
-        if (window.confirm(`确定要删除 "${item.name}" 吗？${item.type === 'folder' ? '文件夹内的所有内容也将被删除。' : ''}`)) {
-            setDockItems(prev => {
-                const newItems = prev.filter((i) => i.id !== item.id);
-                return newItems;
-            });
-            if (openFolderId === item.id) {
-                setOpenFolderIdState(null);
-            }
+    const handleItemDelete = useCallback((item: DockItem): DeletedDockItemRecord | null => {
+        const originalIndex = dockItems.findIndex((dockItem) => dockItem.id === item.id);
+        if (originalIndex === -1) return null;
+
+        const record = createDeletedRecord(item, originalIndex);
+        pushDeletedRecord(record);
+
+        setDockItems(prev => prev.filter((dockItem) => dockItem.id !== item.id));
+        if (openFolderId === item.id) {
+            setOpenFolderIdState(null);
         }
-    }, [openFolderId, setDockItems]);
+        return record;
+    }, [createDeletedRecord, dockItems, openFolderId, pushDeletedRecord, setDockItems]);
 
     const handleItemSave = useCallback((data: Partial<DockItem>, editingItem: DockItem | null) => {
         if (editingItem) {
@@ -488,35 +592,49 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
     }, [setDockItems]);
 
-    const handleFolderItemDelete = useCallback((folderId: string, item: DockItem) => {
+    const handleFolderItemDelete = useCallback((folderId: string, item: DockItem): DeletedDockItemRecord | null => {
+        const folder = dockItems.find((dockItem) => dockItem.id === folderId && dockItem.type === 'folder');
+        if (!folder || !folder.items) {
+            return null;
+        }
+
+        const originalIndex = folder.items.findIndex((folderItem) => folderItem.id === item.id);
+        if (originalIndex === -1) {
+            return null;
+        }
+
+        const record = createDeletedRecord(item, originalIndex, folderId);
+        pushDeletedRecord(record);
+
         setDockItems(prev => {
-            const folder = prev.find((i) => i.id === folderId);
-            if (folder && folder.type === 'folder' && folder.items) {
-                const newItems = folder.items.filter((i) => i.id !== item.id);
+            const target = prev.find((dockItem) => dockItem.id === folderId && dockItem.type === 'folder');
+            if (!target || !target.items) return prev;
 
-                let newDockItems = prev.map((i) => {
-                    if (i.id === folderId) {
-                        return {
-                            ...i,
-                            items: newItems,
-                            icon: generateFolderIcon(newItems),
-                        };
-                    }
-                    return i;
-                });
+            const newItems = target.items.filter((folderItem) => folderItem.id !== item.id);
 
-                newDockItems = checkAndDissolveFolderIfNeeded(folderId, newDockItems);
-
-                const dissolvedFolder = newDockItems.find(i => i.id === folderId);
-                if (!dissolvedFolder || dissolvedFolder.type !== 'folder') {
-                    setOpenFolderIdState(null);
+            let newDockItems = prev.map((dockItem) => {
+                if (dockItem.id === folderId) {
+                    return {
+                        ...dockItem,
+                        items: newItems,
+                        icon: generateFolderIcon(newItems),
+                    };
                 }
+                return dockItem;
+            });
 
-                return newDockItems;
+            newDockItems = checkAndDissolveFolderIfNeeded(folderId, newDockItems);
+
+            const dissolvedFolder = newDockItems.find(dockItem => dockItem.id === folderId);
+            if (!dissolvedFolder || dissolvedFolder.type !== 'folder') {
+                setOpenFolderIdState(null);
             }
-            return prev;
+
+            return newDockItems;
         });
-    }, [checkAndDissolveFolderIfNeeded, setDockItems]);
+
+        return record;
+    }, [checkAndDissolveFolderIfNeeded, createDeletedRecord, dockItems, pushDeletedRecord, setDockItems]);
 
     const handleDragFromFolder = useCallback((item: DockItem, insertIndex: number = -1) => {
         if (!openFolderId) return;
@@ -612,9 +730,14 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const dataValue: DockDataContextType = useMemo(() => ({
         dockItems,
+        deletedDockItems,
+        recentImportedIds,
         searchEngines,
         selectedSearchEngine,
         setDockItems,
+        appendDockItems,
+        restoreDeletedDockItem,
+        clearDeletedDockItems,
         setSelectedSearchEngine,
         addSearchEngine,
         removeSearchEngine,
@@ -628,9 +751,14 @@ export const DockProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleDropOnFolder,
     }), [
         dockItems,
+        deletedDockItems,
+        recentImportedIds,
         searchEngines,
         selectedSearchEngine,
         setDockItems,
+        appendDockItems,
+        restoreDeletedDockItem,
+        clearDeletedDockItems,
         setSelectedSearchEngine,
         addSearchEngine,
         removeSearchEngine,

@@ -27,10 +27,14 @@ interface DBWrapper {
     remove: (id: string) => Promise<void>;
     removeMultiple: (ids: string[]) => Promise<void>;
     getAll: () => Promise<WallpaperItem[]>;
+    clearWallpapers: () => Promise<void>;
     saveStickerAsset: (item: StickerAssetItem) => Promise<string>;
+    saveStickerAssets: (items: StickerAssetItem[]) => Promise<string[]>;
     getStickerAsset: (id: string) => Promise<StickerAssetItem | null>;
+    getAllStickerAssets: () => Promise<StickerAssetItem[]>;
     removeStickerAsset: (id: string) => Promise<void>;
     removeStickerAssets: (ids: string[]) => Promise<void>;
+    clearStickerAssets: () => Promise<void>;
 }
 
 class IndexedDBWrapper implements DBWrapper {
@@ -197,6 +201,23 @@ class IndexedDBWrapper implements DBWrapper {
         }
     }
 
+    async clearWallpapers(): Promise<void> {
+        try {
+            const db = await this.getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(WALLPAPER_STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(WALLPAPER_STORE_NAME);
+                const request = store.clear();
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            logger.error('DB ClearWallpapers Error:', error);
+            throw error;
+        }
+    }
+
     async saveStickerAsset(item: StickerAssetItem): Promise<string> {
         try {
             const db = await this.getDB();
@@ -210,6 +231,30 @@ class IndexedDBWrapper implements DBWrapper {
             });
         } catch (error) {
             logger.error('DB SaveStickerAsset Error:', error);
+            throw error;
+        }
+    }
+
+    async saveStickerAssets(items: StickerAssetItem[]): Promise<string[]> {
+        if (items.length === 0) return [];
+
+        try {
+            const db = await this.getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STICKER_ASSET_STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STICKER_ASSET_STORE_NAME);
+                const ids: string[] = [];
+
+                items.forEach((item) => {
+                    store.put(item);
+                    ids.push(item.id);
+                });
+
+                transaction.oncomplete = () => resolve(ids);
+                transaction.onerror = () => reject(transaction.error);
+            });
+        } catch (error) {
+            logger.error('DB SaveStickerAssets Error:', error);
             throw error;
         }
     }
@@ -228,6 +273,23 @@ class IndexedDBWrapper implements DBWrapper {
         } catch (error) {
             logger.error('DB GetStickerAsset Error:', error);
             return null;
+        }
+    }
+
+    async getAllStickerAssets(): Promise<StickerAssetItem[]> {
+        try {
+            const db = await this.getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STICKER_ASSET_STORE_NAME, 'readonly');
+                const store = transaction.objectStore(STICKER_ASSET_STORE_NAME);
+                const request = store.getAll();
+
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            logger.error('DB GetAllStickerAssets Error:', error);
+            return [];
         }
     }
 
@@ -266,6 +328,23 @@ class IndexedDBWrapper implements DBWrapper {
             });
         } catch (error) {
             logger.error('DB RemoveStickerAssets Error:', error);
+            throw error;
+        }
+    }
+
+    async clearStickerAssets(): Promise<void> {
+        try {
+            const db = await this.getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STICKER_ASSET_STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STICKER_ASSET_STORE_NAME);
+                const request = store.clear();
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            logger.error('DB ClearStickerAssets Error:', error);
             throw error;
         }
     }

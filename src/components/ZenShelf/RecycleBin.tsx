@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import styles from './ZenShelf.module.css';
+import { STICKER_RECYCLE_LIMIT } from '../../constants/recycle';
 import { useZenShelf } from '../../context/ZenShelfContext';
 import TrashCanEmpty from '../../assets/icons/TrashCan-empty.svg';
 import TrashCanFull from '../../assets/icons/TrashCan-full.svg';
@@ -45,7 +46,7 @@ export const RecycleBin: React.FC<RecycleBinProps> = ({ isVisible, onClick }) =>
     };
 
     let icon = TrashCanEmpty;
-    if (deletedStickers.length >= 30) {
+    if (deletedStickers.length >= STICKER_RECYCLE_LIMIT) {
         icon = TrashCanFull;
     } else if (deletedStickers.length > 0) {
         icon = TrashCanHalf;

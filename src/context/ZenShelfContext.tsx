@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sticker, StickerInput, DEFAULT_TEXT_STYLE } from '../types';
+import { STICKER_RECYCLE_LIMIT } from '../constants/recycle';
 import { storage } from '../utils/storage';
 import {
     ensureStickerAsset,
@@ -75,6 +76,8 @@ const areStickerListsEqual = (left: Sticker[], right: Sticker[]): boolean => {
             sticker.yPct === other.yPct &&
             sticker.zIndex === other.zIndex &&
             sticker.scale === other.scale &&
+            sticker.groupId === other.groupId &&
+            sticker.locked === other.locked &&
             sticker.style?.color === other.style?.color &&
             sticker.style?.textAlign === other.style?.textAlign &&
             sticker.style?.fontSize === other.style?.fontSize &&
@@ -231,13 +234,12 @@ export const ZenShelfProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (stickerToDelete) {
             setDeletedStickers(prev => {
                 const newDeleted = [stickerToDelete, ...prev];
-                // Limit to 30 items
-                if (newDeleted.length > 30) {
-                    const overflow = newDeleted.slice(30);
+                if (newDeleted.length > STICKER_RECYCLE_LIMIT) {
+                    const overflow = newDeleted.slice(STICKER_RECYCLE_LIMIT);
                     overflow.forEach(sticker => {
                         void removeStickerAssetIfPresent(sticker);
                     });
-                    return newDeleted.slice(0, 30);
+                    return newDeleted.slice(0, STICKER_RECYCLE_LIMIT);
                 }
                 return newDeleted;
             });

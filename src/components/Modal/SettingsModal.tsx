@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Theme, useTheme, Texture } from '../../context/ThemeContext';
 import { useSystemTheme } from '../../hooks/useSystemTheme';
 import { useLanguage } from '../../context/LanguageContext';
+import { useSpaces } from '../../context/SpacesContext';
+import { useDockData } from '../../context/DockContext';
+import { useUndo } from '../../context/UndoContext';
 import { GRADIENT_PRESETS } from '../../constants/gradients';
 import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
 import styles from './SettingsModal.module.css';
@@ -21,6 +24,27 @@ import {
     SUGGESTION_PROVIDER_ORIGINS,
 } from '../../hooks/searchSuggestions';
 import { storage } from '../../utils/storage';
+import {
+    applyBackupImport,
+    BackupImportStrategy,
+    BackupPackage,
+    exportFullBackupToZip,
+    exportSpaceSnapshotToZip,
+    parseBackupFile,
+    previewBackupImport,
+} from '../../utils/fullBackup';
+import {
+    buildBookmarkImportPreview,
+    createDockItemsFromBookmarks,
+} from '../../utils/bookmarkImport';
+import {
+    cleanupOldWallpapers,
+    collectStorageStats,
+    formatBytes,
+    recompressStickerAssets,
+    StorageStats,
+} from '../../utils/storageDashboard';
+import { fetchIcon } from '../../utils/iconFetcher';
 
 
 interface SettingsModalProps {
@@ -28,6 +52,40 @@ interface SettingsModalProps {
     onClose: () => void;
     anchorPosition: { x: number; y: number };
 }
+
+const DEFAULT_IMPORT_PREVIEW_STRATEGY: BackupImportStrategy = 'merge';
+
+const defaultConfirm = (message: string): boolean => {
+    if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
+        return false;
+    }
+    return window.confirm(message);
+};
+
+export const promptImportStrategy = (
+    language: 'zh' | 'en',
+    confirmFn: (message: string) => boolean = defaultConfirm
+): BackupImportStrategy | null => {
+    const mergeSelected = confirmFn(
+        language === 'zh'
+            ? '导入策略：确定 = 合并导入；取消 = 继续选择覆盖导入。'
+            : 'Import strategy: OK = merge import; Cancel = continue to overwrite option.'
+    );
+    if (mergeSelected) {
+        return 'merge';
+    }
+
+    const overwriteSelected = confirmFn(
+        language === 'zh'
+            ? '是否使用覆盖导入？（取消则放弃本次导入）'
+            : 'Use overwrite import? (Cancel to abort this import)'
+    );
+    if (overwriteSelected) {
+        return 'overwrite';
+    }
+
+    return null;
+};
 
 // 简单的权限切换组件
 const PermissionToggle: React.FC = () => {
@@ -135,9 +193,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     } = useTheme();
 
     const { language, setLanguage, t } = useLanguage();
+    const { currentSpace } = useSpaces();
+    const {
+        dockItems,
+        setDockItems,
+        appendDockItems,
+    } = useDockData();
+    const { showUndo } = useUndo();
+
     const [allowThirdPartyIconService, setAllowThirdPartyIconService] = useState<boolean>(() =>
         storage.getAllowThirdPartyIconService()
     );
+
+    const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+    const [storageLoading, setStorageLoading] = useState(false);
+    const [importPackage, setImportPackage] = useState<BackupPackage | null>(null);
+    const [importPreviewText, setImportPreviewText] = useState<string>('');
+    const [importBusy, setImportBusy] = useState(false);
+    const importInputRef = useRef<HTMLInputElement>(null);
+    const [bookmarkLimit, setBookmarkLimit] = useState(20);
+    const [bookmarkMergeByDomain, setBookmarkMergeByDomain] = useState(true);
+    const [bookmarkPreview, setBookmarkPreview] = useState<ReturnType<typeof buildBookmarkImportPreview> | null>(null);
+    const [bookmarkBusy, setBookmarkBusy] = useState(false);
 
     const systemTheme = useSystemTheme();
     const [isVisible, setIsVisible] = useState(isOpen);
@@ -164,6 +241,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         }
     }, [isOpen, isVisible]);
 
+    const refreshStorageStats = useCallback(async () => {
+        setStorageLoading(true);
+        try {
+            const stats = await collectStorageStats();
+            setStorageStats(stats);
+        } finally {
+            setStorageLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            void refreshStorageStats();
+        }
+    }, [isOpen, refreshStorageStats]);
+
     // 动画效果 - 关闭（由父组件设置 isOpen=false 触发）
     useEffect(() => {
         if (!isOpen && isVisible && !isClosingRef.current) {
@@ -175,8 +268,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
             }
         }
     }, [isOpen, isVisible]);
-
-    if (!isVisible) return null;
 
     const handleThemeSelect = (selectedTheme: Theme) => {
         setTheme(selectedTheme);
@@ -232,6 +323,183 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         storage.saveAllowThirdPartyIconService(next);
     };
 
+    const describePreview = useCallback((preview: Awaited<ReturnType<typeof previewBackupImport>>) => {
+        const lines = [
+            language === 'zh' ? `空间：新增 ${preview.spaces.add} / 覆盖 ${preview.spaces.overwrite} / 冲突 ${preview.spaces.conflict}` : `Spaces: +${preview.spaces.add} / overwrite ${preview.spaces.overwrite} / conflicts ${preview.spaces.conflict}`,
+            language === 'zh' ? `Dock URL：新增 ${preview.dockUrls.add} / 覆盖 ${preview.dockUrls.overwrite} / 冲突 ${preview.dockUrls.conflict}` : `Dock URLs: +${preview.dockUrls.add} / overwrite ${preview.dockUrls.overwrite} / conflicts ${preview.dockUrls.conflict}`,
+            language === 'zh' ? `贴纸：新增 ${preview.stickers.add} / 覆盖 ${preview.stickers.overwrite} / 冲突 ${preview.stickers.conflict}` : `Stickers: +${preview.stickers.add} / overwrite ${preview.stickers.overwrite} / conflicts ${preview.stickers.conflict}`,
+            language === 'zh' ? `壁纸资源：新增 ${preview.wallpapers.add} / 覆盖 ${preview.wallpapers.overwrite} / 冲突 ${preview.wallpapers.conflict}` : `Wallpapers: +${preview.wallpapers.add} / overwrite ${preview.wallpapers.overwrite} / conflicts ${preview.wallpapers.conflict}`,
+            language === 'zh' ? `贴纸资源：新增 ${preview.stickerAssets.add} / 覆盖 ${preview.stickerAssets.overwrite} / 冲突 ${preview.stickerAssets.conflict}` : `Sticker assets: +${preview.stickerAssets.add} / overwrite ${preview.stickerAssets.overwrite} / conflicts ${preview.stickerAssets.conflict}`,
+        ];
+        return lines.join('\n');
+    }, [language]);
+
+    const handleExportFullBackup = async () => {
+        try {
+            await exportFullBackupToZip();
+        } catch (error) {
+            window.alert(error instanceof Error ? error.message : 'Export failed');
+        }
+    };
+
+    const handleExportCurrentSpace = async () => {
+        try {
+            await exportSpaceSnapshotToZip(currentSpace);
+        } catch (error) {
+            window.alert(error instanceof Error ? error.message : 'Export failed');
+        }
+    };
+
+    const handleSelectImportFile = () => {
+        importInputRef.current?.click();
+    };
+
+    const handleImportFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const parsed = await parseBackupFile(file);
+            setImportPackage(parsed);
+            const preview = await previewBackupImport(parsed, DEFAULT_IMPORT_PREVIEW_STRATEGY);
+            setImportPreviewText(describePreview(preview));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Import file parse failed';
+            window.alert(message);
+            setImportPackage(null);
+            setImportPreviewText('');
+        } finally {
+            if (importInputRef.current) {
+                importInputRef.current.value = '';
+            }
+        }
+    };
+
+    const handleApplyImport = async () => {
+        if (!importPackage || importBusy) return;
+
+        const selectedStrategy = promptImportStrategy(language);
+        if (!selectedStrategy) return;
+
+        const confirmed = window.confirm(
+            language === 'zh'
+                ? `即将执行 ${selectedStrategy === 'merge' ? '合并导入' : '覆盖导入'}，是否继续？`
+                : `Import with strategy "${selectedStrategy}" now?`
+        );
+        if (!confirmed) return;
+
+        setImportBusy(true);
+        try {
+            const preview = await previewBackupImport(importPackage, selectedStrategy);
+            setImportPreviewText(describePreview(preview));
+            const result = await applyBackupImport(importPackage, selectedStrategy);
+            window.alert(
+                language === 'zh'
+                    ? `导入完成（${result.strategy}）`
+                    : `Import completed (${result.strategy})`
+            );
+            window.location.reload();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Import failed';
+            window.alert(message);
+        } finally {
+            setImportBusy(false);
+        }
+    };
+
+    const requestBookmarkPermission = async (): Promise<boolean> => {
+        if (typeof chrome === 'undefined' || !chrome.permissions?.request || !chrome.permissions?.contains) {
+            return false;
+        }
+
+        const alreadyGranted = await new Promise<boolean>((resolve) => {
+            chrome.permissions.contains({ permissions: ['bookmarks'] }, (result) => {
+                if (chrome.runtime?.lastError) {
+                    resolve(false);
+                    return;
+                }
+                resolve(Boolean(result));
+            });
+        });
+        if (alreadyGranted) return true;
+
+        return new Promise<boolean>((resolve) => {
+            chrome.permissions.request({ permissions: ['bookmarks'] }, (granted) => {
+                if (chrome.runtime?.lastError) {
+                    resolve(false);
+                    return;
+                }
+                resolve(Boolean(granted));
+            });
+        });
+    };
+
+    const loadBookmarkPreview = async () => {
+        setBookmarkBusy(true);
+        try {
+            const granted = await requestBookmarkPermission();
+            if (!granted) {
+                window.alert(language === 'zh' ? '未授予书签权限，无法导入。' : 'Bookmark permission was not granted.');
+                return;
+            }
+            const tree = await new Promise<chrome.bookmarks.BookmarkTreeNode[]>((resolve) => {
+                chrome.bookmarks.getTree((nodes) => resolve(nodes));
+            });
+            const preview = buildBookmarkImportPreview(tree, dockItems, {
+                limit: bookmarkLimit,
+                mergeByDomain: bookmarkMergeByDomain,
+            });
+            setBookmarkPreview(preview);
+        } finally {
+            setBookmarkBusy(false);
+        }
+    };
+
+    const importBookmarks = async () => {
+        if (!bookmarkPreview || bookmarkPreview.selected.length === 0) return;
+        const newItems = createDockItemsFromBookmarks(bookmarkPreview.selected);
+        const withIcons = await Promise.all(
+            newItems.map(async (item) => {
+                if (!item.url) return item;
+                try {
+                    const icon = await fetchIcon(item.url);
+                    return { ...item, icon: icon.url };
+                } catch {
+                    return item;
+                }
+            })
+        );
+
+        appendDockItems(withIcons);
+        const importedIds = new Set(withIcons.map((item) => item.id));
+        showUndo(
+            language === 'zh' ? `已导入 ${withIcons.length} 个书签` : `Imported ${withIcons.length} bookmarks`,
+            () => {
+                setDockItems(prev => prev.filter(item => !importedIds.has(item.id)));
+            }
+        );
+    };
+
+    const handleCleanupWallpapers = async () => {
+        const result = await cleanupOldWallpapers(6);
+        window.alert(
+            language === 'zh'
+                ? `已清理 ${result.removedCount} 张旧壁纸，约释放 ${formatBytes(result.estimatedFreedBytes)}`
+                : `Removed ${result.removedCount} wallpapers, freed ~${formatBytes(result.estimatedFreedBytes)}`
+        );
+        void refreshStorageStats();
+    };
+
+    const handleRecompressStickers = async () => {
+        const result = await recompressStickerAssets();
+        window.alert(
+            language === 'zh'
+                ? `已重压缩 ${result.removedCount} 个贴纸资源，约释放 ${formatBytes(result.estimatedFreedBytes)}`
+                : `Recompressed ${result.removedCount} sticker assets, freed ~${formatBytes(result.estimatedFreedBytes)}`
+        );
+        void refreshStorageStats();
+    };
+
     const modalStyle: React.CSSProperties = {
         left: `${anchorPosition.x}px`,
         top: `${anchorPosition.y}px`,
@@ -267,6 +535,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
             onClose();
         }
     };
+
+    if (!isVisible) return null;
 
     return (
         <>
@@ -542,6 +812,142 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                                     {t.settings.off}
                                 </button>
                             </div>
+                        </div>
+
+                        <div className={styles.sectionDivider} />
+
+                        <div className={styles.subSectionTitle}>
+                            {language === 'zh' ? '数据管理' : 'Data Management'}
+                        </div>
+                        <div className={styles.actionRow}>
+                            <button className={styles.actionButton} onClick={handleExportFullBackup}>
+                                {language === 'zh' ? '导出全量备份' : 'Export Full Backup'}
+                            </button>
+                            <button className={styles.actionButton} onClick={handleExportCurrentSpace}>
+                                {language === 'zh' ? '导出当前空间包' : 'Export Current Space'}
+                            </button>
+                        </div>
+                        <div className={styles.actionRow}>
+                            <button className={styles.actionButton} onClick={handleSelectImportFile}>
+                                {language === 'zh' ? '选择导入文件' : 'Select Import File'}
+                            </button>
+                            <input
+                                ref={importInputRef}
+                                type="file"
+                                accept=".zip,.json"
+                                style={{ display: 'none' }}
+                                onChange={handleImportFileChange}
+                            />
+                        </div>
+                        {importPreviewText && (
+                            <pre className={styles.previewBox}>{importPreviewText}</pre>
+                        )}
+                        <div className={styles.actionRow}>
+                            <button
+                                className={styles.actionButton}
+                                disabled={!importPackage || importBusy}
+                                onClick={handleApplyImport}
+                            >
+                                {importBusy
+                                    ? (language === 'zh' ? '导入中...' : 'Importing...')
+                                    : (language === 'zh' ? '执行导入' : 'Run Import')}
+                            </button>
+                        </div>
+
+                        <div className={styles.sectionDivider} />
+                        <div className={styles.subSectionTitle}>
+                            {language === 'zh' ? '书签导入' : 'Bookmarks Import'}
+                        </div>
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>
+                                {language === 'zh' ? `前 N 项（当前 ${bookmarkLimit}）` : `Top N (${bookmarkLimit})`}
+                            </span>
+                            <input
+                                className={styles.numberInput}
+                                type="number"
+                                min={1}
+                                max={200}
+                                value={bookmarkLimit}
+                                onChange={(e) => setBookmarkLimit(Math.max(1, Math.min(200, Number(e.target.value) || 20)))}
+                            />
+                        </div>
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>{language === 'zh' ? '同域名合并' : 'Merge Same Domain'}</span>
+                            <div className={styles.layoutToggleGroup}>
+                                <div
+                                    className={styles.layoutHighlight}
+                                    style={{
+                                        transform: `translateX(${bookmarkMergeByDomain ? 0 : 100}%)`,
+                                    }}
+                                />
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => setBookmarkMergeByDomain(true)}
+                                >
+                                    {t.settings.on}
+                                </button>
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => setBookmarkMergeByDomain(false)}
+                                >
+                                    {t.settings.off}
+                                </button>
+                            </div>
+                        </div>
+                        <div className={styles.actionRow}>
+                            <button className={styles.actionButton} onClick={loadBookmarkPreview} disabled={bookmarkBusy}>
+                                {bookmarkBusy
+                                    ? (language === 'zh' ? '读取中...' : 'Loading...')
+                                    : (language === 'zh' ? '读取书签预览' : 'Load Preview')}
+                            </button>
+                            <button
+                                className={styles.actionButton}
+                                onClick={importBookmarks}
+                                disabled={!bookmarkPreview || bookmarkPreview.selected.length === 0}
+                            >
+                                {language === 'zh' ? '导入到 Dock' : 'Import to Dock'}
+                            </button>
+                        </div>
+                        {bookmarkPreview && (
+                            <pre className={styles.previewBox}>
+                                {language === 'zh'
+                                    ? `共 ${bookmarkPreview.total} 条，待导入 ${bookmarkPreview.selected.length} 条\n重复 URL 跳过 ${bookmarkPreview.skippedExistingUrl} 条\n同域名合并跳过 ${bookmarkPreview.skippedDomainMerged} 条`
+                                    : `Total ${bookmarkPreview.total}, selected ${bookmarkPreview.selected.length}\nSkipped existing URLs: ${bookmarkPreview.skippedExistingUrl}\nSkipped by domain merge: ${bookmarkPreview.skippedDomainMerged}`}
+                            </pre>
+                        )}
+
+                        <div className={styles.sectionDivider} />
+                        <div className={styles.subSectionTitle}>
+                            {language === 'zh' ? '存储仪表盘' : 'Storage Dashboard'}
+                        </div>
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>
+                                {storageLoading
+                                    ? (language === 'zh' ? '统计中...' : 'Loading...')
+                                    : (language === 'zh'
+                                        ? `已用 ${formatBytes(storageStats?.overview.usedBytes ?? null)} / 配额 ${formatBytes(storageStats?.overview.quotaBytes ?? null)}`
+                                        : `Used ${formatBytes(storageStats?.overview.usedBytes ?? null)} / Quota ${formatBytes(storageStats?.overview.quotaBytes ?? null)}`)}
+                            </span>
+                        </div>
+                        {storageStats && (
+                            <pre className={styles.previewBox}>
+                                {language === 'zh'
+                                    ? `贴纸 ${storageStats.stickersCount}\n图片贴纸 ${formatBytes(storageStats.imageStickerBytes)}\n壁纸历史 ${formatBytes(storageStats.wallpaperBytes)}\n图标缓存估算 ${formatBytes(storageStats.iconBytes)}`
+                                    : `Stickers ${storageStats.stickersCount}\nImage stickers ${formatBytes(storageStats.imageStickerBytes)}\nWallpapers ${formatBytes(storageStats.wallpaperBytes)}\nIcon cache estimate ${formatBytes(storageStats.iconBytes)}`}
+                            </pre>
+                        )}
+                        <div className={styles.actionRow}>
+                            <button className={styles.actionButton} onClick={() => void refreshStorageStats()}>
+                                {language === 'zh' ? '刷新统计' : 'Refresh'}
+                            </button>
+                            <button className={styles.actionButton} onClick={() => void handleCleanupWallpapers()}>
+                                {language === 'zh' ? '清理旧壁纸' : 'Clean Old Wallpapers'}
+                            </button>
+                        </div>
+                        <div className={styles.actionRow}>
+                            <button className={styles.actionButton} onClick={() => void handleRecompressStickers()}>
+                                {language === 'zh' ? '重压缩贴纸图片' : 'Recompress Stickers'}
+                            </button>
                         </div>
 
                     </div>

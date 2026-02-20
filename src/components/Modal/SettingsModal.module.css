@@ -360,6 +360,74 @@
     color: var(--color-text-primary);
 }
 
+.sectionDivider {
+    height: 1px;
+    background: var(--color-border-subtle);
+    margin: 2px 0;
+}
+
+.subSectionTitle {
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+}
+
+.actionRow {
+    display: flex;
+    gap: 6px;
+}
+
+.actionButton,
+.actionButtonDanger {
+    flex: 1;
+    border: none;
+    border-radius: 6px;
+    background: var(--color-bg-primary);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    padding: 6px 8px;
+    cursor: pointer;
+}
+
+.actionButton:hover,
+.actionButtonDanger:hover {
+    color: var(--color-text-primary);
+}
+
+.actionButtonDanger {
+    color: var(--red-error);
+}
+
+.actionButton:disabled,
+.actionButtonDanger:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.numberInput {
+    width: 68px;
+    border: none;
+    border-radius: 6px;
+    background: var(--color-bg-primary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-small);
+    padding: 4px 6px;
+    outline: none;
+}
+
+.previewBox {
+    margin: 0;
+    background: var(--color-bg-primary);
+    border-radius: 6px;
+    padding: 6px 8px;
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 /* ===== 底部区域 / Footer ===== */
 .footer {
     display: flex;
