@@ -95,11 +95,18 @@ export const encryptBackupPackage = async (
   backupPackage: BackupPackage,
   password: string
 ): Promise<string> => {
+  return encryptJsonContent(JSON.stringify(backupPackage), password);
+};
+
+export const encryptJsonContent = async (
+  content: string,
+  password: string
+): Promise<string> => {
   const encoder = new TextEncoder();
   const salt = randomBytes(SALT_LENGTH);
   const iv = randomBytes(IV_LENGTH);
   const key = await deriveKey(password, salt);
-  const plainBytes = encoder.encode(JSON.stringify(backupPackage));
+  const plainBytes = encoder.encode(content);
   const encrypted = await crypto.subtle.encrypt(
     { name: AES_ALGORITHM, iv: toArrayBuffer(iv) },
     key,

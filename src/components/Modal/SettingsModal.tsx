@@ -34,13 +34,12 @@ import {
     DEFAULT_BACKUP_IMPORT_SCOPE,
     exportFullBackupToZip,
     exportSpaceSnapshotToZip,
-    parseBackupPackageJson,
     parseBackupFile,
     previewBackupImport,
 } from '../../utils/fullBackup';
 import {
     decryptBackupPackageJson,
-    encryptBackupPackage,
+    encryptJsonContent,
 } from '../../utils/encryptedBackup';
 import {
     downloadTextFromWebDav,
@@ -48,6 +47,15 @@ import {
     normalizeWebDavEndpoint,
     uploadTextToWebDav,
 } from '../../utils/webdavSync';
+import {
+    buildChangedSectionImportScope,
+    buildCloudSyncEnvelope,
+    diffCloudSyncSections,
+    hasAnyImportScopeEnabled,
+    parseCloudSyncEnvelopeJson,
+    type CloudSyncEnvelope,
+    type CloudSyncSection,
+} from '../../utils/cloudSync';
 import {
     buildBookmarkImportPreview,
     createDockItemsFromBookmarks,
@@ -255,7 +263,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         storage.getWebDavUsername()
     );
     const [webDavPassword, setWebDavPassword] = useState<string>('');
-    const [webDavBusyAction, setWebDavBusyAction] = useState<'backup' | 'restore' | null>(null);
+    const [webDavBusyAction, setWebDavBusyAction] = useState<'backup' | 'restore' | 'check' | null>(null);
     const [webDavStatus, setWebDavStatus] = useState<string>('');
     const [lastWebDavBackupAt, setLastWebDavBackupAt] = useState<number | null>(() =>
         storage.getCloudSyncLastBackupAt()
@@ -479,6 +487,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         }
     }, [language]);
 
+    const formatChangedSections = useCallback((sections: CloudSyncSection[]): string => {
+        const labels = sections.map((section) => {
+            if (section === 'space') {
+                return language === 'zh' ? 'Space' : 'Space';
+            }
+            if (section === 'zenShelf') {
+                return 'ZenShelf';
+            }
+            return language === 'zh' ? '配置' : 'Config';
+        });
+        return labels.join(', ');
+    }, [language]);
+
     const getWebDavCredentials = useCallback(() => {
         const normalizedEndpoint = normalizeWebDavEndpoint(webDavEndpoint);
         const username = webDavUsername.trim();
@@ -500,6 +521,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         storage.saveWebDavUsername(username);
         setWebDavEndpoint(endpoint);
         setWebDavUsername(username);
+    }, []);
+
+    const ensureWebDavPermission = useCallback(async (endpoint: string): Promise<boolean> => {
+        const permissionGranted = await ensureWebDavPermissionForEndpoint(endpoint);
+        if (permissionGranted) {
+            return true;
+        }
+        window.alert(
+            language === 'zh'
+                ? '未授予 WebDAV 站点权限，无法继续。'
+                : 'WebDAV host permission was not granted.'
+        );
+        return false;
+    }, [language]);
+
+    const loadRemoteCloudEnvelope = useCallback(async (
+        endpoint: string,
+        username: string,
+        password: string
+    ): Promise<CloudSyncEnvelope> => {
+        const encryptedPayload = await downloadTextFromWebDav({ endpoint, username, password });
+        const decryptedJson = await decryptBackupPackageJson(encryptedPayload, password);
+        return parseCloudSyncEnvelopeJson(decryptedJson);
     }, []);
 
     const handleSaveWebDavConfig = () => {
@@ -525,18 +569,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
             const credentials = getWebDavCredentials();
             saveWebDavConfig(credentials.endpoint, credentials.username);
 
-            const permissionGranted = await ensureWebDavPermissionForEndpoint(credentials.endpoint);
+            const permissionGranted = await ensureWebDavPermission(credentials.endpoint);
             if (!permissionGranted) {
-                window.alert(
-                    language === 'zh'
-                        ? '未授予 WebDAV 站点权限，无法执行远端备份。'
-                        : 'WebDAV host permission was not granted.'
-                );
                 return;
             }
 
             const backupPackage = await buildFullBackupPackage();
-            const encryptedPayload = await encryptBackupPackage(backupPackage, credentials.password);
+            const localEnvelope = await buildCloudSyncEnvelope(backupPackage);
+            let changedSections: CloudSyncSection[] = ['space', 'zenShelf', 'config'];
+
+            try {
+                const remoteEnvelope = await loadRemoteCloudEnvelope(
+                    credentials.endpoint,
+                    credentials.username,
+                    credentials.password
+                );
+                changedSections = diffCloudSyncSections(localEnvelope, remoteEnvelope).changedSections;
+            } catch (error) {
+                const message = error instanceof Error ? error.message : '';
+                if (message !== 'Remote backup does not exist') {
+                    throw error;
+                }
+            }
+
+            if (changedSections.length === 0) {
+                setWebDavStatus(
+                    language === 'zh'
+                        ? '远端已是最新，无需增量备份。'
+                        : 'Remote backup is already up to date.'
+                );
+                return;
+            }
+
+            const encryptedPayload = await encryptJsonContent(JSON.stringify(localEnvelope), credentials.password);
             await uploadTextToWebDav(credentials, encryptedPayload);
 
             const now = Date.now();
@@ -544,8 +609,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
             setLastWebDavBackupAt(now);
             setWebDavStatus(
                 language === 'zh'
-                    ? `WebDAV 备份成功（${new Date(now).toLocaleTimeString()}）`
-                    : `WebDAV backup completed (${new Date(now).toLocaleTimeString()})`
+                    ? `WebDAV 增量备份成功（${formatChangedSections(changedSections)}）`
+                    : `WebDAV incremental backup completed (${formatChangedSections(changedSections)})`
             );
         } catch (error) {
             const message = error instanceof Error ? error.message : 'WebDAV backup failed';
@@ -563,28 +628,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
             const credentials = getWebDavCredentials();
             saveWebDavConfig(credentials.endpoint, credentials.username);
 
-            const permissionGranted = await ensureWebDavPermissionForEndpoint(credentials.endpoint);
+            const permissionGranted = await ensureWebDavPermission(credentials.endpoint);
             if (!permissionGranted) {
-                window.alert(
+                return;
+            }
+
+            const localEnvelope = await buildCloudSyncEnvelope(await buildFullBackupPackage());
+            const remoteEnvelope = await loadRemoteCloudEnvelope(
+                credentials.endpoint,
+                credentials.username,
+                credentials.password
+            );
+            const changedSections = diffCloudSyncSections(localEnvelope, remoteEnvelope).changedSections;
+            if (changedSections.length === 0) {
+                setWebDavStatus(
                     language === 'zh'
-                        ? '未授予 WebDAV 站点权限，无法执行远端恢复。'
-                        : 'WebDAV host permission was not granted.'
+                        ? '远端与本地一致，无需恢复。'
+                        : 'Remote and local states are identical.'
                 );
                 return;
             }
 
-            const encryptedPayload = await downloadTextFromWebDav(credentials);
-            const packageJson = await decryptBackupPackageJson(encryptedPayload, credentials.password);
-            const remotePackage = parseBackupPackageJson(packageJson);
+            const effectiveScope = buildChangedSectionImportScope(importScope, changedSections);
+            if (!hasAnyImportScopeEnabled(effectiveScope)) {
+                setWebDavStatus(
+                    language === 'zh'
+                        ? '检测到远端有变更，但不在当前导入范围内。'
+                        : 'Remote changes are outside current import scope.'
+                );
+                return;
+            }
+
+            const remotePackage = remoteEnvelope.backup;
             setImportPackage(remotePackage);
 
             const selectedStrategy = promptImportStrategy(language);
             if (!selectedStrategy) {
                 return;
             }
+            if (selectedStrategy === 'overwrite') {
+                const overwriteConfirmed = window.confirm(
+                    language === 'zh'
+                        ? '覆盖导入会替换本地数据。建议优先使用“合并导入（保留副本）”。是否继续覆盖？'
+                        : 'Overwrite will replace local data. Merge (keep both) is recommended. Continue?'
+                );
+                if (!overwriteConfirmed) {
+                    return;
+                }
+            }
 
-            const preview = await previewBackupImport(remotePackage, selectedStrategy, importScope);
-            setImportPreviewText(describePreview(preview));
+            const preview = await previewBackupImport(remotePackage, selectedStrategy, effectiveScope);
+            setImportPreviewText(describePreview(preview, effectiveScope));
 
             const confirmed = window.confirm(
                 language === 'zh'
@@ -595,14 +689,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                 return;
             }
 
-            await applyBackupImport(remotePackage, selectedStrategy, importScope);
+            await applyBackupImport(remotePackage, selectedStrategy, effectiveScope);
             const now = Date.now();
             storage.saveCloudSyncLastRestoreAt(now);
             setLastWebDavRestoreAt(now);
             setWebDavStatus(
                 language === 'zh'
-                    ? `WebDAV 恢复成功（${new Date(now).toLocaleTimeString()}）`
-                    : `WebDAV restore completed (${new Date(now).toLocaleTimeString()})`
+                    ? `WebDAV 增量恢复成功（${formatChangedSections(changedSections)}）`
+                    : `WebDAV incremental restore completed (${formatChangedSections(changedSections)})`
             );
 
             window.alert(
@@ -620,21 +714,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         }
     };
 
-    const describePreview = useCallback((preview: Awaited<ReturnType<typeof previewBackupImport>>) => {
+    const handleWebDavCheckDiff = async () => {
+        if (webDavBusyAction) return;
+        setWebDavBusyAction('check');
+        try {
+            const credentials = getWebDavCredentials();
+            saveWebDavConfig(credentials.endpoint, credentials.username);
+
+            const permissionGranted = await ensureWebDavPermission(credentials.endpoint);
+            if (!permissionGranted) {
+                return;
+            }
+
+            const localEnvelope = await buildCloudSyncEnvelope(await buildFullBackupPackage());
+            const remoteEnvelope = await loadRemoteCloudEnvelope(
+                credentials.endpoint,
+                credentials.username,
+                credentials.password
+            );
+            const changedSections = diffCloudSyncSections(localEnvelope, remoteEnvelope).changedSections;
+            if (changedSections.length === 0) {
+                setWebDavStatus(language === 'zh' ? '无差异。' : 'No differences.');
+                return;
+            }
+            setWebDavStatus(
+                language === 'zh'
+                    ? `检测到差异：${formatChangedSections(changedSections)}`
+                    : `Differences found: ${formatChangedSections(changedSections)}`
+            );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Diff check failed';
+            setWebDavStatus(message);
+            window.alert(message);
+        } finally {
+            setWebDavBusyAction(null);
+        }
+    };
+
+    const describePreview = useCallback((
+        preview: Awaited<ReturnType<typeof previewBackupImport>>,
+        scope: BackupImportScope = importScope
+    ) => {
         const lines: string[] = [];
-        if (importScope.space) {
+        if (scope.space) {
             lines.push(
                 language === 'zh' ? `空间：新增 ${preview.spaces.add} / 覆盖 ${preview.spaces.overwrite} / 冲突 ${preview.spaces.conflict}` : `Spaces: +${preview.spaces.add} / overwrite ${preview.spaces.overwrite} / conflicts ${preview.spaces.conflict}`,
                 language === 'zh' ? `Dock URL：新增 ${preview.dockUrls.add} / 覆盖 ${preview.dockUrls.overwrite} / 冲突 ${preview.dockUrls.conflict}` : `Dock URLs: +${preview.dockUrls.add} / overwrite ${preview.dockUrls.overwrite} / conflicts ${preview.dockUrls.conflict}`
             );
         }
-        if (importScope.zenShelf) {
+        if (scope.zenShelf) {
             lines.push(
                 language === 'zh' ? `贴纸：新增 ${preview.stickers.add} / 覆盖 ${preview.stickers.overwrite} / 冲突 ${preview.stickers.conflict}` : `Stickers: +${preview.stickers.add} / overwrite ${preview.stickers.overwrite} / conflicts ${preview.stickers.conflict}`,
                 language === 'zh' ? `贴纸资源：新增 ${preview.stickerAssets.add} / 覆盖 ${preview.stickerAssets.overwrite} / 冲突 ${preview.stickerAssets.conflict}` : `Sticker assets: +${preview.stickerAssets.add} / overwrite ${preview.stickerAssets.overwrite} / conflicts ${preview.stickerAssets.conflict}`
             );
         }
-        if (importScope.config) {
+        if (scope.config) {
             lines.push(
                 language === 'zh' ? `搜索引擎：新增 ${preview.searchEngines.add} / 覆盖 ${preview.searchEngines.overwrite} / 冲突 ${preview.searchEngines.conflict}` : `Search engines: +${preview.searchEngines.add} / overwrite ${preview.searchEngines.overwrite} / conflicts ${preview.searchEngines.conflict}`,
                 language === 'zh' ? `壁纸资源：新增 ${preview.wallpapers.add} / 覆盖 ${preview.wallpapers.overwrite} / 冲突 ${preview.wallpapers.conflict}` : `Wallpapers: +${preview.wallpapers.add} / overwrite ${preview.wallpapers.overwrite} / conflicts ${preview.wallpapers.conflict}`
@@ -1387,11 +1521,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                             <button
                                 className={styles.actionButton}
                                 disabled={webDavBusyAction !== null}
+                                onClick={() => void handleWebDavCheckDiff()}
+                            >
+                                {webDavBusyAction === 'check'
+                                    ? (language === 'zh' ? '检查中...' : 'Checking...')
+                                    : (language === 'zh' ? '检查差异' : 'Check Diff')}
+                            </button>
+                        </div>
+                        <div className={styles.actionRow}>
+                            <button
+                                className={styles.actionButton}
+                                disabled={webDavBusyAction !== null}
                                 onClick={() => void handleWebDavBackup()}
                             >
                                 {webDavBusyAction === 'backup'
                                     ? (language === 'zh' ? '备份中...' : 'Backing up...')
-                                    : (language === 'zh' ? '立即备份' : 'Backup Now')}
+                                    : (language === 'zh' ? '增量备份' : 'Incremental Backup')}
                             </button>
                             <button
                                 className={styles.actionButton}
@@ -1400,7 +1545,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                             >
                                 {webDavBusyAction === 'restore'
                                     ? (language === 'zh' ? '恢复中...' : 'Restoring...')
-                                    : (language === 'zh' ? '从远端恢复' : 'Restore')}
+                                    : (language === 'zh' ? '增量恢复' : 'Incremental Restore')}
                             </button>
                         </div>
                         <pre className={styles.previewBox}>
