@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, lazy, Suspense, useEffect, useRef, useLayoutEffect } from 'react';
 import { DockItem } from './types';
 import { useDockData, useDockUI, useDockDrag } from './context/DockContext';
-import { useThemeData } from './context/ThemeContext';
+import { useTheme } from './context/ThemeContext';
 import { useLanguage } from './context/LanguageContext';
 import { useSpaces } from './context/SpacesContext';
 import { Searcher } from './components/Searcher/Searcher';
@@ -18,6 +18,7 @@ import { useStickerStrokeSync } from './hooks/useStickerStrokeSync';
 import styles from './App.module.css';
 import { useUndo } from './context/UndoContext';
 import { UndoSnackbar } from './components/UndoSnackbar/UndoSnackbar';
+import type { SearchLocalApp, SearchLocalSpace } from './components/Searcher/searchSuggestionsLocal';
 
 // ============================================================================
 // 性能优化: 懒加载非核心组件，减少初始包大小
@@ -40,6 +41,17 @@ const applySearchQuery = (template: string, query: string): string => {
 
 const buildSpaceSuggestionKey = (suggestion: SpaceSuggestion): string =>
   `${suggestion.spaceId}:${suggestion.reason}:${suggestion.domain || ''}:${suggestion.ruleId || ''}`;
+
+type ActiveSpaceOverrideSnapshot = {
+  searchEngineId: string;
+  dockPosition: 'center' | 'bottom';
+  theme?: 'default' | 'light' | 'dark';
+};
+
+const snapshotEquals = (left: ActiveSpaceOverrideSnapshot, right: ActiveSpaceOverrideSnapshot): boolean =>
+  left.searchEngineId === right.searchEngineId &&
+  left.dockPosition === right.dockPosition &&
+  left.theme === right.theme;
 
 function App() {
   // ============================================================================
@@ -80,7 +92,14 @@ function App() {
   const { draggingItem, setDraggingItem, setFolderPlaceholderActive } = useDockDrag();
 
   // 布局设置
-  const { dockPosition, openInNewTab } = useThemeData();
+  const {
+    theme,
+    followSystem,
+    dockPosition,
+    openInNewTab,
+    setTheme,
+    setDockPosition,
+  } = useTheme();
   const { language, t } = useLanguage();
   const { showUndo } = useUndo();
   const { spaces, activeSpaceId, switchToSpace } = useSpaces();
@@ -88,12 +107,42 @@ function App() {
   const [spaceSuggestionConfigVersion, setSpaceSuggestionConfigVersion] = useState(0);
   const [spaceSuggestion, setSpaceSuggestion] = useState<SpaceSuggestion | null>(null);
   const dismissedSuggestionRef = useRef<Record<string, number>>({});
+  const applyingSpaceOverrideRef = useRef(false);
+  const spaceOverrideBaselineRef = useRef<{ spaceId: string; snapshot: ActiveSpaceOverrideSnapshot } | null>(null);
+  const currentOverrideSnapshotRef = useRef<ActiveSpaceOverrideSnapshot | null>(null);
 
   // 计算派生状态
   const openFolder = useMemo(
     () => dockItems.find((item) => item.id === openFolderId),
     [dockItems, openFolderId]
   );
+
+  const searchSpaces = useMemo<SearchLocalSpace[]>(
+    () => spaces.map((space, index) => ({ id: space.id, name: space.name, index: index + 1 })),
+    [spaces]
+  );
+
+  const searchApps = useMemo<SearchLocalApp[]>(() => {
+    const result: SearchLocalApp[] = [];
+    const walk = (items: DockItem[], spaceName: string) => {
+      items.forEach((item) => {
+        if (item.type === 'folder') {
+          walk(item.items || [], spaceName);
+          return;
+        }
+        if (!item.url) return;
+        result.push({
+          id: item.id,
+          name: item.name,
+          url: item.url,
+          spaceName,
+        });
+      });
+    };
+
+    spaces.forEach((space) => walk(space.apps || [], space.name));
+    return result;
+  }, [spaces]);
 
   // 组合操作 - 需要同时访问数据和 UI
   const handleItemClick = useCallback((item: DockItem, rect?: DOMRect) => {
@@ -332,6 +381,110 @@ function App() {
     setSpaceSuggestion(null);
   }, [spaceSuggestion]);
 
+  const getCurrentOverrideSnapshot = useCallback((): ActiveSpaceOverrideSnapshot => ({
+    searchEngineId: selectedSearchEngine.id,
+    dockPosition,
+    theme: followSystem ? undefined : theme,
+  }), [dockPosition, followSystem, selectedSearchEngine.id, theme]);
+
+  useEffect(() => {
+    currentOverrideSnapshotRef.current = getCurrentOverrideSnapshot();
+  }, [getCurrentOverrideSnapshot]);
+
+  useEffect(() => {
+    const override = storage.getSpaceOverride(activeSpaceId);
+    const baseSnapshot = currentOverrideSnapshotRef.current;
+    if (!baseSnapshot) {
+      return;
+    }
+    const nextSnapshot = { ...baseSnapshot };
+    let hasAppliedOverride = false;
+
+    if (override?.searchEngineId) {
+      const targetEngine = searchEngines.find((engine) => engine.id === override.searchEngineId);
+      if (targetEngine) {
+        nextSnapshot.searchEngineId = targetEngine.id;
+        if (targetEngine.id !== baseSnapshot.searchEngineId) {
+          hasAppliedOverride = true;
+          setSelectedSearchEngine(targetEngine);
+        }
+      }
+    }
+
+    if (override?.dockPosition) {
+      nextSnapshot.dockPosition = override.dockPosition;
+      if (override.dockPosition !== baseSnapshot.dockPosition) {
+        hasAppliedOverride = true;
+        setDockPosition(override.dockPosition);
+      }
+    }
+
+    if (override?.theme) {
+      nextSnapshot.theme = override.theme;
+      if (override.theme !== baseSnapshot.theme) {
+        hasAppliedOverride = true;
+        setTheme(override.theme);
+      }
+    }
+
+    applyingSpaceOverrideRef.current = hasAppliedOverride;
+    spaceOverrideBaselineRef.current = {
+      spaceId: activeSpaceId,
+      snapshot: nextSnapshot,
+    };
+
+    if (!hasAppliedOverride) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      applyingSpaceOverrideRef.current = false;
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    activeSpaceId,
+    searchEngines,
+    setDockPosition,
+    setSelectedSearchEngine,
+    setTheme,
+  ]);
+
+  useEffect(() => {
+    if (applyingSpaceOverrideRef.current) {
+      return;
+    }
+
+    const baseline = spaceOverrideBaselineRef.current;
+    if (!baseline || baseline.spaceId !== activeSpaceId) {
+      return;
+    }
+
+    const currentSnapshot = getCurrentOverrideSnapshot();
+    if (snapshotEquals(currentSnapshot, baseline.snapshot)) {
+      return;
+    }
+
+    storage.updateSpaceOverride(activeSpaceId, {
+      searchEngineId: currentSnapshot.searchEngineId,
+      dockPosition: currentSnapshot.dockPosition,
+      theme: currentSnapshot.theme,
+    });
+
+    spaceOverrideBaselineRef.current = {
+      spaceId: activeSpaceId,
+      snapshot: currentSnapshot,
+    };
+  }, [activeSpaceId, dockPosition, followSystem, getCurrentOverrideSnapshot, selectedSearchEngine.id, theme]);
+
+  const handleOpenSearchApp = useCallback((appId: string) => {
+    const app = searchApps.find((item) => item.id === appId);
+    if (!app) return;
+    openUrl(app.url, { openInNewTab });
+  }, [openInNewTab, searchApps]);
+
   const handleSearch = (query: string) => {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
@@ -503,6 +656,10 @@ function App() {
         <Searcher
           searchEngine={selectedSearchEngine}
           onSearch={handleSearch}
+          searchApps={searchApps}
+          searchSpaces={searchSpaces}
+          onOpenApp={handleOpenSearchApp}
+          onSwitchSpace={switchToSpace}
           onSearchEngineClick={(rect) => {
             setSearchEngineAnchor(rect);
             setIsSearchEngineModalOpen(true);

@@ -41,7 +41,13 @@ describe('Searcher', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  const renderSearcher = (onSearch: (query: string) => void) => {
+  const renderSearcher = (
+    onSearch: (query: string) => void,
+    options?: {
+      onOpenApp?: (appId: string) => void;
+      onSwitchSpace?: (spaceId: string) => void;
+    }
+  ) => {
     act(() => {
       root.render(
         <LanguageProvider>
@@ -49,6 +55,13 @@ describe('Searcher', () => {
             searchEngine={{ id: 'google', name: 'Google', url: 'https://google.com/search?q=%s' }}
             onSearch={onSearch}
             onSearchEngineClick={() => undefined}
+            searchApps={[{ id: 'app-1', name: 'Notion', url: 'https://notion.so' }]}
+            searchSpaces={[
+              { id: 'space-1', name: 'Main', index: 1 },
+              { id: 'space-2', name: 'Work', index: 2 },
+            ]}
+            onOpenApp={options?.onOpenApp}
+            onSwitchSpace={options?.onSwitchSpace}
           />
         </LanguageProvider>
       );
@@ -100,5 +113,53 @@ describe('Searcher', () => {
     });
 
     expect(clearTimeoutSpy).toHaveBeenCalled();
+  });
+
+  it('executes direct @app command via submit', async () => {
+    const onSearch = vi.fn();
+    const onOpenApp = vi.fn();
+    renderSearcher(onSearch, { onOpenApp });
+
+    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value'
+      )?.set;
+      valueSetter?.call(input, '@app notion');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const form = container.querySelector('form') as HTMLFormElement;
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    expect(onOpenApp).toHaveBeenCalledWith('app-1');
+    expect(onSearch).not.toHaveBeenCalled();
+  });
+
+  it('executes direct # command via submit', async () => {
+    const onSearch = vi.fn();
+    const onSwitchSpace = vi.fn();
+    renderSearcher(onSearch, { onSwitchSpace });
+
+    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value'
+      )?.set;
+      valueSetter?.call(input, '#2');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const form = container.querySelector('form') as HTMLFormElement;
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    expect(onSwitchSpace).toHaveBeenCalledWith('space-2');
+    expect(onSearch).not.toHaveBeenCalled();
   });
 });

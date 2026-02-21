@@ -1,14 +1,30 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { SearchEngine } from '../../types';
 import styles from './Searcher.module.css';
 import { useSearchSuggestions } from '../../hooks/useSearchSuggestions';
 import { useLanguage } from '../../context/LanguageContext';
 import { SuggestionsList } from './SuggestionsList';
+import { storage } from '../../utils/storage';
+import {
+  buildUnifiedSuggestions,
+  extractSearchableNotesFromStickers,
+  resolveDirectCommandAction,
+  SearchLocalApp,
+  SearchLocalSpace,
+  SearchSuggestionAction,
+  SearchSuggestionGroup,
+  SearchSuggestionItem,
+  shouldUseRemoteSuggestions,
+} from './searchSuggestionsLocal';
 
 interface SearcherProps {
   searchEngine: SearchEngine;
   onSearch: (query: string) => void;
   onSearchEngineClick: (anchorRect: DOMRect) => void;
+  searchApps?: SearchLocalApp[];
+  searchSpaces?: SearchLocalSpace[];
+  onOpenApp?: (appId: string) => void;
+  onSwitchSpace?: (spaceId: string) => void;
   containerStyle?: React.CSSProperties;
 }
 
@@ -16,6 +32,10 @@ export const Searcher: React.FC<SearcherProps> = ({
   searchEngine,
   onSearch,
   onSearchEngineClick,
+  searchApps = [],
+  searchSpaces = [],
+  onOpenApp,
+  onSwitchSpace,
   containerStyle,
 }) => {
   const [query, setQuery] = useState('');
@@ -24,8 +44,41 @@ export const Searcher: React.FC<SearcherProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const blurTimerRef = useRef<number | null>(null);
 
-  const { suggestions, permissionStatus, requestPermission } = useSearchSuggestions(query);
+  const remoteSuggestionsEnabled = shouldUseRemoteSuggestions(query);
+  const { suggestions: remoteSuggestions, permissionStatus, requestPermission } = useSearchSuggestions(
+    remoteSuggestionsEnabled ? query : ''
+  );
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const { t, language } = useLanguage();
+
+  const localNotes = useMemo(() => {
+    if (!query.trim()) return [];
+    const stickers = storage.getStickers();
+    return extractSearchableNotesFromStickers(stickers, language);
+  }, [language, query]);
+
+  const suggestions = useMemo<SearchSuggestionItem[]>(
+    () =>
+      buildUnifiedSuggestions({
+        query,
+        apps: searchApps,
+        spaces: searchSpaces,
+        notes: localNotes,
+        remoteSuggestions,
+      }),
+    [localNotes, query, remoteSuggestions, searchApps, searchSpaces]
+  );
+
+  const groupLabels = useMemo<Record<SearchSuggestionGroup, string>>(
+    () => ({
+      apps: language === 'zh' ? '应用' : 'Apps',
+      spaces: language === 'zh' ? '空间' : 'Spaces',
+      notes: language === 'zh' ? '笔记' : 'Notes',
+      web: language === 'zh' ? '网页建议' : 'Web',
+      help: language === 'zh' ? '命令' : 'Commands',
+    }),
+    [language]
+  );
 
   // 动画状态管理
   const showSuggestions = isFocused && suggestions.length > 0;
@@ -62,24 +115,74 @@ export const Searcher: React.FC<SearcherProps> = ({
   // 当建议列表变化时重置激活索引
   useEffect(() => {
     setActiveIndex(-1);
-  }, [suggestions]);
+  }, [suggestions.length, query]);
 
-  const handleSearch = (searchQuery: string) => {
+  const handleWebSearch = useCallback((searchQuery: string) => {
     const trimmedQuery = searchQuery.trim();
     if (!trimmedQuery) return;
 
     onSearch(trimmedQuery);
-    setQuery(''); // 可选：搜索后清空查询内容
-    // 强制关闭建议列表
+    setQuery('');
     setIsFocused(false);
-  };
+  }, [onSearch]);
+
+  const executeAction = useCallback((action: SearchSuggestionAction) => {
+    if (action.type === 'search') {
+      handleWebSearch(action.query);
+      return;
+    }
+
+    if (action.type === 'openApp') {
+      onOpenApp?.(action.appId);
+      setQuery('');
+      setIsFocused(false);
+      return;
+    }
+
+    if (action.type === 'switchSpace') {
+      onSwitchSpace?.(action.spaceId);
+      setQuery('');
+      setIsFocused(false);
+      return;
+    }
+
+    if (action.type === 'fillQuery') {
+      setQuery(action.query);
+      setActiveIndex(-1);
+      inputRef.current?.focus();
+      return;
+    }
+  }, [handleWebSearch, onOpenApp, onSwitchSpace]);
+
+  const executeSuggestion = useCallback((suggestion: SearchSuggestionItem) => {
+    executeAction(suggestion.action);
+  }, [executeAction]);
+
+  const submitQuery = useCallback(() => {
+    if (activeIndex >= 0 && suggestions[activeIndex] && shouldRender) {
+      executeSuggestion(suggestions[activeIndex]);
+      return;
+    }
+
+    const directCommand = resolveDirectCommandAction({
+      query,
+      apps: searchApps,
+      spaces: searchSpaces,
+    });
+    if (directCommand) {
+      executeAction(directCommand);
+      return;
+    }
+
+    handleWebSearch(query);
+  }, [activeIndex, executeAction, executeSuggestion, handleWebSearch, query, searchApps, searchSpaces, shouldRender, suggestions]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handleSearch(query);
+    submitQuery();
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (shouldRender && suggestions.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -95,13 +198,9 @@ export const Searcher: React.FC<SearcherProps> = ({
 
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (activeIndex >= 0 && suggestions[activeIndex] && shouldRender) {
-        handleSearch(suggestions[activeIndex]);
-      } else {
-        handleSearch(query);
-      }
+      submitQuery();
     }
-  };
+  }, [shouldRender, suggestions.length, submitQuery]);
 
   const containerRef = useRef<HTMLElement>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
@@ -109,13 +208,24 @@ export const Searcher: React.FC<SearcherProps> = ({
   useEffect(() => {
     if (shouldRender && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      setAnchorRect(rect);
+      setAnchorRect((prev) => {
+        if (
+          prev &&
+          prev.left === rect.left &&
+          prev.top === rect.top &&
+          prev.width === rect.width &&
+          prev.height === rect.height
+        ) {
+          return prev;
+        }
+        return rect;
+      });
     }
-  }, [shouldRender, suggestions]);
+  }, [shouldRender, suggestions.length]);
 
-  const { t } = useLanguage();
   const shouldShowPermissionPrompt =
     isFocused &&
+    remoteSuggestionsEnabled &&
     query.trim().length > 0 &&
     permissionStatus === 'missing' &&
     suggestions.length === 0;
@@ -137,8 +247,9 @@ export const Searcher: React.FC<SearcherProps> = ({
       {shouldRender && suggestions.length > 0 && (
         <SuggestionsList
           suggestions={suggestions}
+          groupLabels={groupLabels}
           activeIndex={activeIndex}
-          onSelect={(suggestion) => handleSearch(suggestion)}
+          onSelect={executeSuggestion}
           onHover={(index) => setActiveIndex(index)}
           isExiting={isExiting}
           anchorRect={anchorRect}

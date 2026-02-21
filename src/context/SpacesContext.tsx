@@ -205,6 +205,7 @@ export function SpacesProvider({ children }: SpacesProviderProps) {
             spaces: prev.spaces.filter(s => s.id !== spaceId),
             activeSpaceId: newActiveId,
         }));
+        storage.removeSpaceOverride(spaceId);
         setDeletedSpaces(prev => clampRecycleRecords([record, ...prev], Date.now(), SPACE_RECYCLE_LIMIT));
         return record;
     }, [spaces, activeSpaceId]);

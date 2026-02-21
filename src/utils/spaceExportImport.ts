@@ -55,6 +55,11 @@ interface ExportedDockItem {
     children?: ExportedDockItem[];
 }
 
+interface ShareCodePayload {
+    kind: 'single' | 'multi';
+    data: SpaceExportData | MultiSpaceExportData;
+}
+
 const normalizeSchemaVersion = (value: unknown): number => {
     if (typeof value === 'number' && Number.isFinite(value)) {
         return Math.max(1, Math.floor(value));
@@ -125,18 +130,30 @@ async function convertToExportItemAsync(item: DockItem): Promise<ExportedDockIte
     return exported;
 }
 
+const toBase64Url = (value: string): string => {
+    const utf8 = new TextEncoder().encode(value);
+    let binary = '';
+    utf8.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+    });
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+};
+
+const fromBase64Url = (value: string): string => {
+    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+};
+
 /**
  * 导出空间到 JSON 文件并触发下载
  * 导出时会压缩所有图标到 500x500 以减小文件体积
  */
-export async function exportSpaceToFile(space: Space): Promise<void> {
-    // 压缩并转换所有 apps
-    const compressedApps = await Promise.all(
-        space.apps.map(convertToExportItemAsync)
-    );
-
-    // 构建导出数据
-    const exportData: SpaceExportData = {
+export async function buildSpaceExportData(space: Space): Promise<SpaceExportData> {
+    const compressedApps = await Promise.all(space.apps.map(convertToExportItemAsync));
+    return {
         version: '1.0',
         schemaVersion: CURRENT_SPACE_EXPORT_SCHEMA_VERSION,
         type: 'eclipse-space-export',
@@ -147,6 +164,35 @@ export async function exportSpaceToFile(space: Space): Promise<void> {
             apps: compressedApps,
         },
     };
+}
+
+export async function buildMultiSpaceExportData(spaces: Space[]): Promise<MultiSpaceExportData> {
+    const spacesData = await Promise.all(
+        spaces.map(async (space) => {
+            const compressedApps = await Promise.all(
+                space.apps.map(convertToExportItemAsync)
+            );
+            return {
+                name: space.name,
+                iconType: space.iconType,
+                iconValue: space.iconValue,
+                apps: compressedApps,
+            };
+        })
+    );
+
+    return {
+        version: '1.0',
+        schemaVersion: CURRENT_SPACE_EXPORT_SCHEMA_VERSION,
+        type: 'eclipse-multi-space-export',
+        data: {
+            spaces: spacesData,
+        },
+    };
+}
+
+export async function exportSpaceToFile(space: Space): Promise<void> {
+    const exportData = await buildSpaceExportData(space);
 
     // 序列化为 JSON
     const jsonString = JSON.stringify(exportData, null, 2);
@@ -173,30 +219,7 @@ export async function exportSpaceToFile(space: Space): Promise<void> {
  * 导出时会压缩所有图标到 500x500 以减小文件体积
  */
 export async function exportAllSpacesToFile(spaces: Space[]): Promise<void> {
-    // 转换所有空间的 apps
-    const spacesData = await Promise.all(
-        spaces.map(async (space) => {
-            const compressedApps = await Promise.all(
-                space.apps.map(convertToExportItemAsync)
-            );
-            return {
-                name: space.name,
-                iconType: space.iconType,
-                iconValue: space.iconValue,
-                apps: compressedApps,
-            };
-        })
-    );
-
-    // 构建导出数据
-    const exportData: MultiSpaceExportData = {
-        version: '1.0',
-        schemaVersion: CURRENT_SPACE_EXPORT_SCHEMA_VERSION,
-        type: 'eclipse-multi-space-export',
-        data: {
-            spaces: spacesData,
-        },
-    };
+    const exportData = await buildMultiSpaceExportData(spaces);
 
     // 序列化为 JSON
     const jsonString = JSON.stringify(exportData, null, 2);
@@ -301,6 +324,35 @@ function validateMultiSpaceExportData(data: unknown): data is MultiSpaceExportDa
 export type ImportFileResult =
     | { type: 'single'; data: SpaceExportData }
     | { type: 'multi'; data: MultiSpaceExportData };
+
+export const encodeSpaceShareCode = (result: ImportFileResult): string => {
+    const payload: ShareCodePayload =
+        result.type === 'single'
+            ? { kind: 'single', data: result.data }
+            : { kind: 'multi', data: result.data };
+    return toBase64Url(JSON.stringify(payload));
+};
+
+export const decodeSpaceShareCode = (shareCode: string): ImportFileResult => {
+    try {
+        const parsed = JSON.parse(fromBase64Url(shareCode.trim())) as ShareCodePayload;
+        if (!parsed || typeof parsed !== 'object') {
+            throw new Error('Invalid share code payload');
+        }
+
+        if (parsed.kind === 'single' && validateExportData(parsed.data)) {
+            return { type: 'single', data: normalizeSingleSpaceImportSchema(parsed.data) };
+        }
+
+        if (parsed.kind === 'multi' && validateMultiSpaceExportData(parsed.data)) {
+            return { type: 'multi', data: normalizeMultiSpaceImportSchema(parsed.data) };
+        }
+
+        throw new Error('Invalid share code data');
+    } catch (error) {
+        throw new Error(error instanceof Error ? error.message : 'Invalid share code');
+    }
+};
 
 /**
  * 解析并验证导入文件（支持单空间和多空间格式）

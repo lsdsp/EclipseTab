@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   CURRENT_SPACE_EXPORT_SCHEMA_VERSION,
+  decodeSpaceShareCode,
+  encodeSpaceShareCode,
   normalizeMultiSpaceImportSchema,
   normalizeSingleSpaceImportSchema,
   type MultiSpaceExportData,
@@ -56,5 +58,25 @@ describe('space export schema normalization', () => {
 
     expect(() => normalizeSingleSpaceImportSchema(input)).toThrow('Unsupported space import schema version');
   });
-});
 
+  it('round-trips single space share code', () => {
+    const input: SpaceExportData = {
+      version: '1.0',
+      type: 'eclipse-space-export',
+      data: {
+        name: 'Main',
+        iconType: 'text',
+        apps: [],
+      },
+    };
+
+    const shareCode = encodeSpaceShareCode({ type: 'single', data: input });
+    const decoded = decodeSpaceShareCode(shareCode);
+
+    expect(decoded.type).toBe('single');
+    if (decoded.type === 'single') {
+      expect(decoded.data.data.name).toBe('Main');
+      expect(decoded.data.schemaVersion).toBe(CURRENT_SPACE_EXPORT_SCHEMA_VERSION);
+    }
+  });
+});

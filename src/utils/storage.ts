@@ -2,6 +2,9 @@ import {
   DockItem,
   SearchEngine,
   SpacesState,
+  SpaceOverride,
+  SpaceOverrides,
+  SpaceOverrideTheme,
   createDefaultSpacesState,
   DeletedDockItemRecord,
   DeletedSpaceRecord,
@@ -30,6 +33,7 @@ export const STORAGE_KEYS = {
   // Focus Spaces
   SPACES: 'EclipseTab_spaces',
   SPACE_RULES: 'EclipseTab_spaceRules',
+  SPACE_OVERRIDES: 'EclipseTab_spaceOverrides',
   // Zen Shelf Stickers
   STICKERS: 'EclipseTab_stickers',
   // Deleted Stickers (Recycle Bin)
@@ -92,6 +96,7 @@ interface CacheEntry<T> {
 const memoryCache = {
   spaces: null as CacheEntry<SpacesState> | null,
   spaceRules: null as CacheEntry<import('../types').SpaceRule[]> | null,
+  spaceOverrides: null as CacheEntry<SpaceOverrides> | null,
   stickers: null as CacheEntry<import('../types').Sticker[]> | null,
   deletedStickers: null as CacheEntry<import('../types').Sticker[]> | null,
   deletedDockItems: null as CacheEntry<DeletedDockItemRecord[]> | null,
@@ -101,6 +106,35 @@ const memoryCache = {
 
 const isValidLanguage = (value: unknown): value is AppLanguage =>
   value === 'en' || value === 'zh';
+
+const isValidSpaceOverrideTheme = (value: unknown): value is SpaceOverrideTheme =>
+  value === 'default' || value === 'light' || value === 'dark';
+
+const normalizeSpaceOverride = (value: unknown): SpaceOverride => {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+
+  const candidate = value as SpaceOverride;
+  const normalized: SpaceOverride = {};
+
+  if (typeof candidate.searchEngineId === 'string' && candidate.searchEngineId.trim()) {
+    normalized.searchEngineId = candidate.searchEngineId.trim();
+  }
+
+  if (isValidSpaceOverrideTheme(candidate.theme)) {
+    normalized.theme = candidate.theme;
+  }
+
+  if (candidate.dockPosition === 'center' || candidate.dockPosition === 'bottom') {
+    normalized.dockPosition = candidate.dockPosition;
+  }
+
+  return normalized;
+};
+
+const isEmptySpaceOverride = (override: SpaceOverride): boolean =>
+  !override.searchEngineId && !override.theme && !override.dockPosition;
 
 let storageFailureNotified = false;
 
@@ -526,6 +560,81 @@ export const storage = {
     }
   },
 
+  getSpaceOverrides(): SpaceOverrides {
+    try {
+      const cached = getCached(STORAGE_KEYS.SPACE_OVERRIDES, memoryCache.spaceOverrides);
+      if (cached) return cached;
+
+      const json = localStorage.getItem(STORAGE_KEYS.SPACE_OVERRIDES);
+      if (!json) return {};
+
+      const parsed = JSON.parse(json) as Record<string, unknown>;
+      if (!parsed || typeof parsed !== 'object') return {};
+
+      const normalized: SpaceOverrides = {};
+      Object.entries(parsed).forEach(([spaceId, override]) => {
+        if (!spaceId.trim()) return;
+        const next = normalizeSpaceOverride(override);
+        if (isEmptySpaceOverride(next)) return;
+        normalized[spaceId] = next;
+      });
+
+      const normalizedJson = JSON.stringify(normalized);
+      if (normalizedJson !== json) {
+        localStorage.setItem(STORAGE_KEYS.SPACE_OVERRIDES, normalizedJson);
+      }
+      memoryCache.spaceOverrides = { data: normalized, raw: normalizedJson };
+      return normalized;
+    } catch (error) {
+      logger.error('Failed to get space overrides:', error);
+      return {};
+    }
+  },
+
+  saveSpaceOverrides(overrides: SpaceOverrides): void {
+    try {
+      const normalized: SpaceOverrides = {};
+      Object.entries(overrides).forEach(([spaceId, override]) => {
+        if (!spaceId.trim()) return;
+        const next = normalizeSpaceOverride(override);
+        if (isEmptySpaceOverride(next)) return;
+        normalized[spaceId] = next;
+      });
+      const json = JSON.stringify(normalized);
+      localStorage.setItem(STORAGE_KEYS.SPACE_OVERRIDES, json);
+      memoryCache.spaceOverrides = { data: normalized, raw: json };
+    } catch (error) {
+      logger.error('Failed to save space overrides:', error);
+    }
+  },
+
+  getSpaceOverride(spaceId: string): SpaceOverride | null {
+    if (!spaceId.trim()) return null;
+    const overrides = this.getSpaceOverrides();
+    return overrides[spaceId] || null;
+  },
+
+  updateSpaceOverride(spaceId: string, patch: Partial<SpaceOverride>): void {
+    if (!spaceId.trim()) return;
+    const overrides = this.getSpaceOverrides();
+    const current = overrides[spaceId] || {};
+    const merged = normalizeSpaceOverride({ ...current, ...patch });
+    if (isEmptySpaceOverride(merged)) {
+      delete overrides[spaceId];
+    } else {
+      overrides[spaceId] = merged;
+    }
+    this.saveSpaceOverrides(overrides);
+  },
+
+  removeSpaceOverride(spaceId: string): void {
+    if (!spaceId.trim()) return;
+    const overrides = this.getSpaceOverrides();
+    if (!overrides[spaceId]) return;
+    delete overrides[spaceId];
+    this.saveSpaceOverrides(overrides);
+  },
+
   getSpaceRules(): import('../types').SpaceRule[] {
     try {
       const cached = getCached(STORAGE_KEYS.SPACE_RULES, memoryCache.spaceRules);
@@ -690,6 +799,7 @@ export const storage = {
   resetMemoryCache(): void {
     memoryCache.spaces = null;
     memoryCache.spaceRules = null;
+    memoryCache.spaceOverrides = null;
     memoryCache.stickers = null;
     memoryCache.deletedStickers = null;
     memoryCache.deletedDockItems = null;

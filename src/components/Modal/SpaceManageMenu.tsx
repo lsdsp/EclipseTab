@@ -2,7 +2,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Space } from '../../types';
 import { Modal } from './Modal';
 import { useLanguage } from '../../context/LanguageContext';
-import { exportSpaceToFile, exportAllSpacesToFile, parseAndValidateImportFile, SpaceExportData, MultiSpaceExportData } from '../../utils/spaceExportImport';
+import {
+    buildSpaceExportData,
+    decodeSpaceShareCode,
+    encodeSpaceShareCode,
+    exportSpaceToFile,
+    exportAllSpacesToFile,
+    parseAndValidateImportFile,
+    SpaceExportData,
+    MultiSpaceExportData,
+} from '../../utils/spaceExportImport';
 import plusIcon from '../../assets/icons/plus.svg';
 import writeIcon from '../../assets/icons/write.svg';
 import trashIcon from '../../assets/icons/trash.svg';
@@ -80,7 +89,7 @@ export function SpaceManageMenu({
     isEditMode,
     onToggleEditMode,
 }: SpaceManageMenuProps) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [isRenaming, setIsRenaming] = useState(false);
     const [renameValue, setRenameValue] = useState('');
     const menuRef = useRef<HTMLDivElement>(null);
@@ -150,6 +159,41 @@ export function SpaceManageMenu({
 
     const handleImportClick = () => {
         fileInputRef.current?.click();
+    };
+
+    const handleCopyShareCode = async () => {
+        try {
+            const data = await buildSpaceExportData(currentSpace);
+            const shareCode = encodeSpaceShareCode({ type: 'single', data });
+            await navigator.clipboard.writeText(shareCode);
+            window.alert(
+                language === 'zh' ? '已复制分享码' : 'Share code copied'
+            );
+            onClose();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            window.alert(`${t.space.importFailed}${message}`);
+        }
+    };
+
+    const handleImportShareCode = () => {
+        const code = window.prompt(
+            language === 'zh' ? '粘贴分享码' : 'Paste share code'
+        );
+        if (!code) return;
+
+        try {
+            const result = decodeSpaceShareCode(code);
+            if (result.type === 'multi') {
+                onImportMultiple(result.data);
+            } else {
+                onImport(result.data);
+            }
+            onClose();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            window.alert(`${t.space.importFailed}${message}`);
+        }
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -244,9 +288,17 @@ export function SpaceManageMenu({
                                 <span className={styles.icon} style={{ WebkitMaskImage: `url(${importIcon})`, maskImage: `url(${importIcon})` }} />
                                 <span>{t.space.importSpace}</span>
                             </button>
+                            <button className={styles.menuItem} onClick={handleImportShareCode}>
+                                <span className={styles.icon} style={{ WebkitMaskImage: `url(${importIcon})`, maskImage: `url(${importIcon})` }} />
+                                <span>{language === 'zh' ? '导入分享码' : 'Import Share Code'}</span>
+                            </button>
                             <button className={styles.menuItem} onClick={handleExportClick}>
                                 <span className={styles.icon} style={{ WebkitMaskImage: `url(${exportIcon})`, maskImage: `url(${exportIcon})` }} />
                                 <span>{t.space.exportSpace}</span>
+                            </button>
+                            <button className={styles.menuItem} onClick={() => { void handleCopyShareCode(); }}>
+                                <span className={styles.icon} style={{ WebkitMaskImage: `url(${exportIcon})`, maskImage: `url(${exportIcon})` }} />
+                                <span>{language === 'zh' ? '复制分享码' : 'Copy Share Code'}</span>
                             </button>
                             <button className={styles.menuItem} onClick={handleExportAllClick}>
                                 <span className={styles.icon} style={{ WebkitMaskImage: `url(${exportIcon})`, maskImage: `url(${exportIcon})` }} />

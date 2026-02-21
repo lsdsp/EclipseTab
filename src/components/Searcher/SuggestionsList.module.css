@@ -9,10 +9,19 @@
     z-index: 2002;
     padding: 8px 8px;
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
     gap: 0;
     transform-origin: bottom center;
     opacity: 0;
+}
+
+.groupHeader {
+    padding: 4px 16px 2px;
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    color: var(--color-text-secondary);
+    opacity: 0.8;
+    user-select: none;
 }
 
 .suggestionItem {
@@ -34,6 +43,17 @@
 }
 
 .suggestionText {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.suggestionMeta {
+    margin-left: 12px;
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    color: var(--color-text-secondary);
+    opacity: 0.8;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

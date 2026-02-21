@@ -19,7 +19,17 @@ export type {
 } from './drag';
 
 // Space 相关类型
-export type { Space, SpacesState, SpaceRule, SpaceRuleType, SpaceTimeRule, SpaceDomainRule } from './space';
+export type {
+  Space,
+  SpacesState,
+  SpaceRule,
+  SpaceRuleType,
+  SpaceTimeRule,
+  SpaceDomainRule,
+  SpaceOverride,
+  SpaceOverrides,
+  SpaceOverrideTheme,
+} from './space';
 export { createDefaultSpace, createDefaultSpacesState } from './space';
 
 // Zen Shelf 贴纸相关类型

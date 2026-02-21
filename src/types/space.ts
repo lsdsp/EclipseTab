@@ -65,6 +65,16 @@ export interface SpaceDomainRule extends SpaceRuleBase {
 
 export type SpaceRule = SpaceTimeRule | SpaceDomainRule;
 
+export type SpaceOverrideTheme = 'default' | 'light' | 'dark';
+
+export interface SpaceOverride {
+    searchEngineId?: string;
+    theme?: SpaceOverrideTheme;
+    dockPosition?: 'center' | 'bottom';
+}
+
+export type SpaceOverrides = Record<string, SpaceOverride>;
+
 /**
  * 创建默认空间
  */

@@ -2,11 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './SuggestionsList.module.css';
 import { scaleFadeIn, scaleFadeOut } from '../../utils/animations';
+import { SearchSuggestionGroup, SearchSuggestionItem } from './searchSuggestionsLocal';
 
 interface SuggestionsListProps {
-    suggestions: string[];
+    suggestions: SearchSuggestionItem[];
+    groupLabels: Record<SearchSuggestionGroup, string>;
     activeIndex: number;
-    onSelect: (suggestion: string) => void;
+    onSelect: (suggestion: SearchSuggestionItem) => void;
     onHover: (index: number) => void;
     isExiting?: boolean;
     anchorRect: DOMRect | null;
@@ -14,6 +16,7 @@ interface SuggestionsListProps {
 
 export const SuggestionsList: React.FC<SuggestionsListProps> = ({
     suggestions,
+    groupLabels,
     activeIndex,
     onSelect,
     onHover,
@@ -57,16 +60,26 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({
             data-ui-zone="search-suggestions"
             style={position}
         >
-            {suggestions.map((suggestion, index) => (
-                <li
-                    key={index}
-                    className={`${styles.suggestionItem} ${index === activeIndex ? styles.active : ''}`}
-                    onClick={() => onSelect(suggestion)}
-                    onMouseEnter={() => onHover(index)}
-                >
-                    <span className={styles.suggestionText}>{suggestion}</span>
-                </li>
-            ))}
+            {suggestions.map((suggestion, index) => {
+                const showGroupHeader = index === 0 || suggestions[index - 1].group !== suggestion.group;
+                return (
+                    <React.Fragment key={suggestion.id}>
+                        {showGroupHeader && (
+                            <li className={styles.groupHeader}>
+                                {groupLabels[suggestion.group]}
+                            </li>
+                        )}
+                        <li
+                            className={`${styles.suggestionItem} ${index === activeIndex ? styles.active : ''}`}
+                            onClick={() => onSelect(suggestion)}
+                            onMouseEnter={() => onHover(index)}
+                        >
+                            <span className={styles.suggestionText}>{suggestion.label}</span>
+                            {suggestion.meta && <span className={styles.suggestionMeta}>{suggestion.meta}</span>}
+                        </li>
+                    </React.Fragment>
+                );
+            })}
         </ul>,
         document.body
     );
