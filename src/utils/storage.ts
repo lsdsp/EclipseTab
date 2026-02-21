@@ -57,6 +57,10 @@ export interface AppConfig {
   widgetSnapAutoGroupEnabled: boolean;
   openInNewTab: boolean;
   searchStickerContent: boolean;
+  webDavEndpoint: string;
+  webDavUsername: string;
+  cloudSyncLastBackupAt: number | null;
+  cloudSyncLastRestoreAt: number | null;
   allowThirdPartyIconService: boolean;
   thirdPartyIconServicePrompted: boolean;
   texture: string;
@@ -77,6 +81,10 @@ const DEFAULT_CONFIG: AppConfig = {
   widgetSnapAutoGroupEnabled: false,
   openInNewTab: false,
   searchStickerContent: true,
+  webDavEndpoint: '',
+  webDavUsername: '',
+  cloudSyncLastBackupAt: null,
+  cloudSyncLastRestoreAt: null,
   allowThirdPartyIconService: false,
   thirdPartyIconServicePrompted: false,
   texture: 'point',
@@ -335,6 +343,46 @@ export const storage = {
 
   saveSearchStickerContent(searchStickerContent: boolean): void {
     this.updateConfig({ searchStickerContent: Boolean(searchStickerContent) });
+  },
+
+  getWebDavEndpoint(): string {
+    return this.getConfig().webDavEndpoint || '';
+  },
+
+  saveWebDavEndpoint(webDavEndpoint: string): void {
+    this.updateConfig({ webDavEndpoint: webDavEndpoint.trim() });
+  },
+
+  getWebDavUsername(): string {
+    return this.getConfig().webDavUsername || '';
+  },
+
+  saveWebDavUsername(webDavUsername: string): void {
+    this.updateConfig({ webDavUsername: webDavUsername.trim() });
+  },
+
+  getCloudSyncLastBackupAt(): number | null {
+    const value = this.getConfig().cloudSyncLastBackupAt;
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  },
+
+  saveCloudSyncLastBackupAt(timestamp: number | null): void {
+    this.updateConfig({
+      cloudSyncLastBackupAt:
+        typeof timestamp === 'number' && Number.isFinite(timestamp) ? Math.floor(timestamp) : null,
+    });
+  },
+
+  getCloudSyncLastRestoreAt(): number | null {
+    const value = this.getConfig().cloudSyncLastRestoreAt;
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  },
+
+  saveCloudSyncLastRestoreAt(timestamp: number | null): void {
+    this.updateConfig({
+      cloudSyncLastRestoreAt:
+        typeof timestamp === 'number' && Number.isFinite(timestamp) ? Math.floor(timestamp) : null,
+    });
   },
 
   getAllowThirdPartyIconService(): boolean {

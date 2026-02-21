@@ -30,12 +30,24 @@ import {
     BackupImportScope,
     BackupImportStrategy,
     BackupPackage,
+    buildFullBackupPackage,
     DEFAULT_BACKUP_IMPORT_SCOPE,
     exportFullBackupToZip,
     exportSpaceSnapshotToZip,
+    parseBackupPackageJson,
     parseBackupFile,
     previewBackupImport,
 } from '../../utils/fullBackup';
+import {
+    decryptBackupPackageJson,
+    encryptBackupPackage,
+} from '../../utils/encryptedBackup';
+import {
+    downloadTextFromWebDav,
+    ensureWebDavPermissionForEndpoint,
+    normalizeWebDavEndpoint,
+    uploadTextToWebDav,
+} from '../../utils/webdavSync';
 import {
     buildBookmarkImportPreview,
     createDockItemsFromBookmarks,
@@ -236,6 +248,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     const [allowStickerContentSearch, setAllowStickerContentSearch] = useState<boolean>(() =>
         storage.getSearchStickerContent()
     );
+    const [webDavEndpoint, setWebDavEndpoint] = useState<string>(() =>
+        storage.getWebDavEndpoint()
+    );
+    const [webDavUsername, setWebDavUsername] = useState<string>(() =>
+        storage.getWebDavUsername()
+    );
+    const [webDavPassword, setWebDavPassword] = useState<string>('');
+    const [webDavBusyAction, setWebDavBusyAction] = useState<'backup' | 'restore' | null>(null);
+    const [webDavStatus, setWebDavStatus] = useState<string>('');
+    const [lastWebDavBackupAt, setLastWebDavBackupAt] = useState<number | null>(() =>
+        storage.getCloudSyncLastBackupAt()
+    );
+    const [lastWebDavRestoreAt, setLastWebDavRestoreAt] = useState<number | null>(() =>
+        storage.getCloudSyncLastRestoreAt()
+    );
 
     const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
     const [storageLoading, setStorageLoading] = useState(false);
@@ -359,6 +386,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
             setQuietStartMinute(storage.getSpaceSuggestionQuietStartMinute());
             setQuietEndMinute(storage.getSpaceSuggestionQuietEndMinute());
             setAllowStickerContentSearch(storage.getSearchStickerContent());
+            setWebDavEndpoint(storage.getWebDavEndpoint());
+            setWebDavUsername(storage.getWebDavUsername());
+            setLastWebDavBackupAt(storage.getCloudSyncLastBackupAt());
+            setLastWebDavRestoreAt(storage.getCloudSyncLastRestoreAt());
         };
         window.addEventListener('eclipse-config-changed', syncSuggestionConfig as EventListener);
         return () => {
@@ -435,6 +466,158 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     const handleStickerContentSearchToggle = (next: boolean) => {
         setAllowStickerContentSearch(next);
         storage.saveSearchStickerContent(next);
+    };
+
+    const formatSyncTime = useCallback((timestamp: number | null): string => {
+        if (!timestamp) {
+            return language === 'zh' ? '未执行' : 'Not yet';
+        }
+        try {
+            return new Date(timestamp).toLocaleString();
+        } catch {
+            return String(timestamp);
+        }
+    }, [language]);
+
+    const getWebDavCredentials = useCallback(() => {
+        const normalizedEndpoint = normalizeWebDavEndpoint(webDavEndpoint);
+        const username = webDavUsername.trim();
+        if (!username) {
+            throw new Error(language === 'zh' ? '请填写 WebDAV 用户名。' : 'WebDAV username is required.');
+        }
+        if (!webDavPassword) {
+            throw new Error(language === 'zh' ? '请填写 WebDAV 密码。' : 'WebDAV password is required.');
+        }
+        return {
+            endpoint: normalizedEndpoint,
+            username,
+            password: webDavPassword,
+        };
+    }, [language, webDavEndpoint, webDavPassword, webDavUsername]);
+
+    const saveWebDavConfig = useCallback((endpoint: string, username: string) => {
+        storage.saveWebDavEndpoint(endpoint);
+        storage.saveWebDavUsername(username);
+        setWebDavEndpoint(endpoint);
+        setWebDavUsername(username);
+    }, []);
+
+    const handleSaveWebDavConfig = () => {
+        try {
+            const endpoint = normalizeWebDavEndpoint(webDavEndpoint);
+            const username = webDavUsername.trim();
+            if (!username) {
+                window.alert(language === 'zh' ? '请填写 WebDAV 用户名。' : 'WebDAV username is required.');
+                return;
+            }
+            saveWebDavConfig(endpoint, username);
+            setWebDavStatus(language === 'zh' ? '已保存 WebDAV 配置。' : 'WebDAV config saved.');
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Invalid WebDAV config';
+            window.alert(message);
+        }
+    };
+
+    const handleWebDavBackup = async () => {
+        if (webDavBusyAction) return;
+        setWebDavBusyAction('backup');
+        try {
+            const credentials = getWebDavCredentials();
+            saveWebDavConfig(credentials.endpoint, credentials.username);
+
+            const permissionGranted = await ensureWebDavPermissionForEndpoint(credentials.endpoint);
+            if (!permissionGranted) {
+                window.alert(
+                    language === 'zh'
+                        ? '未授予 WebDAV 站点权限，无法执行远端备份。'
+                        : 'WebDAV host permission was not granted.'
+                );
+                return;
+            }
+
+            const backupPackage = await buildFullBackupPackage();
+            const encryptedPayload = await encryptBackupPackage(backupPackage, credentials.password);
+            await uploadTextToWebDav(credentials, encryptedPayload);
+
+            const now = Date.now();
+            storage.saveCloudSyncLastBackupAt(now);
+            setLastWebDavBackupAt(now);
+            setWebDavStatus(
+                language === 'zh'
+                    ? `WebDAV 备份成功（${new Date(now).toLocaleTimeString()}）`
+                    : `WebDAV backup completed (${new Date(now).toLocaleTimeString()})`
+            );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'WebDAV backup failed';
+            setWebDavStatus(message);
+            window.alert(message);
+        } finally {
+            setWebDavBusyAction(null);
+        }
+    };
+
+    const handleWebDavRestore = async () => {
+        if (webDavBusyAction) return;
+        setWebDavBusyAction('restore');
+        try {
+            const credentials = getWebDavCredentials();
+            saveWebDavConfig(credentials.endpoint, credentials.username);
+
+            const permissionGranted = await ensureWebDavPermissionForEndpoint(credentials.endpoint);
+            if (!permissionGranted) {
+                window.alert(
+                    language === 'zh'
+                        ? '未授予 WebDAV 站点权限，无法执行远端恢复。'
+                        : 'WebDAV host permission was not granted.'
+                );
+                return;
+            }
+
+            const encryptedPayload = await downloadTextFromWebDav(credentials);
+            const packageJson = await decryptBackupPackageJson(encryptedPayload, credentials.password);
+            const remotePackage = parseBackupPackageJson(packageJson);
+            setImportPackage(remotePackage);
+
+            const selectedStrategy = promptImportStrategy(language);
+            if (!selectedStrategy) {
+                return;
+            }
+
+            const preview = await previewBackupImport(remotePackage, selectedStrategy, importScope);
+            setImportPreviewText(describePreview(preview));
+
+            const confirmed = window.confirm(
+                language === 'zh'
+                    ? `即将执行 ${selectedStrategy === 'merge' ? '合并导入' : '覆盖导入'}，是否继续？`
+                    : `Import with strategy "${selectedStrategy}" now?`
+            );
+            if (!confirmed) {
+                return;
+            }
+
+            await applyBackupImport(remotePackage, selectedStrategy, importScope);
+            const now = Date.now();
+            storage.saveCloudSyncLastRestoreAt(now);
+            setLastWebDavRestoreAt(now);
+            setWebDavStatus(
+                language === 'zh'
+                    ? `WebDAV 恢复成功（${new Date(now).toLocaleTimeString()}）`
+                    : `WebDAV restore completed (${new Date(now).toLocaleTimeString()})`
+            );
+
+            window.alert(
+                language === 'zh'
+                    ? `恢复完成（${selectedStrategy}）`
+                    : `Restore completed (${selectedStrategy})`
+            );
+            window.location.reload();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'WebDAV restore failed';
+            setWebDavStatus(message);
+            window.alert(message);
+        } finally {
+            setWebDavBusyAction(null);
+        }
     };
 
     const describePreview = useCallback((preview: Awaited<ReturnType<typeof previewBackupImport>>) => {
@@ -1169,6 +1352,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                                     : (language === 'zh' ? '执行导入' : 'Run Import')}
                             </button>
                         </div>
+
+                        <div className={styles.sectionDivider} />
+                        <div className={styles.subSectionTitle}>
+                            {language === 'zh' ? 'WebDAV 同步（手动）' : 'WebDAV Sync (Manual)'}
+                        </div>
+                        <div className={styles.actionRow}>
+                            <input
+                                className={styles.textInputSmall}
+                                value={webDavEndpoint}
+                                onChange={(e) => setWebDavEndpoint(e.target.value)}
+                                placeholder={language === 'zh' ? 'WebDAV 文件 URL' : 'WebDAV file URL'}
+                            />
+                        </div>
+                        <div className={styles.actionRow}>
+                            <input
+                                className={styles.textInputSmall}
+                                value={webDavUsername}
+                                onChange={(e) => setWebDavUsername(e.target.value)}
+                                placeholder={language === 'zh' ? '用户名' : 'Username'}
+                            />
+                            <input
+                                className={styles.textInputSmall}
+                                type="password"
+                                value={webDavPassword}
+                                onChange={(e) => setWebDavPassword(e.target.value)}
+                                placeholder={language === 'zh' ? '密码（仅本次）' : 'Password (session only)'}
+                            />
+                        </div>
+                        <div className={styles.actionRow}>
+                            <button className={styles.actionButton} onClick={handleSaveWebDavConfig}>
+                                {language === 'zh' ? '保存配置' : 'Save Config'}
+                            </button>
+                            <button
+                                className={styles.actionButton}
+                                disabled={webDavBusyAction !== null}
+                                onClick={() => void handleWebDavBackup()}
+                            >
+                                {webDavBusyAction === 'backup'
+                                    ? (language === 'zh' ? '备份中...' : 'Backing up...')
+                                    : (language === 'zh' ? '立即备份' : 'Backup Now')}
+                            </button>
+                            <button
+                                className={styles.actionButton}
+                                disabled={webDavBusyAction !== null}
+                                onClick={() => void handleWebDavRestore()}
+                            >
+                                {webDavBusyAction === 'restore'
+                                    ? (language === 'zh' ? '恢复中...' : 'Restoring...')
+                                    : (language === 'zh' ? '从远端恢复' : 'Restore')}
+                            </button>
+                        </div>
+                        <pre className={styles.previewBox}>
+                            {language === 'zh'
+                                ? `最近备份：${formatSyncTime(lastWebDavBackupAt)}\n最近恢复：${formatSyncTime(lastWebDavRestoreAt)}${webDavStatus ? `\n状态：${webDavStatus}` : ''}`
+                                : `Last backup: ${formatSyncTime(lastWebDavBackupAt)}\nLast restore: ${formatSyncTime(lastWebDavRestoreAt)}${webDavStatus ? `\nStatus: ${webDavStatus}` : ''}`}
+                        </pre>
 
                         <div className={styles.sectionDivider} />
                         <div className={styles.subSectionTitle}>

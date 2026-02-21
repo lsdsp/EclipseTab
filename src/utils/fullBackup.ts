@@ -840,6 +840,12 @@ export const exportFullBackupToZip = async (): Promise<void> => {
   downloadBlob(zip, `eclipse-full-backup-${buildDateTag()}.zip`);
 };
 
+export const buildFullBackupPackage = async (): Promise<BackupPackage> =>
+  createPackage('eclipse-full-backup');
+
+export const parseBackupPackageJson = (content: string): BackupPackage =>
+  assertPackage(deserializePackage(content));
+
 export const exportSpaceSnapshotToZip = async (space: Space): Promise<void> => {
   const entries = buildSpaceSnapshotEntries(space);
   const pkg = await createPackage('eclipse-space-snapshot', entries);
@@ -850,13 +856,13 @@ export const exportSpaceSnapshotToZip = async (space: Space): Promise<void> => {
 export const parseBackupFile = async (file: File): Promise<BackupPackage> => {
   const readAsJson = async (): Promise<BackupPackage> => {
     const content = await file.text();
-    return assertPackage(deserializePackage(content));
+    return parseBackupPackageJson(content);
   };
 
   try {
     if (file.name.toLowerCase().endsWith('.zip')) {
       const { content } = await readSingleFileZip(file);
-      return assertPackage(deserializePackage(content));
+      return parseBackupPackageJson(content);
     }
     return await readAsJson();
   } catch (error) {

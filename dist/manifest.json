@@ -23,6 +23,8 @@
         "tabs"
     ],
     "optional_host_permissions": [
+        "http://*/*",
+        "https://*/*",
         "https://suggestqueries.google.com/*",
         "https://www.google.com/*",
         "https://suggestion.baidu.com/*"
