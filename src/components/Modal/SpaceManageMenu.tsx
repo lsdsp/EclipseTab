@@ -3,12 +3,17 @@ import { Space } from '../../types';
 import { Modal } from './Modal';
 import { useLanguage } from '../../context/LanguageContext';
 import {
+    buildSpaceImportPreview,
+    formatSpaceImportPreviewMessage,
     buildSpaceExportData,
     decodeSpaceShareCode,
     encodeSpaceShareCode,
     exportSpaceToFile,
     exportAllSpacesToFile,
+    ImportFileResult,
+    parseSpaceImportSelectionInput,
     parseAndValidateImportFile,
+    pickMultiSpaceImportData,
     SpaceExportData,
     MultiSpaceExportData,
 } from '../../utils/spaceExportImport';
@@ -50,10 +55,10 @@ interface SpaceManageMenuProps {
     onDelete: () => void;
 
     /** 导入单个空间 */
-    onImport: (data: SpaceExportData) => void;
+    onImport: (data: SpaceExportData) => Promise<void> | void;
 
     /** 导入多个空间 */
-    onImportMultiple: (data: MultiSpaceExportData) => void;
+    onImportMultiple: (data: MultiSpaceExportData) => Promise<void> | void;
 
     /** 置顶空间 */
     onPin: () => void;
@@ -92,6 +97,7 @@ export function SpaceManageMenu({
     const { t, language } = useLanguage();
     const [isRenaming, setIsRenaming] = useState(false);
     const [renameValue, setRenameValue] = useState('');
+    const [isImporting, setIsImporting] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -161,6 +167,87 @@ export function SpaceManageMenu({
         fileInputRef.current?.click();
     };
 
+    const buildImportPreviewMessage = (result: ImportFileResult): string => {
+        const preview = buildSpaceImportPreview(result, allSpaces);
+        return `${formatSpaceImportPreviewMessage(preview, language)}\n${
+            language === 'zh'
+                ? '该导入仅新增空间，不会覆盖现有空间设置。'
+                : 'This import only adds spaces and does not overwrite existing space settings.'
+        }`;
+    };
+
+    const executeImportWithPreview = async (input: ImportFileResult) => {
+        let result = input;
+        if (result.type === 'multi' && result.data.data.spaces.length > 1) {
+            const importAll = window.confirm(
+                `${buildImportPreviewMessage(result)}\n\n${
+                    language === 'zh'
+                        ? '确定=全部导入；取消=选择部分导入或放弃'
+                        : 'OK = import all; Cancel = select part or abort'
+                }`
+            );
+            if (!importAll) {
+                const selectionInput = window.prompt(
+                    language === 'zh'
+                        ? `输入要导入的序号（从 1 开始，可用逗号和区间，如 1,3-5）\n可选范围：1-${result.data.data.spaces.length}`
+                        : `Enter indexes to import (1-based, comma/range allowed, e.g. 1,3-5)\nRange: 1-${result.data.data.spaces.length}`
+                );
+                if (!selectionInput) {
+                    return;
+                }
+                try {
+                    const indexes = parseSpaceImportSelectionInput(
+                        selectionInput,
+                        result.data.data.spaces.length
+                    );
+                    if (indexes.length === 0) {
+                        return;
+                    }
+                    result = {
+                        type: 'multi',
+                        data: pickMultiSpaceImportData(result.data, indexes),
+                    };
+                    const confirmPartial = window.confirm(
+                        `${buildImportPreviewMessage(result)}\n\n${language === 'zh' ? '确认导入选中空间？' : 'Import selected spaces?'}`
+                    );
+                    if (!confirmPartial) {
+                        return;
+                    }
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : 'Invalid selection';
+                    window.alert(`${t.space.importFailed}${message}`);
+                    return;
+                }
+            }
+        } else {
+            const confirmed = window.confirm(
+                `${buildImportPreviewMessage(result)}\n\n${language === 'zh' ? '是否继续导入？' : 'Continue import?'}`
+            );
+            if (!confirmed) {
+                return;
+            }
+        }
+
+        if (isImporting) {
+            return;
+        }
+
+        setIsImporting(true);
+        try {
+            if (result.type === 'multi') {
+                await onImportMultiple(result.data);
+            } else {
+                await onImport(result.data);
+            }
+            onClose();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            window.alert(`${t.space.importFailed}${message}`);
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
     const handleCopyShareCode = async () => {
         try {
             const data = await buildSpaceExportData(currentSpace);
@@ -184,12 +271,7 @@ export function SpaceManageMenu({
 
         try {
             const result = decodeSpaceShareCode(code);
-            if (result.type === 'multi') {
-                onImportMultiple(result.data);
-            } else {
-                onImport(result.data);
-            }
-            onClose();
+            void executeImportWithPreview(result);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
             window.alert(`${t.space.importFailed}${message}`);
@@ -202,12 +284,7 @@ export function SpaceManageMenu({
 
         try {
             const result = await parseAndValidateImportFile(file);
-            if (result.type === 'multi') {
-                onImportMultiple(result.data);
-            } else {
-                onImport(result.data);
-            }
-            onClose();
+            void executeImportWithPreview(result);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
             window.alert(`${t.space.importFailed}${message}`);
@@ -284,11 +361,19 @@ export function SpaceManageMenu({
                             {/* 分隔线 */}
                             <div className={styles.divider} />
                             {/* 导入/导出 */}
-                            <button className={styles.menuItem} onClick={handleImportClick}>
+                            <button
+                                className={`${styles.menuItem} ${isImporting ? styles.disabled : ''}`}
+                                onClick={handleImportClick}
+                                disabled={isImporting}
+                            >
                                 <span className={styles.icon} style={{ WebkitMaskImage: `url(${importIcon})`, maskImage: `url(${importIcon})` }} />
-                                <span>{t.space.importSpace}</span>
+                                <span>{isImporting ? (language === 'zh' ? '导入中...' : 'Importing...') : t.space.importSpace}</span>
                             </button>
-                            <button className={styles.menuItem} onClick={handleImportShareCode}>
+                            <button
+                                className={`${styles.menuItem} ${isImporting ? styles.disabled : ''}`}
+                                onClick={handleImportShareCode}
+                                disabled={isImporting}
+                            >
                                 <span className={styles.icon} style={{ WebkitMaskImage: `url(${importIcon})`, maskImage: `url(${importIcon})` }} />
                                 <span>{language === 'zh' ? '导入分享码' : 'Import Share Code'}</span>
                             </button>

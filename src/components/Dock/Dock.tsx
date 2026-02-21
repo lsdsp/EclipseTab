@@ -469,13 +469,11 @@ export const Dock: React.FC<DockProps> = ({
                     }
                     setShowSpaceMenu(false);
                 }}
-                onImport={(data) => {
-                    importSpace(data);
-                    setShowSpaceMenu(false);
+                onImport={async (data) => {
+                    await importSpace(data);
                 }}
-                onImportMultiple={(data) => {
-                    importMultipleSpaces(data);
-                    setShowSpaceMenu(false);
+                onImportMultiple={async (data) => {
+                    await importMultipleSpaces(data);
                 }}
                 onPin={() => {
                     pinSpace(currentSpace.id);

@@ -60,6 +60,144 @@ interface ShareCodePayload {
     data: SpaceExportData | MultiSpaceExportData;
 }
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+    !!value && typeof value === 'object' && !Array.isArray(value);
+
+const normalizeSpaceName = (value: unknown): string => {
+    if (typeof value !== 'string') {
+        throw new Error('Invalid space name');
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+        throw new Error('Invalid space name');
+    }
+    return trimmed;
+};
+
+const normalizeSpaceIconType = (value: unknown): Space['iconType'] => {
+    if (value === 'text' || value === 'emoji' || value === 'icon') {
+        return value;
+    }
+    return 'text';
+};
+
+const normalizeSpaceIconValue = (value: unknown): string | undefined => {
+    if (typeof value !== 'string') {
+        return undefined;
+    }
+    const trimmed = value.trim();
+    return trimmed || undefined;
+};
+
+const sanitizeExportedDockItem = (
+    input: unknown,
+    path: string,
+    depth: number = 0
+): ExportedDockItem => {
+    if (depth > 8) {
+        throw new Error(`Dock tree too deep at ${path}`);
+    }
+    if (!isPlainObject(input)) {
+        throw new Error(`Invalid dock item at ${path}`);
+    }
+
+    const titleRaw = input.title;
+    if (typeof titleRaw !== 'string' || !titleRaw.trim()) {
+        throw new Error(`Invalid dock item title at ${path}`);
+    }
+
+    const typeRaw = input.type;
+    if (typeRaw !== 'app' && typeRaw !== 'folder') {
+        throw new Error(`Invalid dock item type at ${path}`);
+    }
+
+    const item: ExportedDockItem = {
+        title: titleRaw.trim(),
+        type: typeRaw,
+    };
+
+    if (typeof input.url === 'string' && input.url.trim()) {
+        item.url = input.url.trim();
+    }
+    if (typeof input.icon === 'string' && input.icon.trim()) {
+        item.icon = input.icon.trim();
+    }
+
+    if (typeRaw === 'folder') {
+        if (input.children !== undefined && !Array.isArray(input.children)) {
+            throw new Error(`Invalid folder children at ${path}`);
+        }
+        const children = Array.isArray(input.children) ? input.children : [];
+        item.children = children.map((child, index) =>
+            sanitizeExportedDockItem(child, `${path}.children[${index}]`, depth + 1)
+        );
+    }
+
+    return item;
+};
+
+const sanitizeExportedDockItems = (input: unknown, path: string): ExportedDockItem[] => {
+    if (!Array.isArray(input)) {
+        throw new Error(`Invalid dock item list at ${path}`);
+    }
+    return input.map((item, index) => sanitizeExportedDockItem(item, `${path}[${index}]`));
+};
+
+const sanitizeSingleSpaceData = (value: unknown): SpaceExportData => {
+    if (!isPlainObject(value)) {
+        throw new Error('Invalid file format: missing required fields');
+    }
+    if (value.type !== 'eclipse-space-export') {
+        throw new Error('Invalid file format: missing required fields');
+    }
+    if (!isPlainObject(value.data)) {
+        throw new Error('Invalid file format: missing required fields');
+    }
+
+    return {
+        version: typeof value.version === 'string' ? value.version : '1.0',
+        schemaVersion: normalizeSchemaVersion(value.schemaVersion),
+        type: 'eclipse-space-export',
+        data: {
+            name: normalizeSpaceName(value.data.name),
+            iconType: normalizeSpaceIconType(value.data.iconType),
+            iconValue: normalizeSpaceIconValue(value.data.iconValue),
+            apps: sanitizeExportedDockItems(value.data.apps, 'data.apps'),
+        },
+    };
+};
+
+const sanitizeMultiSpaceData = (value: unknown): MultiSpaceExportData => {
+    if (!isPlainObject(value)) {
+        throw new Error('Invalid file format: missing required fields');
+    }
+    if (value.type !== 'eclipse-multi-space-export') {
+        throw new Error('Invalid file format: missing required fields');
+    }
+    if (!isPlainObject(value.data) || !Array.isArray(value.data.spaces) || value.data.spaces.length === 0) {
+        throw new Error('Invalid file format: missing required fields');
+    }
+
+    return {
+        version: typeof value.version === 'string' ? value.version : '1.0',
+        schemaVersion: normalizeSchemaVersion(value.schemaVersion),
+        type: 'eclipse-multi-space-export',
+        data: {
+            spaces: value.data.spaces.map((space, index) => {
+                if (!isPlainObject(space)) {
+                    throw new Error(`Invalid space item at data.spaces[${index}]`);
+                }
+                return {
+                    name: normalizeSpaceName(space.name),
+                    iconType: normalizeSpaceIconType(space.iconType),
+                    iconValue: normalizeSpaceIconValue(space.iconValue),
+                    apps: sanitizeExportedDockItems(space.apps, `data.spaces[${index}].apps`),
+                };
+            }),
+        },
+    };
+};
+
 const normalizeSchemaVersion = (value: unknown): number => {
     if (typeof value === 'number' && Number.isFinite(value)) {
         return Math.max(1, Math.floor(value));
@@ -68,14 +206,15 @@ const normalizeSchemaVersion = (value: unknown): number => {
 };
 
 export const normalizeSingleSpaceImportSchema = (data: SpaceExportData): SpaceExportData => {
-    const schemaVersion = normalizeSchemaVersion(data.schemaVersion);
+    const sanitized = sanitizeSingleSpaceData(data);
+    const schemaVersion = normalizeSchemaVersion(sanitized.schemaVersion);
     if (schemaVersion > CURRENT_SPACE_EXPORT_SCHEMA_VERSION) {
         throw new Error(`Unsupported space import schema version: ${schemaVersion}`);
     }
 
     if (schemaVersion === 1) {
         return {
-            ...data,
+            ...sanitized,
             schemaVersion: 1,
         };
     }
@@ -84,14 +223,15 @@ export const normalizeSingleSpaceImportSchema = (data: SpaceExportData): SpaceEx
 };
 
 export const normalizeMultiSpaceImportSchema = (data: MultiSpaceExportData): MultiSpaceExportData => {
-    const schemaVersion = normalizeSchemaVersion(data.schemaVersion);
+    const sanitized = sanitizeMultiSpaceData(data);
+    const schemaVersion = normalizeSchemaVersion(sanitized.schemaVersion);
     if (schemaVersion > CURRENT_SPACE_EXPORT_SCHEMA_VERSION) {
         throw new Error(`Unsupported multi-space import schema version: ${schemaVersion}`);
     }
 
     if (schemaVersion === 1) {
         return {
-            ...data,
+            ...sanitized,
             schemaVersion: 1,
         };
     }
@@ -248,74 +388,24 @@ export async function exportAllSpacesToFile(spaces: Space[]): Promise<void> {
  * 校验导出文件格式
  */
 function validateExportData(data: unknown): data is SpaceExportData {
-    if (!data || typeof data !== 'object') {
+    try {
+        sanitizeSingleSpaceData(data);
+        return true;
+    } catch {
         return false;
     }
-
-    const obj = data as Record<string, unknown>;
-
-    // 检查必要字段
-    if (obj.type !== 'eclipse-space-export') {
-        return false;
-    }
-
-    if (!obj.data || typeof obj.data !== 'object') {
-        return false;
-    }
-
-    const spaceData = obj.data as Record<string, unknown>;
-
-    if (typeof spaceData.name !== 'string' || !spaceData.name) {
-        return false;
-    }
-
-    if (!Array.isArray(spaceData.apps)) {
-        return false;
-    }
-
-    return true;
 }
 
 /**
  * 校验多空间导出文件格式
  */
 function validateMultiSpaceExportData(data: unknown): data is MultiSpaceExportData {
-    if (!data || typeof data !== 'object') {
+    try {
+        sanitizeMultiSpaceData(data);
+        return true;
+    } catch {
         return false;
     }
-
-    const obj = data as Record<string, unknown>;
-
-    // 检查必要字段
-    if (obj.type !== 'eclipse-multi-space-export') {
-        return false;
-    }
-
-    if (!obj.data || typeof obj.data !== 'object') {
-        return false;
-    }
-
-    const multiData = obj.data as Record<string, unknown>;
-
-    if (!Array.isArray(multiData.spaces) || multiData.spaces.length === 0) {
-        return false;
-    }
-
-    // 验证每个空间的基本结构
-    for (const space of multiData.spaces) {
-        if (!space || typeof space !== 'object') {
-            return false;
-        }
-        const spaceObj = space as Record<string, unknown>;
-        if (typeof spaceObj.name !== 'string' || !spaceObj.name) {
-            return false;
-        }
-        if (!Array.isArray(spaceObj.apps)) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 /**
@@ -324,6 +414,74 @@ function validateMultiSpaceExportData(data: unknown): data is MultiSpaceExportDa
 export type ImportFileResult =
     | { type: 'single'; data: SpaceExportData }
     | { type: 'multi'; data: MultiSpaceExportData };
+
+export interface SpaceImportPreviewItem {
+    originalName: string;
+    finalName: string;
+    appCount: number;
+    renamed: boolean;
+}
+
+export interface SpaceImportPreview {
+    type: 'single' | 'multi';
+    incomingSpaces: number;
+    selectedSpaces: number;
+    totalAppItems: number;
+    nameConflicts: number;
+    items: SpaceImportPreviewItem[];
+}
+
+export const formatSpaceImportPreviewMessage = (
+    preview: SpaceImportPreview,
+    language: 'zh' | 'en',
+    options?: {
+        maxItems?: number;
+        includeIndexList?: boolean;
+    }
+): string => {
+    const maxItems = Math.max(1, options?.maxItems ?? 20);
+    const includeIndexList = options?.includeIndexList ?? true;
+    const lines: string[] = [
+        language === 'zh'
+            ? `将导入空间：${preview.selectedSpaces} 项（文件内共 ${preview.incomingSpaces} 项）`
+            : `Spaces to import: ${preview.selectedSpaces} (total in file: ${preview.incomingSpaces})`,
+        language === 'zh'
+            ? `应用项总数：${preview.totalAppItems}`
+            : `Total app items: ${preview.totalAppItems}`,
+    ];
+
+    if (preview.nameConflicts > 0) {
+        lines.push(
+            language === 'zh'
+                ? `重名冲突：${preview.nameConflicts}（将自动改名）`
+                : `Name conflicts: ${preview.nameConflicts} (auto-rename)`
+        );
+    }
+
+    if (includeIndexList && preview.items.length > 0) {
+        lines.push(language === 'zh' ? '空间列表：' : 'Space list:');
+        preview.items.slice(0, maxItems).forEach((item, index) => {
+            const suffix =
+                language === 'zh'
+                    ? `（应用 ${item.appCount}）`
+                    : ` (${item.appCount} apps)`;
+            const label = item.renamed
+                ? `${item.originalName} -> ${item.finalName}`
+                : item.finalName;
+            lines.push(`[${index + 1}] ${label}${suffix}`);
+        });
+        if (preview.items.length > maxItems) {
+            const remaining = preview.items.length - maxItems;
+            lines.push(
+                language === 'zh'
+                    ? `... 还有 ${remaining} 项`
+                    : `... ${remaining} more`
+            );
+        }
+    }
+
+    return lines.join('\n');
+};
 
 export const encodeSpaceShareCode = (result: ImportFileResult): string => {
     const payload: ShareCodePayload =
@@ -352,6 +510,107 @@ export const decodeSpaceShareCode = (shareCode: string): ImportFileResult => {
     } catch (error) {
         throw new Error(error instanceof Error ? error.message : 'Invalid share code');
     }
+};
+
+const countExportedItems = (items: ExportedDockItem[]): number =>
+    items.reduce((count, item) => {
+        const childCount = item.children ? countExportedItems(item.children) : 0;
+        return count + 1 + childCount;
+    }, 0);
+
+export const parseSpaceImportSelectionInput = (input: string, max: number): number[] => {
+    const trimmed = input.trim();
+    if (!trimmed) {
+        return [];
+    }
+    const tokens = trimmed.split(/[,\s，]+/).filter(Boolean);
+    if (tokens.length === 0) {
+        return [];
+    }
+
+    const indices = new Set<number>();
+    tokens.forEach((token) => {
+        const rangeMatch = token.match(/^(\d+)-(\d+)$/);
+        if (rangeMatch) {
+            const start = Number(rangeMatch[1]);
+            const end = Number(rangeMatch[2]);
+            if (!Number.isInteger(start) || !Number.isInteger(end) || start > end) {
+                throw new Error(`Invalid selection token: ${token}`);
+            }
+            for (let value = start; value <= end; value += 1) {
+                if (value < 1 || value > max) {
+                    throw new Error(`Selection out of range: ${value}`);
+                }
+                indices.add(value - 1);
+            }
+            return;
+        }
+
+        const single = Number(token);
+        if (!Number.isInteger(single)) {
+            throw new Error(`Invalid selection token: ${token}`);
+        }
+        if (single < 1 || single > max) {
+            throw new Error(`Selection out of range: ${single}`);
+        }
+        indices.add(single - 1);
+    });
+
+    return Array.from(indices).sort((left, right) => left - right);
+};
+
+export const pickMultiSpaceImportData = (
+    data: MultiSpaceExportData,
+    selectedIndexes: number[]
+): MultiSpaceExportData => {
+    const source = data.data.spaces;
+    const picked = selectedIndexes
+        .filter((index) => index >= 0 && index < source.length)
+        .map((index) => source[index]);
+    if (picked.length === 0) {
+        throw new Error('No spaces selected');
+    }
+
+    return {
+        ...data,
+        data: {
+            ...data.data,
+            spaces: picked,
+        },
+    };
+};
+
+export const buildSpaceImportPreview = (
+    result: ImportFileResult,
+    existingSpaces: Space[]
+): SpaceImportPreview => {
+    const sourceSpaces =
+        result.type === 'single'
+            ? [result.data.data]
+            : result.data.data.spaces;
+
+    const existingNames = existingSpaces.map((space) => space.name);
+    const nextNames = [...existingNames];
+    const items: SpaceImportPreviewItem[] = sourceSpaces.map((space) => {
+        const finalName = generateUniqueName(space.name, nextNames);
+        nextNames.push(finalName);
+        const renamed = finalName !== space.name;
+        return {
+            originalName: space.name,
+            finalName,
+            appCount: countExportedItems(space.apps),
+            renamed,
+        };
+    });
+
+    return {
+        type: result.type,
+        incomingSpaces: result.type === 'single' ? 1 : result.data.data.spaces.length,
+        selectedSpaces: sourceSpaces.length,
+        totalAppItems: items.reduce((sum, item) => sum + item.appCount, 0),
+        nameConflicts: items.filter((item) => item.renamed).length,
+        items,
+    };
 };
 
 /**

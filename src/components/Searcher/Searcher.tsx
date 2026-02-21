@@ -54,6 +54,11 @@ export const Searcher: React.FC<SearcherProps> = ({
   );
   const [stickerRevision, setStickerRevision] = useState(0);
   const { t, language } = useLanguage();
+  const [localNotes, setLocalNotes] = useState(() =>
+    allowStickerContentSearch
+      ? extractSearchableNotesFromStickers(storage.getStickers(), language)
+      : []
+  );
 
   useEffect(() => {
     const handleConfigChanged = () => {
@@ -71,10 +76,13 @@ export const Searcher: React.FC<SearcherProps> = ({
     };
   }, []);
 
-  const localNotes = useMemo(() => {
-    if (!allowStickerContentSearch) return [];
+  useEffect(() => {
+    if (!allowStickerContentSearch) {
+      setLocalNotes([]);
+      return;
+    }
     const stickers = storage.getStickers();
-    return extractSearchableNotesFromStickers(stickers, language);
+    setLocalNotes(extractSearchableNotesFromStickers(stickers, language));
   }, [allowStickerContentSearch, language, stickerRevision]);
 
   const suggestions = useMemo<SearchSuggestionItem[]>(

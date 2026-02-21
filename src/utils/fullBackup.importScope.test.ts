@@ -173,4 +173,54 @@ describe('fullBackup import scope', () => {
     expect(result.preview.spaces.incoming).toBe(0);
     expect(result.preview.stickers.incoming).toBe(1);
   });
+
+  it('merge import can keep remote search engines on conflicts when policy is keepRemote', async () => {
+    localStorage.setItem(STORAGE_KEYS.SEARCH_ENGINES, JSON.stringify([
+      { id: 'google', name: 'Google', url: 'https://google.com/search?q=%s' },
+      { id: 'duck', name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=%s' },
+    ]));
+    localStorage.setItem(STORAGE_KEYS.SEARCH_ENGINE, JSON.stringify({
+      id: 'duck',
+      name: 'DuckDuckGo',
+      url: 'https://duckduckgo.com/?q=%s',
+    }));
+
+    const incoming = createIncomingPackage();
+    incoming.localStorageEntries[STORAGE_KEYS.SEARCH_ENGINES] = JSON.stringify([
+      { id: 'google', name: 'Google Remote', url: 'https://google.example/search?q=%s' },
+      { id: 'brave', name: 'Brave', url: 'https://duckduckgo.com/?q=%s' },
+    ]);
+    incoming.localStorageEntries[STORAGE_KEYS.SEARCH_ENGINE] = JSON.stringify({
+      id: 'brave',
+      name: 'Brave',
+      url: 'https://duckduckgo.com/?q=%s',
+    });
+
+    const result = await applyBackupImport(
+      incoming,
+      'merge',
+      {
+        space: false,
+        zenShelf: false,
+        config: true,
+      },
+      {
+        searchEngineConflictPolicy: 'keepRemote',
+      }
+    );
+
+    const searchEngines = JSON.parse(localStorage.getItem(STORAGE_KEYS.SEARCH_ENGINES) || '[]');
+    const activeSearchEngine = JSON.parse(localStorage.getItem(STORAGE_KEYS.SEARCH_ENGINE) || '{}');
+
+    expect(searchEngines).toHaveLength(2);
+    expect(searchEngines.find((item: { id: string }) => item.id === 'google')?.url).toBe(
+      'https://google.example/search?q=%s'
+    );
+    expect(searchEngines.find((item: { id: string }) => item.id === 'brave')?.url).toBe(
+      'https://duckduckgo.com/?q=%s'
+    );
+    expect(searchEngines.some((item: { id: string }) => item.id === 'duck')).toBe(false);
+    expect(activeSearchEngine.id).toBe('brave');
+    expect(result.preview.searchEngines.conflict).toBe(2);
+  });
 });

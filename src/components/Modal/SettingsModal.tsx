@@ -29,6 +29,7 @@ import {
     applyBackupImport,
     BackupImportScope,
     BackupImportStrategy,
+    BackupMergeOptions,
     BackupPackage,
     buildFullBackupPackage,
     DEFAULT_BACKUP_IMPORT_SCOPE,
@@ -50,11 +51,18 @@ import {
 import {
     buildChangedSectionImportScope,
     buildCloudSyncEnvelope,
+    collectCloudSyncConflicts,
+    DEFAULT_CLOUD_SYNC_MERGE_CONFLICT_POLICY,
     diffCloudSyncSections,
     hasAnyImportScopeEnabled,
+    hasCloudSyncConflicts,
     parseCloudSyncEnvelopeJson,
+    prepareMergePackageWithConflictPolicy,
+    type CloudSyncConflictReport,
     type CloudSyncEnvelope,
+    type CloudSyncMergeConflictPolicy,
     type CloudSyncSection,
+    type SpaceRenameMapping,
 } from '../../utils/cloudSync';
 import {
     buildBookmarkImportPreview,
@@ -114,6 +122,58 @@ export const promptImportStrategy = (
     }
 
     return null;
+};
+
+const summarizeConflictItemsForPrompt = (items: string[], max = 3): string => {
+    if (items.length <= max) {
+        return items.join(', ');
+    }
+    return `${items.slice(0, max).join(', ')}, ...`;
+};
+
+export const promptMergeConflictPolicy = (
+    language: 'zh' | 'en',
+    report: CloudSyncConflictReport,
+    confirmFn: (message: string) => boolean = defaultConfirm
+): CloudSyncMergeConflictPolicy => {
+    let policy: CloudSyncMergeConflictPolicy = { ...DEFAULT_CLOUD_SYNC_MERGE_CONFLICT_POLICY };
+
+    if (report.spaceNameConflicts.length === 0) {
+        // no-op, keep defaults and continue checking other conflict categories
+    } else {
+        const spaceList = summarizeConflictItemsForPrompt(report.spaceNameConflicts);
+        const keepBoth = confirmFn(
+            language === 'zh'
+                ? `检测到 Space 重名冲突：${spaceList}\n确定 = 保留两份（远端自动改名，推荐）\n取消 = 保留本地（跳过远端同名 Space）`
+                : `Space name conflicts found: ${spaceList}\nOK = keep both (rename remote copy, recommended)\nCancel = keep local (skip conflicting remote spaces)`
+        );
+
+        policy = {
+            ...policy,
+            spaceName: keepBoth ? 'keepBoth' : 'keepLocal',
+        };
+    }
+
+    const hasSearchEngineConflicts =
+        report.searchEngineIdConflicts.length > 0 || report.searchEngineUrlConflicts.length > 0;
+    if (hasSearchEngineConflicts) {
+        const searchItems = [
+            ...report.searchEngineIdConflicts.map((id) => `id:${id}`),
+            ...report.searchEngineUrlConflicts.map((url) => `url:${url}`),
+        ];
+        const searchList = summarizeConflictItemsForPrompt(searchItems);
+        const keepLocal = confirmFn(
+            language === 'zh'
+                ? `检测到搜索引擎冲突：${searchList}\n确定 = 保留本地（跳过远端冲突项，推荐）\n取消 = 保留远端（覆盖本地冲突项）`
+                : `Search engine conflicts found: ${searchList}\nOK = keep local (skip conflicting remote items, recommended)\nCancel = keep remote (override local conflicting items)`
+        );
+        policy = {
+            ...policy,
+            searchEngine: keepLocal ? 'keepLocal' : 'keepRemote',
+        };
+    }
+
+    return policy;
 };
 
 const minuteToTimeString = (minute: number): string => {
@@ -265,6 +325,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     const [webDavPassword, setWebDavPassword] = useState<string>('');
     const [webDavBusyAction, setWebDavBusyAction] = useState<'backup' | 'restore' | 'check' | null>(null);
     const [webDavStatus, setWebDavStatus] = useState<string>('');
+    const [webDavConflictSummary, setWebDavConflictSummary] = useState<string>('');
     const [lastWebDavBackupAt, setLastWebDavBackupAt] = useState<number | null>(() =>
         storage.getCloudSyncLastBackupAt()
     );
@@ -500,6 +561,99 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         return labels.join(', ');
     }, [language]);
 
+    const formatConflictSummary = useCallback((
+        report: CloudSyncConflictReport,
+        options?: {
+            renamedSpaces?: SpaceRenameMapping[];
+            skippedSpaceConflicts?: string[];
+            policy?: CloudSyncMergeConflictPolicy;
+        }
+    ): string => {
+        const renamedSpaces = options?.renamedSpaces || [];
+        const skippedSpaceConflicts = options?.skippedSpaceConflicts || [];
+        const policy = options?.policy;
+        const lines: string[] = [];
+        const compactList = (items: string[], max = 4): string => {
+            if (items.length <= max) {
+                return items.join(', ');
+            }
+            const extra = items.length - max;
+            const tail = language === 'zh' ? `等 ${items.length} 项` : `${extra} more`;
+            return `${items.slice(0, max).join(', ')}, ${tail}`;
+        };
+
+        if (report.spaceNameConflicts.length > 0) {
+            lines.push(
+                language === 'zh'
+                    ? `Space 重名：${compactList(report.spaceNameConflicts)}`
+                    : `Space name conflicts: ${compactList(report.spaceNameConflicts)}`
+            );
+            if (policy?.spaceName === 'keepBoth') {
+                lines.push(
+                    language === 'zh'
+                        ? 'Space 冲突策略：保留两份（远端自动改名）'
+                        : 'Space conflict policy: keep both (rename remote copy)'
+                );
+            } else if (policy?.spaceName === 'keepLocal') {
+                lines.push(
+                    language === 'zh'
+                        ? 'Space 冲突策略：保留本地（跳过远端同名 Space）'
+                        : 'Space conflict policy: keep local (skip conflicting remote spaces)'
+                );
+            }
+        }
+        if (report.searchEngineIdConflicts.length > 0) {
+            lines.push(
+                language === 'zh'
+                    ? `搜索引擎 ID 冲突：${compactList(report.searchEngineIdConflicts)}`
+                    : `Search engine ID conflicts: ${compactList(report.searchEngineIdConflicts)}`
+            );
+        }
+        if (report.searchEngineUrlConflicts.length > 0) {
+            lines.push(
+                language === 'zh'
+                    ? `搜索引擎 URL 冲突：${compactList(report.searchEngineUrlConflicts)}`
+                    : `Search engine URL conflicts: ${compactList(report.searchEngineUrlConflicts)}`
+            );
+        }
+        if (
+            (report.searchEngineIdConflicts.length > 0 || report.searchEngineUrlConflicts.length > 0)
+            && policy?.searchEngine === 'keepLocal'
+        ) {
+            lines.push(
+                language === 'zh'
+                    ? '搜索引擎冲突策略：保留本地（跳过远端冲突项）'
+                    : 'Search engine conflict policy: keep local (skip conflicting remote items)'
+            );
+        } else if (
+            (report.searchEngineIdConflicts.length > 0 || report.searchEngineUrlConflicts.length > 0)
+            && policy?.searchEngine === 'keepRemote'
+        ) {
+            lines.push(
+                language === 'zh'
+                    ? '搜索引擎冲突策略：保留远端（覆盖本地冲突项）'
+                    : 'Search engine conflict policy: keep remote (override local conflicting items)'
+            );
+        }
+        if (renamedSpaces.length > 0) {
+            const renamedPairs = renamedSpaces.map((item) => `${item.from} -> ${item.to}`);
+            lines.push(
+                language === 'zh'
+                    ? `已保留冲突副本：${compactList(renamedPairs)}`
+                    : `Conflict copies prepared: ${compactList(renamedPairs)}`
+            );
+        }
+        if (skippedSpaceConflicts.length > 0) {
+            lines.push(
+                language === 'zh'
+                    ? `已跳过远端同名 Space：${compactList(skippedSpaceConflicts)}`
+                    : `Skipped conflicting remote spaces: ${compactList(skippedSpaceConflicts)}`
+            );
+        }
+
+        return lines.join('\n');
+    }, [language]);
+
     const getWebDavCredentials = useCallback(() => {
         const normalizedEndpoint = normalizeWebDavEndpoint(webDavEndpoint);
         const username = webDavUsername.trim();
@@ -565,6 +719,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     const handleWebDavBackup = async () => {
         if (webDavBusyAction) return;
         setWebDavBusyAction('backup');
+        setWebDavConflictSummary('');
         try {
             const credentials = getWebDavCredentials();
             saveWebDavConfig(credentials.endpoint, credentials.username);
@@ -624,6 +779,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     const handleWebDavRestore = async () => {
         if (webDavBusyAction) return;
         setWebDavBusyAction('restore');
+        setWebDavConflictSummary('');
         try {
             const credentials = getWebDavCredentials();
             saveWebDavConfig(credentials.endpoint, credentials.username);
@@ -660,12 +816,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
             }
 
             const remotePackage = remoteEnvelope.backup;
-            setImportPackage(remotePackage);
+            const conflictReport = collectCloudSyncConflicts(localEnvelope.backup, remotePackage);
+            let packageForImport = remotePackage;
+            let renamedSpaces: SpaceRenameMapping[] = [];
+            let skippedSpaceConflicts: string[] = [];
+            let mergeConflictPolicy: CloudSyncMergeConflictPolicy | undefined;
 
             const selectedStrategy = promptImportStrategy(language);
             if (!selectedStrategy) {
                 return;
             }
+            if (selectedStrategy === 'merge') {
+                mergeConflictPolicy = hasCloudSyncConflicts(conflictReport)
+                    ? promptMergeConflictPolicy(language, conflictReport)
+                    : DEFAULT_CLOUD_SYNC_MERGE_CONFLICT_POLICY;
+                const prepared = prepareMergePackageWithConflictPolicy(
+                    localEnvelope.backup,
+                    remotePackage,
+                    mergeConflictPolicy
+                );
+                packageForImport = prepared.package;
+                renamedSpaces = prepared.renamedSpaces;
+                skippedSpaceConflicts = prepared.skippedSpaceConflicts;
+            }
+            setImportPackage(packageForImport);
+
+            const conflictSummary = formatConflictSummary(conflictReport, {
+                renamedSpaces,
+                skippedSpaceConflicts,
+                policy: mergeConflictPolicy,
+            });
+            setWebDavConflictSummary(conflictSummary);
+            const hasConflicts =
+                hasCloudSyncConflicts(conflictReport)
+                || renamedSpaces.length > 0
+                || skippedSpaceConflicts.length > 0;
+            const mergeImportOptions: BackupMergeOptions | undefined =
+                selectedStrategy === 'merge' && mergeConflictPolicy
+                    ? { searchEngineConflictPolicy: mergeConflictPolicy.searchEngine }
+                    : undefined;
             if (selectedStrategy === 'overwrite') {
                 const overwriteConfirmed = window.confirm(
                     language === 'zh'
@@ -677,19 +866,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                 }
             }
 
-            const preview = await previewBackupImport(remotePackage, selectedStrategy, effectiveScope);
+            const preview = await previewBackupImport(
+                packageForImport,
+                selectedStrategy,
+                effectiveScope,
+                mergeImportOptions
+            );
             setImportPreviewText(describePreview(preview, effectiveScope));
 
-            const confirmed = window.confirm(
+            const confirmLines: string[] = [];
+            if (hasConflicts && conflictSummary) {
+                confirmLines.push(conflictSummary);
+                confirmLines.push('');
+            }
+            confirmLines.push(
                 language === 'zh'
                     ? `即将执行 ${selectedStrategy === 'merge' ? '合并导入' : '覆盖导入'}，是否继续？`
                     : `Import with strategy "${selectedStrategy}" now?`
             );
+            const confirmed = window.confirm(confirmLines.join('\n'));
             if (!confirmed) {
                 return;
             }
 
-            await applyBackupImport(remotePackage, selectedStrategy, effectiveScope);
+            await applyBackupImport(
+                packageForImport,
+                selectedStrategy,
+                effectiveScope,
+                mergeImportOptions
+            );
             const now = Date.now();
             storage.saveCloudSyncLastRestoreAt(now);
             setLastWebDavRestoreAt(now);
@@ -717,6 +922,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     const handleWebDavCheckDiff = async () => {
         if (webDavBusyAction) return;
         setWebDavBusyAction('check');
+        setWebDavConflictSummary('');
         try {
             const credentials = getWebDavCredentials();
             saveWebDavConfig(credentials.endpoint, credentials.username);
@@ -737,10 +943,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                 setWebDavStatus(language === 'zh' ? '无差异。' : 'No differences.');
                 return;
             }
+            const conflictReport = collectCloudSyncConflicts(localEnvelope.backup, remoteEnvelope.backup);
+            const conflictSummary = formatConflictSummary(conflictReport);
+            setWebDavConflictSummary(conflictSummary);
             setWebDavStatus(
                 language === 'zh'
-                    ? `检测到差异：${formatChangedSections(changedSections)}`
-                    : `Differences found: ${formatChangedSections(changedSections)}`
+                    ? `检测到差异：${formatChangedSections(changedSections)}${conflictSummary ? '（含冲突，见下方摘要）' : ''}`
+                    : `Differences found: ${formatChangedSections(changedSections)}${conflictSummary ? ' (conflicts found, see summary below)' : ''}`
             );
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Diff check failed';
@@ -1553,6 +1762,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                                 ? `最近备份：${formatSyncTime(lastWebDavBackupAt)}\n最近恢复：${formatSyncTime(lastWebDavRestoreAt)}${webDavStatus ? `\n状态：${webDavStatus}` : ''}`
                                 : `Last backup: ${formatSyncTime(lastWebDavBackupAt)}\nLast restore: ${formatSyncTime(lastWebDavRestoreAt)}${webDavStatus ? `\nStatus: ${webDavStatus}` : ''}`}
                         </pre>
+                        {webDavConflictSummary && (
+                            <pre className={styles.previewBox}>{webDavConflictSummary}</pre>
+                        )}
 
                         <div className={styles.sectionDivider} />
                         <div className={styles.subSectionTitle}>

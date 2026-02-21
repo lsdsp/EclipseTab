@@ -18,6 +18,11 @@ const LANGUAGE_KEY = 'app_language';
 
 export type BackupPackageType = 'eclipse-full-backup' | 'eclipse-space-snapshot';
 export type BackupImportStrategy = 'merge' | 'overwrite';
+export type SearchEngineMergeConflictPolicy = 'keepLocal' | 'keepRemote';
+
+export interface BackupMergeOptions {
+  searchEngineConflictPolicy?: SearchEngineMergeConflictPolicy;
+}
 
 export interface SerializedWallpaperAsset {
   id: string;
@@ -74,6 +79,17 @@ export interface ImportResult {
   restoredFromRollback: boolean;
   preview: ImportPreview;
 }
+
+const DEFAULT_BACKUP_MERGE_OPTIONS: Required<BackupMergeOptions> = {
+  searchEngineConflictPolicy: 'keepLocal',
+};
+
+const normalizeBackupMergeOptions = (
+  options?: BackupMergeOptions
+): Required<BackupMergeOptions> => ({
+  ...DEFAULT_BACKUP_MERGE_OPTIONS,
+  ...(options || {}),
+});
 
 const backupKeys = (): string[] => [...storage.getManagedStorageKeys(), LANGUAGE_KEY];
 
@@ -499,7 +515,8 @@ const mergeEntries = (
   currentEntries: Record<string, string | null>,
   incomingEntries: Record<string, string | null>,
   assetIdRemap: Map<string, string>,
-  scope: BackupImportScope
+  scope: BackupImportScope,
+  mergeOptions: Required<BackupMergeOptions>
 ): {
   entries: Record<string, string | null>;
   preview: ImportPreview;
@@ -530,26 +547,69 @@ const mergeEntries = (
 
   const searchEnginesCurrent = current.searchEngines || [];
   const searchEnginesIncoming = incoming.searchEngines || [];
-  const searchEnginesById = new Map<string, SearchEngine>();
-  searchEnginesCurrent.forEach((engine) => {
-    searchEnginesById.set(engine.id, engine);
-  });
-  let searchEngineConflicts = 0;
-  if (scope.config) {
-    searchEnginesIncoming.forEach((engine) => {
-      if (searchEnginesById.has(engine.id)) {
-        searchEngineConflicts += 1;
-        return;
-      }
-      const sameUrl = Array.from(searchEnginesById.values()).some((existing) => existing.url === engine.url);
-      if (sameUrl) {
-        searchEngineConflicts += 1;
-        return;
-      }
-      searchEnginesById.set(engine.id, engine);
+  const mergeSearchEngines = (): { engines: SearchEngine[]; conflicts: number } => {
+    if (!scope.config) {
+      return { engines: searchEnginesCurrent, conflicts: 0 };
+    }
+
+    const order: string[] = [];
+    const byId = new Map<string, SearchEngine>();
+    const byUrl = new Map<string, string>();
+    searchEnginesCurrent.forEach((engine) => {
+      order.push(engine.id);
+      byId.set(engine.id, engine);
+      byUrl.set(engine.url, engine.id);
     });
-  }
-  const mergedSearchEngines = scope.config ? Array.from(searchEnginesById.values()) : searchEnginesCurrent;
+
+    let conflicts = 0;
+    searchEnginesIncoming.forEach((engine) => {
+      const idConflict = byId.has(engine.id);
+      const urlConflictId = byUrl.get(engine.url);
+      const hasConflict = idConflict || !!urlConflictId;
+      if (hasConflict) {
+        conflicts += 1;
+      }
+
+      if (hasConflict && mergeOptions.searchEngineConflictPolicy === 'keepLocal') {
+        return;
+      }
+
+      if (hasConflict && mergeOptions.searchEngineConflictPolicy === 'keepRemote') {
+        if (idConflict) {
+          const oldById = byId.get(engine.id);
+          if (oldById) {
+            byUrl.delete(oldById.url);
+          }
+        }
+
+        if (urlConflictId && urlConflictId !== engine.id) {
+          const oldByUrl = byId.get(urlConflictId);
+          if (oldByUrl) {
+            byId.delete(urlConflictId);
+            byUrl.delete(oldByUrl.url);
+          }
+        }
+      }
+
+      const existed = byId.has(engine.id);
+      byId.set(engine.id, engine);
+      byUrl.set(engine.url, engine.id);
+      if (!existed) {
+        order.push(engine.id);
+      }
+    });
+
+    return {
+      engines: order
+        .filter((id, index) => order.indexOf(id) === index)
+        .filter((id) => byId.has(id))
+        .map((id) => byId.get(id) as SearchEngine),
+      conflicts,
+    };
+  };
+  const mergedSearchEngineResult = mergeSearchEngines();
+  const mergedSearchEngines = mergedSearchEngineResult.engines;
+  const searchEngineConflicts = mergedSearchEngineResult.conflicts;
 
   const mergedDeletedDockItems: DeletedDockItemRecord[] = [...current.deletedDockItems];
   const usedDeletedDockRecordIds = new Set(mergedDeletedDockItems.map((record) => record.id));
@@ -730,14 +790,16 @@ const buildPreview = (
 const mergePackages = (
   current: BackupPackage,
   incoming: BackupPackage,
-  scope: BackupImportScope
+  scope: BackupImportScope,
+  mergeOptions: Required<BackupMergeOptions>
 ): { merged: BackupPackage; preview: ImportPreview } => {
   const mergedAssetsResult = mergeAssets(current.assets, incoming.assets, scope);
   const mergedEntriesResult = mergeEntries(
     current.localStorageEntries,
     incoming.localStorageEntries,
     mergedAssetsResult.stickerAssetIdRemap,
-    scope
+    scope,
+    mergeOptions
   );
 
   const preview = buildPreview(current, incoming, 'merge', scope);
@@ -874,19 +936,23 @@ export const parseBackupFile = async (file: File): Promise<BackupPackage> => {
 export const previewBackupImport = async (
   incoming: BackupPackage,
   strategy: BackupImportStrategy,
-  scope?: Partial<BackupImportScope>
+  scope?: Partial<BackupImportScope>,
+  mergeOptions?: BackupMergeOptions
 ): Promise<ImportPreview> => {
   const current = await createPackage('eclipse-full-backup');
+  normalizeBackupMergeOptions(mergeOptions);
   return buildPreview(current, incoming, strategy, normalizeBackupImportScope(scope));
 };
 
 export const applyBackupImport = async (
   incoming: BackupPackage,
   strategy: BackupImportStrategy,
-  scope?: Partial<BackupImportScope>
+  scope?: Partial<BackupImportScope>,
+  mergeOptions?: BackupMergeOptions
 ): Promise<ImportResult> => {
   const snapshot = await createPackage('eclipse-full-backup');
   const importScope = normalizeBackupImportScope(scope);
+  const normalizedMergeOptions = normalizeBackupMergeOptions(mergeOptions);
   let restoredFromRollback = false;
 
   try {
@@ -903,7 +969,7 @@ export const applyBackupImport = async (
       };
     }
 
-    const merged = mergePackages(snapshot, incoming, importScope);
+    const merged = mergePackages(snapshot, incoming, importScope, normalizedMergeOptions);
     writeLocalStorageEntries(merged.merged.localStorageEntries);
     await writeAssets(merged.merged.assets);
     storage.resetMemoryCache();
