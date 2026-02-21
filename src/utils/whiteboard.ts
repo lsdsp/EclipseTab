@@ -29,11 +29,40 @@ export interface SnapComputationResult {
   guides: AlignmentGuide[];
 }
 
+export interface WidgetDockSnapInput {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  targets: GuideTargetRect[];
+  threshold?: number;
+  minOverlapRatio?: number;
+}
+
+export interface WidgetDockSnapResult {
+  x: number;
+  y: number;
+  targetId: string | null;
+  guides: AlignmentGuide[];
+}
+
 export interface MoveTargetResolveInput {
   activeStickerId: string;
   selectedStickerIds: string[];
   groupMap: Record<string, string | undefined>;
   lockedStickerIds: string[];
+}
+
+export interface GroupMoveSession {
+  activeStickerId: string;
+  moveTargetIds: string[];
+  basePositions: Record<string, { x: number; y: number }>;
+}
+
+export interface GroupMovePosition {
+  id: string;
+  x: number;
+  y: number;
 }
 
 export interface SelectionActionState {
@@ -79,6 +108,12 @@ const alignAxis = (
   return { nextStart: alignedStart, guide };
 };
 
+const overlapLength = (aStart: number, aEnd: number, bStart: number, bEnd: number): number => {
+  const start = Math.max(aStart, bStart);
+  const end = Math.min(aEnd, bEnd);
+  return Math.max(0, end - start);
+};
+
 export const computeSnappedPosition = (input: SnapComputationInput): SnapComputationResult => {
   const threshold = input.threshold ?? 6;
   const verticalTargets = input.targets.map((target) => getAnchors(target.left, target.width));
@@ -113,6 +148,93 @@ export const computeSnappedPosition = (input: SnapComputationInput): SnapComputa
     x: nextX,
     y: nextY,
     guides,
+  };
+};
+
+export const computeWidgetDockSnap = (input: WidgetDockSnapInput): WidgetDockSnapResult => {
+  const threshold = input.threshold ?? 14;
+  const minOverlapRatio = input.minOverlapRatio ?? 0.3;
+
+  let bestDistance = Number.POSITIVE_INFINITY;
+  let bestX = input.x;
+  let bestY = input.y;
+  let bestTargetId: string | null = null;
+  let bestGuide: AlignmentGuide | null = null;
+
+  input.targets.forEach((target) => {
+    const movingTop = input.y;
+    const movingBottom = input.y + input.height;
+    const movingLeft = input.x;
+    const movingRight = input.x + input.width;
+
+    const targetTop = target.top;
+    const targetBottom = target.top + target.height;
+    const targetLeft = target.left;
+    const targetRight = target.left + target.width;
+
+    const minVerticalOverlap = Math.min(input.height, target.height) * minOverlapRatio;
+    const verticalOverlap = overlapLength(movingTop, movingBottom, targetTop, targetBottom);
+    if (verticalOverlap >= minVerticalOverlap) {
+      const dockToLeft = targetLeft - input.width;
+      const leftDistance = Math.abs(movingLeft - dockToLeft);
+      if (leftDistance <= threshold && leftDistance < bestDistance) {
+        bestDistance = leftDistance;
+        bestX = dockToLeft;
+        bestY = input.y;
+        bestTargetId = target.id;
+        bestGuide = { orientation: 'vertical', position: targetLeft, source: 'align' };
+      }
+
+      const dockToRight = targetRight;
+      const rightDistance = Math.abs(movingLeft - dockToRight);
+      if (rightDistance <= threshold && rightDistance < bestDistance) {
+        bestDistance = rightDistance;
+        bestX = dockToRight;
+        bestY = input.y;
+        bestTargetId = target.id;
+        bestGuide = { orientation: 'vertical', position: targetRight, source: 'align' };
+      }
+    }
+
+    const minHorizontalOverlap = Math.min(input.width, target.width) * minOverlapRatio;
+    const horizontalOverlap = overlapLength(movingLeft, movingRight, targetLeft, targetRight);
+    if (horizontalOverlap >= minHorizontalOverlap) {
+      const dockToTop = targetTop - input.height;
+      const topDistance = Math.abs(movingTop - dockToTop);
+      if (topDistance <= threshold && topDistance < bestDistance) {
+        bestDistance = topDistance;
+        bestX = input.x;
+        bestY = dockToTop;
+        bestTargetId = target.id;
+        bestGuide = { orientation: 'horizontal', position: targetTop, source: 'align' };
+      }
+
+      const dockToBottom = targetBottom;
+      const bottomDistance = Math.abs(movingTop - dockToBottom);
+      if (bottomDistance <= threshold && bottomDistance < bestDistance) {
+        bestDistance = bottomDistance;
+        bestX = input.x;
+        bestY = dockToBottom;
+        bestTargetId = target.id;
+        bestGuide = { orientation: 'horizontal', position: targetBottom, source: 'align' };
+      }
+    }
+  });
+
+  if (!bestTargetId || !bestGuide) {
+    return {
+      x: input.x,
+      y: input.y,
+      targetId: null,
+      guides: [],
+    };
+  }
+
+  return {
+    x: bestX,
+    y: bestY,
+    targetId: bestTargetId,
+    guides: [bestGuide],
   };
 };
 
@@ -220,6 +342,30 @@ export const resolveMoveStickerIds = (input: MoveTargetResolveInput): string[] =
   }
 
   return lockedSet.has(input.activeStickerId) ? [] : [input.activeStickerId];
+};
+
+export const computeGroupMovePositions = (
+  session: GroupMoveSession,
+  activeX: number,
+  activeY: number
+): GroupMovePosition[] => {
+  const activeBase = session.basePositions[session.activeStickerId];
+  if (!activeBase) return [];
+
+  const dx = activeX - activeBase.x;
+  const dy = activeY - activeBase.y;
+
+  return session.moveTargetIds
+    .map((id) => {
+      const base = session.basePositions[id];
+      if (!base) return null;
+      return {
+        id,
+        x: base.x + dx,
+        y: base.y + dy,
+      };
+    })
+    .filter((item): item is GroupMovePosition => item !== null);
 };
 
 export const normalizeSelectionRect = (

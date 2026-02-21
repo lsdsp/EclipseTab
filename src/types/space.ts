@@ -42,6 +42,29 @@ export interface SpacesState {
     version: number;
 }
 
+export type SpaceRuleType = 'time' | 'domain';
+
+interface SpaceRuleBase {
+    id: string;
+    type: SpaceRuleType;
+    spaceId: string;
+    enabled: boolean;
+}
+
+export interface SpaceTimeRule extends SpaceRuleBase {
+    type: 'time';
+    days: number[];      // 0-6, Sunday-Saturday
+    startMinute: number; // 0-1439
+    endMinute: number;   // 0-1439
+}
+
+export interface SpaceDomainRule extends SpaceRuleBase {
+    type: 'domain';
+    domain: string;
+}
+
+export type SpaceRule = SpaceTimeRule | SpaceDomainRule;
+
 /**
  * 创建默认空间
  */

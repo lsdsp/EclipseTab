@@ -1,9 +1,31 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Sticker, IMAGE_MAX_WIDTH } from '../../types';
 import { FloatingToolbar } from './FloatingToolbar';
 import { useThemeData } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { resolveStickerFontFamily } from '../../constants/stickerFonts';
-import { AlignmentGuide, computeSnappedPosition } from '../../utils/whiteboard';
+import { AlignmentGuide, computeSnappedPosition, computeWidgetDockSnap } from '../../utils/whiteboard';
+import { useWidgetNow } from '../../utils/widgetTicker';
+import { parseICalendarEvents } from '../../utils/ical';
+import {
+    addTodoWidgetItem,
+    advanceTimerWidgetIfNeeded,
+    formatTimerSeconds,
+    getTimerRemainingSeconds,
+    parseCalendarWidgetState,
+    parseClockWidgetState,
+    parseTimerWidgetState,
+    parseTodoWidgetState,
+    pauseTimerWidget,
+    removeTodoWidgetItem,
+    resetTimerWidget,
+    serializeWidgetState,
+    skipTimerWidgetPhase,
+    startTimerWidget,
+    toggleTodoWidgetItem,
+    updateTimerWidgetDurations,
+    type TimerWidgetState,
+} from '../../utils/widgetStickers';
 import styles from './ZenShelf.module.css';
 import pinIcon from '../../assets/icons/pin.svg';
 
@@ -43,6 +65,588 @@ const UI_ZONES = {
     EDGE_MARGIN: 20,
 };
 
+const CONTROL_SELECTOR = '[data-sticker-control="true"]';
+
+const isWidgetStickerType = (type: Sticker['type']): boolean =>
+    type === 'clock' || type === 'timer' || type === 'todo' || type === 'calendar';
+
+const playPomodoroTone = () => {
+    if (typeof window === 'undefined') return;
+
+    const AudioContextClass = window.AudioContext || (window as typeof window & {
+        webkitAudioContext?: typeof AudioContext;
+    }).webkitAudioContext;
+
+    if (!AudioContextClass) return;
+
+    try {
+        const audioCtx = new AudioContextClass();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+
+        gainNode.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.04, audioCtx.currentTime + 0.02);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.35);
+
+        oscillator.onended = () => {
+            void audioCtx.close();
+        };
+    } catch {
+        // Ignore audio failures to keep widget non-blocking.
+    }
+};
+
+interface WidgetStickerProps {
+    sticker: Sticker;
+    onContentChange: (content: string) => void;
+}
+
+const WidgetSticker: React.FC<WidgetStickerProps> = ({ sticker, onContentChange }) => {
+    const { language, t } = useLanguage();
+    const now = useWidgetNow();
+    const [todoInput, setTodoInput] = useState('');
+    const [calendarUrlInput, setCalendarUrlInput] = useState('');
+    const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+    const calendarFileInputRef = useRef<HTMLInputElement>(null);
+    const transitionGuardRef = useRef<number | null>(null);
+
+    const clockState = useMemo(
+        () => (sticker.type === 'clock' ? parseClockWidgetState(sticker.content) : null),
+        [sticker.content, sticker.type]
+    );
+    const timerState = useMemo(
+        () => (sticker.type === 'timer' ? parseTimerWidgetState(sticker.content) : null),
+        [sticker.content, sticker.type]
+    );
+    const todoState = useMemo(
+        () => (sticker.type === 'todo' ? parseTodoWidgetState(sticker.content, language) : null),
+        [language, sticker.content, sticker.type]
+    );
+    const calendarState = useMemo(
+        () => (sticker.type === 'calendar' ? parseCalendarWidgetState(sticker.content) : null),
+        [sticker.content, sticker.type]
+    );
+
+    const syncCalendarFromUrl = useCallback(async (
+        stateSnapshot: NonNullable<typeof calendarState>,
+        url: string
+    ) => {
+        if (!url.trim()) return;
+        setIsCalendarLoading(true);
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                cache: 'no-store',
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const text = await response.text();
+            onContentChange(serializeWidgetState({
+                ...stateSnapshot,
+                events: parseICalendarEvents(text, Date.now()),
+                lastSyncAt: Date.now(),
+                error: undefined,
+            }));
+        } catch (error) {
+            const detail = error instanceof Error ? error.message : 'unknown';
+            onContentChange(serializeWidgetState({
+                ...stateSnapshot,
+                error: `${t.widget.calendarLoadFailed}: ${detail}`,
+            }));
+        } finally {
+            setIsCalendarLoading(false);
+        }
+    }, [onContentChange, t.widget.calendarLoadFailed]);
+
+    const calendarUrl = calendarState?.url ?? '';
+
+    useEffect(() => {
+        setCalendarUrlInput(calendarUrl);
+    }, [calendarUrl]);
+
+    useEffect(() => {
+        if (!calendarState?.enabled || !calendarState.url) return;
+        if (calendarState.events.length > 0 || calendarState.error) return;
+        void syncCalendarFromUrl(calendarState, calendarState.url);
+    }, [calendarState, syncCalendarFromUrl]);
+
+    useEffect(() => {
+        if (!timerState) return;
+
+        const marker = timerState.endAt ?? null;
+        if (!timerState.isRunning || marker === null) {
+            transitionGuardRef.current = null;
+            return;
+        }
+
+        const remaining = getTimerRemainingSeconds(timerState, now);
+        if (remaining > 0) {
+            transitionGuardRef.current = null;
+            return;
+        }
+
+        if (transitionGuardRef.current === marker) {
+            return;
+        }
+
+        transitionGuardRef.current = marker;
+        const next = advanceTimerWidgetIfNeeded(timerState, now);
+        if (!next) return;
+
+        if (timerState.soundEnabled) {
+            playPomodoroTone();
+        }
+        onContentChange(serializeWidgetState(next));
+    }, [now, onContentChange, timerState]);
+
+    if (sticker.type === 'clock' && clockState) {
+        const date = new Date(now);
+        const locale = language === 'zh' ? 'zh-CN' : 'en-US';
+        const timeText = date.toLocaleTimeString(locale, {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: clockState.showSeconds ? '2-digit' : undefined,
+            hour12: false,
+        });
+        const dateText = date.toLocaleDateString(locale, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            weekday: 'short',
+        });
+
+        return (
+            <div className={styles.widgetCard}>
+                <div className={styles.widgetTitle}>{t.widget.clock}</div>
+                <div className={styles.clockTime}>{timeText}</div>
+                <div className={styles.clockDate}>{dateText}</div>
+            </div>
+        );
+    }
+
+    if (sticker.type === 'timer' && timerState) {
+        const remainingSeconds = getTimerRemainingSeconds(timerState, now);
+        const onToggle = () => {
+            const next = timerState.isRunning
+                ? pauseTimerWidget(timerState, now)
+                : startTimerWidget(timerState, now);
+            onContentChange(serializeWidgetState(next));
+        };
+
+        const onReset = () => {
+            onContentChange(serializeWidgetState(resetTimerWidget(timerState)));
+        };
+
+        const onSkip = () => {
+            onContentChange(serializeWidgetState(skipTimerWidgetPhase(timerState, now)));
+        };
+
+        const onToggleSound = () => {
+            const next: TimerWidgetState = {
+                ...timerState,
+                soundEnabled: !timerState.soundEnabled,
+            };
+            onContentChange(serializeWidgetState(next));
+        };
+
+        const onDurationChange = (
+            field: 'focusMinutes' | 'breakMinutes' | 'longBreakMinutes' | 'longBreakInterval',
+            value: string
+        ) => {
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed)) return;
+            const updates: Partial<Pick<TimerWidgetState, 'focusMinutes' | 'breakMinutes' | 'longBreakMinutes' | 'longBreakInterval'>> = {
+                [field]: parsed,
+            };
+            const next = updateTimerWidgetDurations(timerState, now, updates);
+            onContentChange(serializeWidgetState(next));
+        };
+
+        return (
+            <div className={styles.widgetCard}>
+                <div className={styles.widgetHeader}>
+                    <div className={styles.widgetTitle}>{t.widget.pomodoro}</div>
+                    <button
+                        className={styles.widgetActionGhost}
+                        data-sticker-control="true"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={onToggleSound}
+                        type="button"
+                    >
+                        {timerState.soundEnabled ? t.widget.soundOn : t.widget.soundOff}
+                    </button>
+                </div>
+                <div className={styles.widgetMode}>
+                    {timerState.mode === 'focus'
+                        ? t.widget.focus
+                        : timerState.mode === 'longBreak'
+                            ? t.widget.longBreak
+                            : t.widget.shortBreak}
+                </div>
+                <div className={styles.timerValue}>{formatTimerSeconds(remainingSeconds)}</div>
+                <div className={styles.widgetMeta}>
+                    {t.widget.cycles}: {timerState.cycles}
+                </div>
+                <div className={styles.widgetActions}>
+                    <button
+                        className={styles.widgetActionPrimary}
+                        data-sticker-control="true"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={onToggle}
+                        type="button"
+                    >
+                        {timerState.isRunning ? t.widget.pause : t.widget.start}
+                    </button>
+                    <button
+                        className={styles.widgetAction}
+                        data-sticker-control="true"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={onReset}
+                        type="button"
+                    >
+                        {t.widget.reset}
+                    </button>
+                    <button
+                        className={styles.widgetAction}
+                        data-sticker-control="true"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={onSkip}
+                        type="button"
+                    >
+                        {t.widget.skip}
+                    </button>
+                </div>
+                <div className={styles.timerConfigGrid}>
+                    <label className={styles.timerConfigField}>
+                        <span className={styles.timerConfigLabel}>{t.widget.focusMinutes}</span>
+                        <input
+                            className={styles.timerConfigInput}
+                            data-sticker-control="true"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            type="number"
+                            min={1}
+                            max={180}
+                            value={timerState.focusMinutes}
+                            onChange={(e) => onDurationChange('focusMinutes', e.target.value)}
+                        />
+                    </label>
+                    <label className={styles.timerConfigField}>
+                        <span className={styles.timerConfigLabel}>{t.widget.shortBreakMinutes}</span>
+                        <input
+                            className={styles.timerConfigInput}
+                            data-sticker-control="true"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            type="number"
+                            min={1}
+                            max={180}
+                            value={timerState.breakMinutes}
+                            onChange={(e) => onDurationChange('breakMinutes', e.target.value)}
+                        />
+                    </label>
+                    <label className={styles.timerConfigField}>
+                        <span className={styles.timerConfigLabel}>{t.widget.longBreakMinutes}</span>
+                        <input
+                            className={styles.timerConfigInput}
+                            data-sticker-control="true"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            type="number"
+                            min={1}
+                            max={180}
+                            value={timerState.longBreakMinutes}
+                            onChange={(e) => onDurationChange('longBreakMinutes', e.target.value)}
+                        />
+                    </label>
+                    <label className={styles.timerConfigField}>
+                        <span className={styles.timerConfigLabel}>{t.widget.longBreakEvery}</span>
+                        <input
+                            className={styles.timerConfigInput}
+                            data-sticker-control="true"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            type="number"
+                            min={1}
+                            max={12}
+                            value={timerState.longBreakInterval}
+                            onChange={(e) => onDurationChange('longBreakInterval', e.target.value)}
+                        />
+                    </label>
+                </div>
+            </div>
+        );
+    }
+
+    if (sticker.type === 'todo' && todoState) {
+        const onAdd = () => {
+            const next = addTodoWidgetItem(todoState, todoInput);
+            if (next === todoState) return;
+            onContentChange(serializeWidgetState(next));
+            setTodoInput('');
+        };
+
+        return (
+            <div className={styles.widgetCard}>
+                <div className={styles.widgetTitle}>{t.widget.todo}</div>
+                <div className={styles.todoInputRow}>
+                    <input
+                        className={styles.todoInput}
+                        data-sticker-control="true"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        value={todoInput}
+                        onChange={(e) => setTodoInput(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                onAdd();
+                            }
+                        }}
+                        placeholder={t.widget.todoPlaceholder}
+                    />
+                    <button
+                        className={styles.widgetActionPrimary}
+                        data-sticker-control="true"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={onAdd}
+                        type="button"
+                    >
+                        {t.widget.todoAdd}
+                    </button>
+                </div>
+                <div className={styles.todoList}>
+                    {todoState.items.length === 0 && (
+                        <div className={styles.todoEmpty}>{t.widget.todoEmpty}</div>
+                    )}
+                    {todoState.items.map((item) => (
+                        <div key={item.id} className={styles.todoItem}>
+                            <label className={styles.todoItemLabel}>
+                                <input
+                                    type="checkbox"
+                                    checked={item.done}
+                                    data-sticker-control="true"
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onChange={() => {
+                                        onContentChange(serializeWidgetState(toggleTodoWidgetItem(todoState, item.id)));
+                                    }}
+                                />
+                                <span className={item.done ? styles.todoItemDone : undefined}>{item.text}</span>
+                            </label>
+                            <button
+                                className={styles.todoItemRemove}
+                                data-sticker-control="true"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={() => {
+                                    onContentChange(serializeWidgetState(removeTodoWidgetItem(todoState, item.id)));
+                                }}
+                                type="button"
+                                aria-label="remove"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    if (sticker.type === 'calendar' && calendarState) {
+        const locale = language === 'zh' ? 'zh-CN' : 'en-US';
+
+        const updateCalendarState = (updates: Partial<typeof calendarState>) => {
+            onContentChange(serializeWidgetState({
+                ...calendarState,
+                ...updates,
+            }));
+        };
+
+        const formatCalendarTime = (timestamp: number, allDay: boolean): string => {
+            const date = new Date(timestamp);
+            if (allDay) {
+                return date.toLocaleDateString(locale, {
+                    month: '2-digit',
+                    day: '2-digit',
+                });
+            }
+            return date.toLocaleString(locale, {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+            });
+        };
+
+        const onSaveUrl = () => {
+            const nextUrl = calendarUrlInput.trim();
+            updateCalendarState({
+                url: nextUrl,
+                error: undefined,
+            });
+            if (calendarState.enabled && nextUrl) {
+                void syncCalendarFromUrl(calendarState, nextUrl);
+            }
+        };
+
+        const onImportCalendarFile = async (file: File) => {
+            try {
+                const text = await file.text();
+                updateCalendarState({
+                    events: parseICalendarEvents(text, Date.now()),
+                    lastSyncAt: Date.now(),
+                    enabled: true,
+                    error: undefined,
+                });
+            } catch (error) {
+                const detail = error instanceof Error ? error.message : 'unknown';
+                updateCalendarState({
+                    error: `${t.widget.calendarLoadFailed}: ${detail}`,
+                });
+            }
+        };
+
+        return (
+            <div className={styles.widgetCard}>
+                <div className={styles.widgetHeader}>
+                    <div className={styles.widgetTitle}>{t.widget.calendar}</div>
+                    <button
+                        className={styles.widgetActionGhost}
+                        data-sticker-control="true"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={() => {
+                            const nextEnabled = !calendarState.enabled;
+                            updateCalendarState({ enabled: nextEnabled, error: undefined });
+                            if (nextEnabled && calendarState.url) {
+                                void syncCalendarFromUrl(calendarState, calendarState.url);
+                            }
+                        }}
+                        type="button"
+                    >
+                        {calendarState.enabled ? t.widget.calendarDisable : t.widget.calendarEnable}
+                    </button>
+                </div>
+
+                <div className={styles.calendarHint}>{t.widget.calendarPermissionHint}</div>
+
+                {calendarState.enabled && (
+                    <>
+                        <div className={styles.todoInputRow}>
+                            <input
+                                className={styles.todoInput}
+                                data-sticker-control="true"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                value={calendarUrlInput}
+                                onChange={(e) => setCalendarUrlInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        onSaveUrl();
+                                    }
+                                }}
+                                placeholder={t.widget.calendarUrlPlaceholder}
+                            />
+                            <button
+                                className={styles.widgetActionPrimary}
+                                data-sticker-control="true"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={onSaveUrl}
+                                type="button"
+                            >
+                                {t.widget.calendarSave}
+                            </button>
+                        </div>
+
+                        <div className={styles.widgetActions}>
+                            <button
+                                className={styles.widgetAction}
+                                data-sticker-control="true"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={() => {
+                                    if (calendarState.url) {
+                                        void syncCalendarFromUrl(calendarState, calendarState.url);
+                                    }
+                                }}
+                                type="button"
+                                disabled={isCalendarLoading || !calendarState.url}
+                            >
+                                {isCalendarLoading ? `${t.widget.calendarRefresh}...` : t.widget.calendarRefresh}
+                            </button>
+                            <button
+                                className={styles.widgetAction}
+                                data-sticker-control="true"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={() => calendarFileInputRef.current?.click()}
+                                type="button"
+                            >
+                                {t.widget.calendarImportFile}
+                            </button>
+                            <input
+                                ref={calendarFileInputRef}
+                                type="file"
+                                accept=".ics,text/calendar"
+                                style={{ display: 'none' }}
+                                data-sticker-control="true"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        void onImportCalendarFile(file);
+                                    }
+                                    if (e.target) {
+                                        e.target.value = '';
+                                    }
+                                }}
+                            />
+                        </div>
+
+                        {calendarState.lastSyncAt && (
+                            <div className={styles.widgetMeta}>
+                                {t.widget.calendarLastSync}:{' '}
+                                {new Date(calendarState.lastSyncAt).toLocaleString(locale, {
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: false,
+                                })}
+                            </div>
+                        )}
+
+                        {calendarState.error && (
+                            <div className={styles.calendarError}>{calendarState.error}</div>
+                        )}
+
+                        <div className={styles.todoList}>
+                            {calendarState.events.length === 0 && (
+                                <div className={styles.todoEmpty}>{t.widget.calendarNoEvents}</div>
+                            )}
+                            {calendarState.events.slice(0, 5).map((event) => (
+                                <div key={event.id} className={styles.todoItem}>
+                                    <div className={styles.calendarEventText}>
+                                        <div className={styles.calendarEventTitle}>{event.title}</div>
+                                        <div className={styles.calendarEventTime}>
+                                            {formatCalendarTime(event.startAt, event.allDay)}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+        );
+    }
+
+    return null;
+};
+
 // ============================================================================
 // StickerItem Component - 单个贴纸渲染
 // ============================================================================
@@ -50,17 +654,20 @@ const UI_ZONES = {
 interface StickerItemProps {
     sticker: Sticker;
     isSelected: boolean;
+    isGroupMoveAnimating?: boolean;
     isCreativeMode: boolean;
     onSelect: (appendSelection: boolean) => void;
     onDelete: () => void;
     onPositionChange: (x: number, y: number) => void;
     onStyleChange: (updates: Partial<Sticker['style']>) => void;
+    onContentChange: (content: string) => void;
     onBringToTop: () => void;
     onScaleChange: (scale: number) => void;
     isEditMode?: boolean;
     onDoubleClick?: () => void;
     onDragStart?: () => void;
-    onDragEnd?: () => void;
+    onDragMove?: (x: number, y: number) => void;
+    onDragEnd?: (dockTargetId?: string | null) => void;
     isLocked?: boolean;
     snapToGrid?: boolean;
     gridSize?: number;
@@ -70,16 +677,19 @@ interface StickerItemProps {
 const StickerItemComponent: React.FC<StickerItemProps> = ({
     sticker,
     isSelected,
+    isGroupMoveAnimating = false,
     isCreativeMode,
     onSelect,
     onDelete,
     onPositionChange,
     onStyleChange,
+    onContentChange,
     onBringToTop,
     onScaleChange,
     isEditMode,
     onDoubleClick,
     onDragStart,
+    onDragMove,
     onDragEnd,
     isLocked = false,
     snapToGrid = false,
@@ -95,6 +705,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
     const [stickerRect, setStickerRect] = useState<DOMRect | null>(null);
     const dragStartRef = useRef<{ x: number; y: number; stickerX: number; stickerY: number } | null>(null);
     const resizeStartRef = useRef<{ x: number; y: number; startScale: number } | null>(null);
+    const dockSnapTargetRef = useRef<string | null>(null);
     const [imageNaturalWidth, setImageNaturalWidth] = useState<number>(300);
 
     // 物理效果 Refs
@@ -158,6 +769,10 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
 
         onSelect(e.shiftKey);
 
+        if ((e.target as HTMLElement).closest(CONTROL_SELECTOR)) {
+            return;
+        }
+
         if (isLocked) {
             e.preventDefault();
             e.stopPropagation();
@@ -178,6 +793,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         // 开始拖拽
         setIsDragging(true);
         isDraggingRef.current = true;
+        dockSnapTargetRef.current = null;
         onDragStart?.();
 
         dragStartRef.current = {
@@ -231,23 +847,70 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                             top: rect.top,
                             width: rect.width,
                             height: rect.height,
+                            type: (el.dataset.stickerType || 'text') as Sticker['type'],
                         };
                     });
+                const alignmentTargets = targetRects.map(({ id, left, top, width, height }) => ({
+                    id,
+                    left,
+                    top,
+                    width,
+                    height,
+                }));
 
-                const snapped = computeSnappedPosition({
-                    x: pendingPosition.x,
-                    y: pendingPosition.y,
-                    width: movingRect.width,
-                    height: movingRect.height,
-                    targets: targetRects,
-                    gridEnabled: snapToGrid,
-                    gridSize,
-                });
-                pendingPosition = {
-                    x: snapped.x,
-                    y: snapped.y,
-                };
-                onGuidesChange?.(snapped.guides);
+                if (isWidgetStickerType(sticker.type)) {
+                    const widgetTargets = targetRects
+                        .filter((target) => isWidgetStickerType(target.type))
+                        .map(({ id, left, top, width, height }) => ({ id, left, top, width, height }));
+                    const dockSnap = computeWidgetDockSnap({
+                        x: pendingPosition.x,
+                        y: pendingPosition.y,
+                        width: movingRect.width,
+                        height: movingRect.height,
+                        targets: widgetTargets,
+                    });
+
+                    if (dockSnap.targetId) {
+                        pendingPosition = {
+                            x: dockSnap.x,
+                            y: dockSnap.y,
+                        };
+                        dockSnapTargetRef.current = dockSnap.targetId;
+                        onGuidesChange?.(dockSnap.guides);
+                    } else {
+                        dockSnapTargetRef.current = null;
+                        const snapped = computeSnappedPosition({
+                            x: pendingPosition.x,
+                            y: pendingPosition.y,
+                            width: movingRect.width,
+                            height: movingRect.height,
+                            targets: alignmentTargets,
+                            gridEnabled: snapToGrid,
+                            gridSize,
+                        });
+                        pendingPosition = {
+                            x: snapped.x,
+                            y: snapped.y,
+                        };
+                        onGuidesChange?.(snapped.guides);
+                    }
+                } else {
+                    dockSnapTargetRef.current = null;
+                    const snapped = computeSnappedPosition({
+                        x: pendingPosition.x,
+                        y: pendingPosition.y,
+                        width: movingRect.width,
+                        height: movingRect.height,
+                        targets: alignmentTargets,
+                        gridEnabled: snapToGrid,
+                        gridSize,
+                    });
+                    pendingPosition = {
+                        x: snapped.x,
+                        y: snapped.y,
+                    };
+                    onGuidesChange?.(snapped.guides);
+                }
             }
 
             if (positionRafId === null) {
@@ -256,6 +919,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                     if (pendingPosition && elementRef.current) {
                         elementRef.current.style.left = `${pendingPosition.x}px`;
                         elementRef.current.style.top = `${pendingPosition.y}px`;
+                        onDragMove?.(pendingPosition.x, pendingPosition.y);
                     }
                 });
             }
@@ -326,8 +990,9 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                 setIsDragging(false);
                 isDraggingRef.current = false;
                 dragStartRef.current = null;
+                dockSnapTargetRef.current = null;
                 onGuidesChange?.([]);
-                onDragEnd?.();
+                onDragEnd?.(null);
                 return;
             }
 
@@ -352,8 +1017,9 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                     setIsDragging(false);
                     isDraggingRef.current = false;
                     dragStartRef.current = null;
+                    dockSnapTargetRef.current = null;
                     onGuidesChange?.([]);
-                    onDragEnd?.();
+                    onDragEnd?.(null);
 
                     // Actual delete after animation
                     setTimeout(() => {
@@ -497,7 +1163,8 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
             isDraggingRef.current = false;
             dragStartRef.current = null;
             onGuidesChange?.([]);
-            onDragEnd?.();
+            onDragEnd?.(dockSnapTargetRef.current);
+            dockSnapTargetRef.current = null;
 
             // Clear dragOver state
             const cleanupRecycleBin = document.getElementById('sticker-recycle-bin');
@@ -533,12 +1200,14 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
         isLocked,
         onGuidesChange,
         onPositionChange,
+        onDragMove,
         onDelete,
         onDragEnd,
         snapToGrid,
         sticker.x,
         sticker.y,
         sticker.id,
+        sticker.type,
         updatePhysics
     ]);
 
@@ -632,6 +1301,8 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
     const classNames = [
         styles.sticker,
         sticker.type === 'text' && styles.stickerText,
+        (sticker.type === 'clock' || sticker.type === 'timer' || sticker.type === 'todo' || sticker.type === 'calendar') && styles.stickerWidget,
+        isGroupMoveAnimating && !isDragging && styles.groupMoveAnimating,
         isDragging && styles.dragging,
         isBouncing && styles.bounceBack,
         isDropDeleting && styles.dropDelete,
@@ -663,6 +1334,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                     zIndex: isDragging ? 3000 : (sticker.zIndex || 1),
                 }}
                 data-sticker-id={sticker.id}
+                data-sticker-type={sticker.type}
                 onMouseDown={handleMouseDown}
                 onDoubleClick={handleDoubleClick}
             >
@@ -684,7 +1356,7 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                     >
                         {sticker.content}
                     </div>
-                ) : (
+                ) : sticker.type === 'image' ? (
                     <div className={styles.imageContainer}>
                         <img
                             src={sticker.content}
@@ -705,6 +1377,11 @@ const StickerItemComponent: React.FC<StickerItemProps> = ({
                             />
                         )}
                     </div>
+                ) : (
+                    <WidgetSticker
+                        sticker={sticker}
+                        onContentChange={onContentChange}
+                    />
                 )}
 
                 {isLocked && (
@@ -758,6 +1435,7 @@ const arePropsEqual = (prev: StickerItemProps, next: StickerItemProps) => {
         prev.sticker.style?.fontSize === next.sticker.style?.fontSize &&
         prev.sticker.style?.fontPreset === next.sticker.style?.fontPreset &&
         prev.isSelected === next.isSelected &&
+        prev.isGroupMoveAnimating === next.isGroupMoveAnimating &&
         prev.isCreativeMode === next.isCreativeMode &&
         prev.isEditMode === next.isEditMode &&
         prev.isLocked === next.isLocked &&

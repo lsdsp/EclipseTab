@@ -29,6 +29,7 @@ export const STORAGE_KEYS = {
 
   // Focus Spaces
   SPACES: 'EclipseTab_spaces',
+  SPACE_RULES: 'EclipseTab_spaceRules',
   // Zen Shelf Stickers
   STICKERS: 'EclipseTab_stickers',
   // Deleted Stickers (Recycle Bin)
@@ -45,11 +46,16 @@ export interface AppConfig {
   dockPosition: 'center' | 'bottom';
   iconSize: 'large' | 'small';
   gridSnapEnabled: boolean;
+  widgetSnapAutoGroupEnabled: boolean;
   openInNewTab: boolean;
   allowThirdPartyIconService: boolean;
   thirdPartyIconServicePrompted: boolean;
   texture: string;
   gradient: string | null;
+  spaceSuggestionCooldownMinutes: number;
+  spaceSuggestionQuietHoursEnabled: boolean;
+  spaceSuggestionQuietStartMinute: number;
+  spaceSuggestionQuietEndMinute: number;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -58,11 +64,16 @@ const DEFAULT_CONFIG: AppConfig = {
   dockPosition: 'bottom',
   iconSize: 'large',
   gridSnapEnabled: true,
+  widgetSnapAutoGroupEnabled: false,
   openInNewTab: false,
   allowThirdPartyIconService: false,
   thirdPartyIconServicePrompted: false,
   texture: 'point',
   gradient: null,
+  spaceSuggestionCooldownMinutes: 10,
+  spaceSuggestionQuietHoursEnabled: true,
+  spaceSuggestionQuietStartMinute: 23 * 60,
+  spaceSuggestionQuietEndMinute: 7 * 60,
 };
 
 // ============================================================================
@@ -75,6 +86,7 @@ interface CacheEntry<T> {
 
 const memoryCache = {
   spaces: null as CacheEntry<SpacesState> | null,
+  spaceRules: null as CacheEntry<import('../types').SpaceRule[]> | null,
   stickers: null as CacheEntry<import('../types').Sticker[]> | null,
   deletedStickers: null as CacheEntry<import('../types').Sticker[]> | null,
   deletedDockItems: null as CacheEntry<DeletedDockItemRecord[]> | null,
@@ -164,6 +176,9 @@ export const storage = {
       const json = JSON.stringify(config);
       localStorage.setItem(STORAGE_KEYS.CONFIG, json);
       memoryCache.config = { data: config, raw: json };
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('eclipse-config-changed'));
+      }
     } catch (error) {
       logger.error('Failed to save config:', error);
     }
@@ -219,6 +234,14 @@ export const storage = {
     this.updateConfig({ gridSnapEnabled });
   },
 
+  getWidgetSnapAutoGroupEnabled(): boolean {
+    return this.getConfig().widgetSnapAutoGroupEnabled;
+  },
+
+  saveWidgetSnapAutoGroupEnabled(enabled: boolean): void {
+    this.updateConfig({ widgetSnapAutoGroupEnabled: Boolean(enabled) });
+  },
+
   getOpenInNewTab(): boolean {
     return this.getConfig().openInNewTab;
   },
@@ -257,6 +280,41 @@ export const storage = {
 
   saveGradient(gradient: string | null): void {
     this.updateConfig({ gradient });
+  },
+
+  getSpaceSuggestionCooldownMinutes(): number {
+    return this.getConfig().spaceSuggestionCooldownMinutes;
+  },
+
+  saveSpaceSuggestionCooldownMinutes(value: number): void {
+    const nextValue = Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 10;
+    this.updateConfig({ spaceSuggestionCooldownMinutes: nextValue });
+  },
+
+  getSpaceSuggestionQuietHoursEnabled(): boolean {
+    return this.getConfig().spaceSuggestionQuietHoursEnabled;
+  },
+
+  saveSpaceSuggestionQuietHoursEnabled(enabled: boolean): void {
+    this.updateConfig({ spaceSuggestionQuietHoursEnabled: Boolean(enabled) });
+  },
+
+  getSpaceSuggestionQuietStartMinute(): number {
+    return this.getConfig().spaceSuggestionQuietStartMinute;
+  },
+
+  saveSpaceSuggestionQuietStartMinute(value: number): void {
+    const nextValue = Number.isFinite(value) ? Math.max(0, Math.min(1439, Math.floor(value))) : 23 * 60;
+    this.updateConfig({ spaceSuggestionQuietStartMinute: nextValue });
+  },
+
+  getSpaceSuggestionQuietEndMinute(): number {
+    return this.getConfig().spaceSuggestionQuietEndMinute;
+  },
+
+  saveSpaceSuggestionQuietEndMinute(value: number): void {
+    const nextValue = Number.isFinite(value) ? Math.max(0, Math.min(1439, Math.floor(value))) : 7 * 60;
+    this.updateConfig({ spaceSuggestionQuietEndMinute: nextValue });
   },
 
   // ==========================================================================
@@ -425,6 +483,37 @@ export const storage = {
     }
   },
 
+  getSpaceRules(): import('../types').SpaceRule[] {
+    try {
+      const cached = getCached(STORAGE_KEYS.SPACE_RULES, memoryCache.spaceRules);
+      if (cached) return cached;
+
+      const json = localStorage.getItem(STORAGE_KEYS.SPACE_RULES);
+      if (!json) return [];
+
+      const parsed = JSON.parse(json) as import('../types').SpaceRule[];
+      memoryCache.spaceRules = { data: parsed, raw: json };
+      return parsed;
+    } catch (error) {
+      logger.error('Failed to get space rules:', error);
+      return [];
+    }
+  },
+
+  saveSpaceRules(rules: import('../types').SpaceRule[]): void {
+    try {
+      const json = JSON.stringify(rules);
+      localStorage.setItem(STORAGE_KEYS.SPACE_RULES, json);
+      memoryCache.spaceRules = { data: rules, raw: json };
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('eclipse-space-rules-changed'));
+      }
+    } catch (error) {
+      logger.error('Failed to save space rules:', error);
+      notifyStorageFailure();
+    }
+  },
+
   clearSpaces(): void {
     try {
       localStorage.removeItem(STORAGE_KEYS.SPACES);
@@ -557,6 +646,7 @@ export const storage = {
 
   resetMemoryCache(): void {
     memoryCache.spaces = null;
+    memoryCache.spaceRules = null;
     memoryCache.stickers = null;
     memoryCache.deletedStickers = null;
     memoryCache.deletedDockItems = null;

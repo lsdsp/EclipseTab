@@ -86,6 +86,10 @@
     contain: layout style;
 }
 
+.sticker.groupMoveAnimating {
+    transition: left 0.24s cubic-bezier(0.22, 1, 0.36, 1), top 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* 文字贴纸外层容器 - 用于阴影动画 */
 /* 阴影放在外层是因为 CSS filter 的 url() 无法与 drop-shadow() 一起动画 */
 .stickerText {
@@ -245,6 +249,259 @@
 .imageContainer {
     position: relative;
     display: inline-block;
+}
+
+/* ===== 小组件贴纸 ===== */
+
+.stickerWidget {
+    cursor: grab;
+}
+
+.widgetCard {
+    min-width: 220px;
+    max-width: 280px;
+    padding: 12px;
+    border-radius: var(--radius-medium);
+    background: color-mix(in srgb, var(--color-bg-primary) 82%, transparent);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-small);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.widgetHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.widgetTitle {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.clockTime {
+    margin-top: 8px;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--color-text-primary);
+}
+
+.clockDate {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+}
+
+.widgetMode {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+}
+
+.timerValue {
+    margin-top: 6px;
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-primary);
+}
+
+.widgetMeta {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+}
+
+.calendarHint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+}
+
+.calendarError {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--red-500);
+}
+
+.widgetActions {
+    margin-top: 10px;
+    display: flex;
+    gap: 6px;
+}
+
+.widgetAction,
+.widgetActionPrimary,
+.widgetActionGhost {
+    border-radius: var(--radius-small);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    font-size: 12px;
+    line-height: 1;
+    padding: 7px 10px;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.widgetAction:hover,
+.widgetActionPrimary:hover,
+.widgetActionGhost:hover {
+    background: color-mix(in srgb, var(--color-bg-secondary) 84%, var(--blue-500) 16%);
+    border-color: color-mix(in srgb, var(--color-border) 70%, var(--blue-500) 30%);
+}
+
+.widgetActionPrimary {
+    background: color-mix(in srgb, var(--blue-500) 20%, var(--color-bg-secondary) 80%);
+    border-color: color-mix(in srgb, var(--blue-500) 35%, var(--color-border) 65%);
+}
+
+.widgetActionGhost {
+    padding: 6px 8px;
+    font-size: 11px;
+}
+
+.timerConfigGrid {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.timerConfigField {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.timerConfigLabel {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+}
+
+.timerConfigInput {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-small);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    font-size: 12px;
+    padding: 6px 8px;
+    outline: none;
+}
+
+.timerConfigInput:focus {
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.16);
+}
+
+.todoInputRow {
+    margin-top: 10px;
+    display: flex;
+    gap: 6px;
+}
+
+.todoInput {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-small);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    font-size: 12px;
+    padding: 7px 8px;
+    outline: none;
+}
+
+.todoInput:focus {
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.16);
+}
+
+.todoList {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.todoEmpty {
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+}
+
+.todoItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--radius-small);
+    background: color-mix(in srgb, var(--color-bg-secondary) 88%, transparent);
+}
+
+.todoItemLabel {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--color-text-primary);
+}
+
+.todoItemLabel span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.calendarEventText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+}
+
+.calendarEventTitle {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.calendarEventTime {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+.todoItemDone {
+    color: var(--color-text-tertiary);
+    text-decoration: line-through;
+}
+
+.todoItemRemove {
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 4px;
+    cursor: pointer;
+    border-radius: var(--radius-small);
+}
+
+.todoItemRemove:hover {
+    color: var(--red-500);
+    background: color-mix(in srgb, var(--red-500) 12%, transparent);
 }
 
 /* ===== 缩放手柄 ===== */

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   assignGroupToSelection,
   clearGroupFromSelection,
+  computeGroupMovePositions,
+  computeWidgetDockSnap,
   computeSelectionActionState,
   computeSnappedPosition,
   lockSelection,
@@ -44,6 +46,42 @@ describe('whiteboard snap helpers', () => {
     expect(result.x).toBe(50);
     expect(result.y).toBe(80);
     expect(result.guides.filter((guide) => guide.source === 'grid')).toHaveLength(2);
+  });
+
+  it('snaps widget to neighbor edge when close enough', () => {
+    const result = computeWidgetDockSnap({
+      x: 304,
+      y: 100,
+      width: 120,
+      height: 80,
+      targets: [
+        { id: 'widget-b', left: 180, top: 96, width: 120, height: 80 },
+      ],
+      threshold: 10,
+    });
+
+    expect(result.x).toBe(300);
+    expect(result.y).toBe(100);
+    expect(result.targetId).toBe('widget-b');
+    expect(result.guides[0]?.orientation).toBe('vertical');
+  });
+
+  it('returns no widget dock match when overlap requirement is not met', () => {
+    const result = computeWidgetDockSnap({
+      x: 304,
+      y: 260,
+      width: 120,
+      height: 80,
+      targets: [
+        { id: 'widget-b', left: 180, top: 96, width: 120, height: 80 },
+      ],
+      threshold: 10,
+    });
+
+    expect(result.targetId).toBeNull();
+    expect(result.x).toBe(304);
+    expect(result.y).toBe(260);
+    expect(result.guides).toEqual([]);
   });
 });
 
@@ -88,6 +126,42 @@ describe('whiteboard group and lock helpers', () => {
       lockedStickerIds: ['b'],
     });
     expect(byGroup.sort()).toEqual(['a', 'c']);
+  });
+
+  it('computes group move positions from drag session baseline', () => {
+    const positions = computeGroupMovePositions({
+      activeStickerId: 'a',
+      moveTargetIds: ['a', 'b'],
+      basePositions: {
+        a: { x: 100, y: 100 },
+        b: { x: 180, y: 120 },
+      },
+    }, 140, 160);
+
+    expect(positions).toEqual([
+      { id: 'a', x: 140, y: 160 },
+      { id: 'b', x: 220, y: 180 },
+    ]);
+  });
+
+  it('skips targets without baseline and returns empty when active baseline is missing', () => {
+    const partial = computeGroupMovePositions({
+      activeStickerId: 'a',
+      moveTargetIds: ['a', 'b'],
+      basePositions: {
+        a: { x: 10, y: 20 },
+      },
+    }, 20, 40);
+    expect(partial).toEqual([{ id: 'a', x: 20, y: 40 }]);
+
+    const missingActive = computeGroupMovePositions({
+      activeStickerId: 'x',
+      moveTargetIds: ['x', 'y'],
+      basePositions: {
+        y: { x: 1, y: 2 },
+      },
+    }, 30, 40);
+    expect(missingActive).toEqual([]);
   });
 
   it('computes selection action state for group/lock operations', () => {

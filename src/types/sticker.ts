@@ -14,12 +14,14 @@ export interface TextStickerStyle {
     maxWidth?: number;                       // 最大宽度限制 (px)
 }
 
+export type StickerType = 'text' | 'image' | 'clock' | 'timer' | 'todo' | 'calendar';
+
 /**
  * 贴纸数据结构
  */
 export interface Sticker {
     id: string;              // UUID 唯一标识
-    type: 'text' | 'image';  // 贴纸类型
+    type: StickerType;       // 贴纸类型
     content: string;         // 文字内容 或 图片URL（运行时）
     x: number;               // 屏幕 X 坐标 (px)
     y: number;               // 屏幕 Y 坐标 (px)

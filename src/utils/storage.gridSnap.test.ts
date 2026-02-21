@@ -38,18 +38,22 @@ describe('storage grid snap config', () => {
 
   it('defaults grid snap to enabled when config is missing', () => {
     expect(storage.getGridSnapEnabled()).toBe(true);
+    expect(storage.getWidgetSnapAutoGroupEnabled()).toBe(false);
   });
 
   it('persists grid snap toggle in app config', () => {
     storage.saveGridSnapEnabled(false);
+    storage.saveWidgetSnapAutoGroupEnabled(true);
 
     storage.resetMemoryCache();
     expect(storage.getGridSnapEnabled()).toBe(false);
+    expect(storage.getWidgetSnapAutoGroupEnabled()).toBe(true);
 
     const raw = localStorage.getItem(STORAGE_KEYS.CONFIG);
     expect(raw).toBeTruthy();
     const parsed = JSON.parse(raw || '{}');
     expect(parsed.gridSnapEnabled).toBe(false);
+    expect(parsed.widgetSnapAutoGroupEnabled).toBe(true);
   });
 
   it('keeps backward compatibility when config lacks grid snap field', () => {
@@ -66,6 +70,6 @@ describe('storage grid snap config', () => {
 
     storage.resetMemoryCache();
     expect(storage.getGridSnapEnabled()).toBe(true);
+    expect(storage.getWidgetSnapAutoGroupEnabled()).toBe(false);
   });
 });
-

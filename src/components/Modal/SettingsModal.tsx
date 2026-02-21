@@ -3,6 +3,7 @@ import { Theme, useTheme, Texture } from '../../context/ThemeContext';
 import { useSystemTheme } from '../../hooks/useSystemTheme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useSpaces } from '../../context/SpacesContext';
+import { SpaceRule, SpaceTimeRule } from '../../types';
 import { useDockData } from '../../context/DockContext';
 import { useUndo } from '../../context/UndoContext';
 import { GRADIENT_PRESETS } from '../../constants/gradients';
@@ -45,6 +46,12 @@ import {
     StorageStats,
 } from '../../utils/storageDashboard';
 import { fetchIcon } from '../../utils/iconFetcher';
+import {
+    createDefaultTimeRule,
+    createDomainRule,
+    normalizeDomain,
+    summarizeSpaceRule,
+} from '../../utils/spaceRules';
 
 
 interface SettingsModalProps {
@@ -86,6 +93,26 @@ export const promptImportStrategy = (
 
     return null;
 };
+
+const minuteToTimeString = (minute: number): string => {
+    const safeMinute = Math.max(0, Math.min(1439, Math.floor(minute)));
+    const hour = Math.floor(safeMinute / 60).toString().padStart(2, '0');
+    const min = (safeMinute % 60).toString().padStart(2, '0');
+    return `${hour}:${min}`;
+};
+
+const timeStringToMinute = (value: string, fallback: number): number => {
+    const match = value.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return fallback;
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return fallback;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return fallback;
+    return hour * 60 + minute;
+};
+
+const WEEKDAY_LABELS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAY_LABELS_ZH = ['日', '一', '二', '三', '四', '五', '六'];
 
 // 简单的权限切换组件
 const PermissionToggle: React.FC = () => {
@@ -193,7 +220,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     } = useTheme();
 
     const { language, setLanguage, t } = useLanguage();
-    const { currentSpace } = useSpaces();
+    const { currentSpace, spaces } = useSpaces();
     const {
         dockItems,
         setDockItems,
@@ -215,6 +242,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     const [bookmarkMergeByDomain, setBookmarkMergeByDomain] = useState(true);
     const [bookmarkPreview, setBookmarkPreview] = useState<ReturnType<typeof buildBookmarkImportPreview> | null>(null);
     const [bookmarkBusy, setBookmarkBusy] = useState(false);
+    const [spaceRules, setSpaceRules] = useState<SpaceRule[]>(() => storage.getSpaceRules());
+    const [spaceDomainInput, setSpaceDomainInput] = useState('');
+    const [tabsPermissionGranted, setTabsPermissionGranted] = useState(false);
+    const [suggestionCooldownMinutes, setSuggestionCooldownMinutes] = useState(() => storage.getSpaceSuggestionCooldownMinutes());
+    const [quietHoursEnabled, setQuietHoursEnabled] = useState(() => storage.getSpaceSuggestionQuietHoursEnabled());
+    const [quietStartMinute, setQuietStartMinute] = useState(() => storage.getSpaceSuggestionQuietStartMinute());
+    const [quietEndMinute, setQuietEndMinute] = useState(() => storage.getSpaceSuggestionQuietEndMinute());
 
     const systemTheme = useSystemTheme();
     const [isVisible, setIsVisible] = useState(isOpen);
@@ -256,6 +290,74 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
             void refreshStorageStats();
         }
     }, [isOpen, refreshStorageStats]);
+
+    const persistSpaceRules = useCallback((nextRules: SpaceRule[]) => {
+        setSpaceRules(nextRules);
+        storage.saveSpaceRules(nextRules);
+    }, []);
+
+    const refreshTabsPermission = useCallback(async () => {
+        if (typeof chrome === 'undefined' || !chrome.permissions?.contains) {
+            setTabsPermissionGranted(false);
+            return;
+        }
+        const granted = await new Promise<boolean>((resolve) => {
+            chrome.permissions.contains({ permissions: ['tabs'] }, (result) => {
+                if (chrome.runtime?.lastError) {
+                    resolve(false);
+                    return;
+                }
+                resolve(Boolean(result));
+            });
+        });
+        setTabsPermissionGranted(granted);
+    }, []);
+
+    const requestTabsPermission = useCallback(async () => {
+        if (typeof chrome === 'undefined' || !chrome.permissions?.request) {
+            setTabsPermissionGranted(false);
+            return;
+        }
+        const granted = await new Promise<boolean>((resolve) => {
+            chrome.permissions.request({ permissions: ['tabs'] }, (result) => {
+                if (chrome.runtime?.lastError) {
+                    resolve(false);
+                    return;
+                }
+                resolve(Boolean(result));
+            });
+        });
+        setTabsPermissionGranted(granted);
+    }, []);
+
+    useEffect(() => {
+        const syncRules = () => {
+            setSpaceRules(storage.getSpaceRules());
+        };
+        window.addEventListener('eclipse-space-rules-changed', syncRules as EventListener);
+        return () => {
+            window.removeEventListener('eclipse-space-rules-changed', syncRules as EventListener);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            void refreshTabsPermission();
+        }
+    }, [isOpen, refreshTabsPermission]);
+
+    useEffect(() => {
+        const syncSuggestionConfig = () => {
+            setSuggestionCooldownMinutes(storage.getSpaceSuggestionCooldownMinutes());
+            setQuietHoursEnabled(storage.getSpaceSuggestionQuietHoursEnabled());
+            setQuietStartMinute(storage.getSpaceSuggestionQuietStartMinute());
+            setQuietEndMinute(storage.getSpaceSuggestionQuietEndMinute());
+        };
+        window.addEventListener('eclipse-config-changed', syncSuggestionConfig as EventListener);
+        return () => {
+            window.removeEventListener('eclipse-config-changed', syncSuggestionConfig as EventListener);
+        };
+    }, []);
 
     // 动画效果 - 关闭（由父组件设置 isOpen=false 触发）
     useEffect(() => {
@@ -500,10 +602,114 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         void refreshStorageStats();
     };
 
+    const updateSpaceTimeRule = (ruleId: string, updater: (rule: SpaceTimeRule) => SpaceTimeRule) => {
+        const nextRules = spaceRules.map((rule) => {
+            if (rule.id !== ruleId || rule.type !== 'time') {
+                return rule;
+            }
+            return updater(rule);
+        });
+        persistSpaceRules(nextRules);
+    };
+
+    const toggleSpaceTimeRuleDay = (ruleId: string, day: number) => {
+        updateSpaceTimeRule(ruleId, (rule) => {
+            const hasDay = rule.days.includes(day);
+            const nextDays = hasDay
+                ? rule.days.filter((item) => item !== day)
+                : [...rule.days, day];
+
+            // 至少保留一天，避免规则进入不可触发状态
+            if (nextDays.length === 0) {
+                return rule;
+            }
+
+            return {
+                ...rule,
+                days: nextDays.sort((a, b) => a - b),
+            };
+        });
+    };
+
+    const updateSpaceTimeRuleStart = (ruleId: string, value: string, fallback: number) => {
+        const nextMinute = timeStringToMinute(value, fallback);
+        updateSpaceTimeRule(ruleId, (rule) => ({ ...rule, startMinute: nextMinute }));
+    };
+
+    const updateSpaceTimeRuleEnd = (ruleId: string, value: string, fallback: number) => {
+        const nextMinute = timeStringToMinute(value, fallback);
+        updateSpaceTimeRule(ruleId, (rule) => ({ ...rule, endMinute: nextMinute }));
+    };
+
+    const updateSuggestionCooldownMinutes = (value: string) => {
+        const parsed = Number(value);
+        const nextValue = Number.isFinite(parsed) ? Math.max(1, Math.min(180, Math.floor(parsed))) : 10;
+        setSuggestionCooldownMinutes(nextValue);
+        storage.saveSpaceSuggestionCooldownMinutes(nextValue);
+    };
+
+    const updateQuietHoursEnabled = (enabled: boolean) => {
+        setQuietHoursEnabled(enabled);
+        storage.saveSpaceSuggestionQuietHoursEnabled(enabled);
+    };
+
+    const updateQuietStartMinute = (value: string) => {
+        const nextValue = timeStringToMinute(value, quietStartMinute);
+        setQuietStartMinute(nextValue);
+        storage.saveSpaceSuggestionQuietStartMinute(nextValue);
+    };
+
+    const updateQuietEndMinute = (value: string) => {
+        const nextValue = timeStringToMinute(value, quietEndMinute);
+        setQuietEndMinute(nextValue);
+        storage.saveSpaceSuggestionQuietEndMinute(nextValue);
+    };
+
+    const addTimeRuleForCurrentSpace = () => {
+        persistSpaceRules([
+            ...spaceRules,
+            createDefaultTimeRule(currentSpace.id),
+        ]);
+    };
+
+    const addDomainRuleForCurrentSpace = () => {
+        const domain = normalizeDomain(spaceDomainInput);
+        if (!domain) return;
+
+        const duplicated = spaceRules.some((rule) =>
+            rule.type === 'domain' &&
+            rule.spaceId === currentSpace.id &&
+            normalizeDomain(rule.domain) === domain
+        );
+        if (duplicated) {
+            setSpaceDomainInput('');
+            return;
+        }
+
+        persistSpaceRules([
+            ...spaceRules,
+            createDomainRule(currentSpace.id, domain),
+        ]);
+        setSpaceDomainInput('');
+    };
+
+    const toggleSpaceRule = (ruleId: string) => {
+        persistSpaceRules(spaceRules.map((rule) => (
+            rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule
+        )));
+    };
+
+    const deleteSpaceRule = (ruleId: string) => {
+        persistSpaceRules(spaceRules.filter((rule) => rule.id !== ruleId));
+    };
+
     const modalStyle: React.CSSProperties = {
         left: `${anchorPosition.x}px`,
         top: `${anchorPosition.y}px`,
     };
+
+    const spaceNameById = new Map(spaces.map((space) => [space.id, space.name]));
+    const weekdayLabels = language === 'zh' ? WEEKDAY_LABELS_ZH : WEEKDAY_LABELS_EN;
 
     // 高亮索引：0 = 自动, 1 = 浅色, 2 = 深色
     let activeIndex = -1;
@@ -949,6 +1155,165 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                                 {language === 'zh' ? '重压缩贴纸图片' : 'Recompress Stickers'}
                             </button>
                         </div>
+
+                        <div className={styles.sectionDivider} />
+                        <div className={styles.subSectionTitle}>
+                            {t.space.rulesTitle}
+                        </div>
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>
+                                {tabsPermissionGranted ? t.space.rulesPermissionEnabled : t.space.rulesEnableTabPermission}
+                            </span>
+                            <button
+                                className={styles.actionButton}
+                                onClick={() => void requestTabsPermission()}
+                                disabled={tabsPermissionGranted}
+                            >
+                                {tabsPermissionGranted ? t.settings.on : t.settings.off}
+                            </button>
+                        </div>
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>{t.space.rulesCooldown}</span>
+                            <input
+                                className={styles.numberInput}
+                                type="number"
+                                min={1}
+                                max={180}
+                                value={suggestionCooldownMinutes}
+                                onChange={(e) => updateSuggestionCooldownMinutes(e.target.value)}
+                            />
+                        </div>
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>{t.space.rulesQuietHours}</span>
+                            <div className={styles.layoutToggleGroup}>
+                                <div
+                                    className={styles.layoutHighlight}
+                                    style={{
+                                        transform: `translateX(${quietHoursEnabled ? 0 : 100}%)`,
+                                    }}
+                                />
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => updateQuietHoursEnabled(true)}
+                                    title={t.settings.on}
+                                >
+                                    {t.settings.on}
+                                </button>
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => updateQuietHoursEnabled(false)}
+                                    title={t.settings.off}
+                                >
+                                    {t.settings.off}
+                                </button>
+                            </div>
+                        </div>
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>{t.space.rulesQuietStart}</span>
+                            <input
+                                className={styles.timeInput}
+                                type="time"
+                                value={minuteToTimeString(quietStartMinute)}
+                                onChange={(e) => updateQuietStartMinute(e.target.value)}
+                                disabled={!quietHoursEnabled}
+                            />
+                        </div>
+                        <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>{t.space.rulesQuietEnd}</span>
+                            <input
+                                className={styles.timeInput}
+                                type="time"
+                                value={minuteToTimeString(quietEndMinute)}
+                                onChange={(e) => updateQuietEndMinute(e.target.value)}
+                                disabled={!quietHoursEnabled}
+                            />
+                        </div>
+                        <div className={styles.actionRow}>
+                            <button className={styles.actionButton} onClick={addTimeRuleForCurrentSpace}>
+                                {t.space.rulesAddTime}
+                            </button>
+                        </div>
+                        <div className={styles.actionRow}>
+                            <input
+                                className={styles.textInputSmall}
+                                value={spaceDomainInput}
+                                onChange={(e) => setSpaceDomainInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        addDomainRuleForCurrentSpace();
+                                    }
+                                }}
+                                placeholder={t.space.rulesDomainPlaceholder}
+                            />
+                            <button
+                                className={styles.actionButton}
+                                disabled={!spaceDomainInput.trim()}
+                                onClick={addDomainRuleForCurrentSpace}
+                            >
+                                {t.space.rulesAddDomain}
+                            </button>
+                        </div>
+                        {spaceRules.length === 0 ? (
+                            <pre className={styles.previewBox}>{t.space.rulesNoItems}</pre>
+                        ) : (
+                            <div className={styles.ruleList}>
+                                {spaceRules.map((rule) => (
+                                    <div key={rule.id} className={styles.ruleRow}>
+                                        <div className={styles.ruleMain}>
+                                            <span className={styles.ruleLabel}>
+                                                {summarizeSpaceRule(rule, language, spaceNameById.get(rule.spaceId))}
+                                            </span>
+                                            {rule.type === 'time' && (
+                                                <div className={styles.timeRuleEditor}>
+                                                    <div className={styles.weekdayRow}>
+                                                        {weekdayLabels.map((label, day) => (
+                                                            <button
+                                                                key={`${rule.id}_day_${day}`}
+                                                                type="button"
+                                                                className={`${styles.weekdayChip} ${rule.days.includes(day) ? styles.weekdayChipActive : ''}`}
+                                                                onClick={() => toggleSpaceTimeRuleDay(rule.id, day)}
+                                                            >
+                                                                {label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <div className={styles.timeRangeRow}>
+                                                        <input
+                                                            className={styles.timeInput}
+                                                            type="time"
+                                                            value={minuteToTimeString(rule.startMinute)}
+                                                            onChange={(e) => updateSpaceTimeRuleStart(rule.id, e.target.value, rule.startMinute)}
+                                                        />
+                                                        <span className={styles.timeRangeSeparator}>-</span>
+                                                        <input
+                                                            className={styles.timeInput}
+                                                            type="time"
+                                                            value={minuteToTimeString(rule.endMinute)}
+                                                            onChange={(e) => updateSpaceTimeRuleEnd(rule.id, e.target.value, rule.endMinute)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className={styles.ruleActions}>
+                                            <button
+                                                className={styles.ruleActionButton}
+                                                onClick={() => toggleSpaceRule(rule.id)}
+                                            >
+                                                {rule.enabled ? t.settings.on : t.settings.off}
+                                            </button>
+                                            <button
+                                                className={styles.ruleActionButtonDanger}
+                                                onClick={() => deleteSpaceRule(rule.id)}
+                                            >
+                                                {t.contextMenu.delete}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
 
                     </div>
 

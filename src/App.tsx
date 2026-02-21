@@ -3,6 +3,7 @@ import { DockItem } from './types';
 import { useDockData, useDockUI, useDockDrag } from './context/DockContext';
 import { useThemeData } from './context/ThemeContext';
 import { useLanguage } from './context/LanguageContext';
+import { useSpaces } from './context/SpacesContext';
 import { Searcher } from './components/Searcher/Searcher';
 import { Dock } from './components/Dock/Dock';
 import { Editor } from './components/Editor/Editor';
@@ -10,6 +11,8 @@ import { Settings } from './components/Settings/Settings';
 import { Background } from './components/Background/Background';
 import { ZenShelf } from './components/ZenShelf';
 import { resolveDockInsertIndex } from './utils/dockInsertIndex';
+import { storage } from './utils/storage';
+import { createDomainRule, getActiveTabDomain, isMinuteInQuietHours, resolveSpaceSuggestion, SpaceSuggestion } from './utils/spaceRules';
 import styles from './App.module.css';
 import { useUndo } from './context/UndoContext';
 import { UndoSnackbar } from './components/UndoSnackbar/UndoSnackbar';
@@ -32,6 +35,9 @@ const applySearchQuery = (template: string, query: string): string => {
   }
   return `${template}${encodedQuery}`;
 };
+
+const buildSpaceSuggestionKey = (suggestion: SpaceSuggestion): string =>
+  `${suggestion.spaceId}:${suggestion.reason}:${suggestion.domain || ''}:${suggestion.ruleId || ''}`;
 
 function App() {
   // ============================================================================
@@ -73,8 +79,13 @@ function App() {
 
   // 布局设置
   const { dockPosition, openInNewTab } = useThemeData();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const { showUndo } = useUndo();
+  const { spaces, activeSpaceId, switchToSpace } = useSpaces();
+  const [spaceRulesVersion, setSpaceRulesVersion] = useState(0);
+  const [spaceSuggestionConfigVersion, setSpaceSuggestionConfigVersion] = useState(0);
+  const [spaceSuggestion, setSpaceSuggestion] = useState<SpaceSuggestion | null>(null);
+  const dismissedSuggestionRef = useRef<Record<string, number>>({});
 
   // 计算派生状态
   const openFolder = useMemo(
@@ -210,6 +221,114 @@ function App() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isEditMode, setIsEditMode]);
+
+  useEffect(() => {
+    const handleRulesChanged = () => {
+      setSpaceRulesVersion((prev) => prev + 1);
+    };
+    window.addEventListener('eclipse-space-rules-changed', handleRulesChanged as EventListener);
+    return () => {
+      window.removeEventListener('eclipse-space-rules-changed', handleRulesChanged as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleConfigChanged = () => {
+      setSpaceSuggestionConfigVersion((prev) => prev + 1);
+    };
+    window.addEventListener('eclipse-config-changed', handleConfigChanged as EventListener);
+    return () => {
+      window.removeEventListener('eclipse-config-changed', handleConfigChanged as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+
+    const evaluateSuggestion = async () => {
+      const rules = storage.getSpaceRules().filter((rule) => rule.enabled);
+      const now = new Date();
+
+      const quietHoursEnabled = storage.getSpaceSuggestionQuietHoursEnabled();
+      if (quietHoursEnabled) {
+        const quietStartMinute = storage.getSpaceSuggestionQuietStartMinute();
+        const quietEndMinute = storage.getSpaceSuggestionQuietEndMinute();
+        const currentMinute = now.getHours() * 60 + now.getMinutes();
+
+        if (isMinuteInQuietHours(currentMinute, quietStartMinute, quietEndMinute)) {
+          if (!disposed) {
+            setSpaceSuggestion(null);
+          }
+          return;
+        }
+      }
+
+      const suggestionCooldownMinutes = storage.getSpaceSuggestionCooldownMinutes();
+
+      const activeDomain = await getActiveTabDomain();
+      const next = resolveSpaceSuggestion({
+        spaces,
+        activeSpaceId,
+        rules,
+        now,
+        activeDomain,
+      });
+
+      if (disposed) return;
+      if (!next) {
+        setSpaceSuggestion(null);
+        return;
+      }
+
+      const key = buildSpaceSuggestionKey(next);
+      const dismissedAt = dismissedSuggestionRef.current[key] || 0;
+      if (Date.now() - dismissedAt < suggestionCooldownMinutes * 60 * 1000) {
+        setSpaceSuggestion(null);
+        return;
+      }
+
+      setSpaceSuggestion(next);
+    };
+
+    void evaluateSuggestion();
+    const timer = window.setInterval(() => {
+      void evaluateSuggestion();
+    }, 60000);
+
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+    };
+  }, [activeSpaceId, spaceRulesVersion, spaceSuggestionConfigVersion, spaces]);
+
+  const dismissSpaceSuggestion = useCallback(() => {
+    if (spaceSuggestion) {
+      dismissedSuggestionRef.current[buildSpaceSuggestionKey(spaceSuggestion)] = Date.now();
+    }
+    setSpaceSuggestion(null);
+  }, [spaceSuggestion]);
+
+  const applySpaceSuggestion = useCallback(() => {
+    if (!spaceSuggestion) return;
+    switchToSpace(spaceSuggestion.spaceId);
+    dismissedSuggestionRef.current[buildSpaceSuggestionKey(spaceSuggestion)] = Date.now();
+    setSpaceSuggestion(null);
+  }, [spaceSuggestion, switchToSpace]);
+
+  const rememberSuggestedDomainRule = useCallback(() => {
+    if (!spaceSuggestion?.domain || !spaceSuggestion.canRememberDomain) return;
+    const currentRules = storage.getSpaceRules();
+    const exists = currentRules.some((rule) =>
+      rule.type === 'domain' &&
+      rule.spaceId === spaceSuggestion.spaceId &&
+      rule.domain === spaceSuggestion.domain
+    );
+    if (!exists) {
+      storage.saveSpaceRules([...currentRules, createDomainRule(spaceSuggestion.spaceId, spaceSuggestion.domain)]);
+    }
+    dismissedSuggestionRef.current[buildSpaceSuggestionKey(spaceSuggestion)] = Date.now();
+    setSpaceSuggestion(null);
+  }, [spaceSuggestion]);
 
   const handleSearch = (query: string) => {
     const trimmedQuery = query.trim();
@@ -369,6 +488,10 @@ function App() {
 
     return () => observer.disconnect();
   }, []);
+
+  const suggestionSpaceName = spaceSuggestion
+    ? (spaces.find((space) => space.id === spaceSuggestion.spaceId)?.name || '')
+    : '';
 
   return (
     <div className={styles.app}>
@@ -533,6 +656,24 @@ function App() {
             } : { x: 0, y: 0 }}
           />
         </Suspense>
+      )}
+      {spaceSuggestion && (
+        <div className={styles.spaceSuggestion} data-ui-zone="space-suggestion">
+          <span className={styles.spaceSuggestionText}>
+            {`${t.space.suggestionSwitchPrefix}: ${suggestionSpaceName} · ${spaceSuggestion.reason === 'domain' ? t.space.suggestionReasonDomain : t.space.suggestionReasonTime}`}
+          </span>
+          <button className={styles.spaceSuggestionAction} onClick={applySpaceSuggestion} type="button">
+            {t.space.suggestionSwitchAction}
+          </button>
+          {spaceSuggestion.canRememberDomain && spaceSuggestion.domain && (
+            <button className={styles.spaceSuggestionAction} onClick={rememberSuggestedDomainRule} type="button">
+              {t.space.suggestionRememberAction}
+            </button>
+          )}
+          <button className={styles.spaceSuggestionClose} onClick={dismissSpaceSuggestion} type="button" aria-label={t.space.suggestionDismissAction}>
+            ×
+          </button>
+        </div>
       )}
       <UndoSnackbar />
     </div>

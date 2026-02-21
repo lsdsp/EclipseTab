@@ -81,3 +81,44 @@
   z-index: 100;
   /* Above stickers */
 }
+
+.spaceSuggestion {
+  position: fixed;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  z-index: 3999;
+  min-width: 260px;
+  max-width: 520px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  box-shadow: var(--shadow-medium);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spaceSuggestionText {
+  flex: 1;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+}
+
+.spaceSuggestionAction {
+  border: none;
+  background: transparent;
+  color: var(--blue-500);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+}
+
+.spaceSuggestionClose {
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}

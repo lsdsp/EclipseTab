@@ -19,11 +19,11 @@ export type {
 } from './drag';
 
 // Space 相关类型
-export type { Space, SpacesState } from './space';
+export type { Space, SpacesState, SpaceRule, SpaceRuleType, SpaceTimeRule, SpaceDomainRule } from './space';
 export { createDefaultSpace, createDefaultSpacesState } from './space';
 
 // Zen Shelf 贴纸相关类型
-export type { Sticker, StickerInput, TextStickerStyle } from './sticker';
+export type { Sticker, StickerInput, StickerType, TextStickerStyle } from './sticker';
 export { DEFAULT_TEXT_STYLE, IMAGE_MAX_WIDTH } from './sticker';
 
 // Recycle Bin 相关类型

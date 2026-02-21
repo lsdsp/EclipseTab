@@ -417,6 +417,122 @@
     outline: none;
 }
 
+.textInputSmall {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    border-radius: 6px;
+    background: var(--color-bg-primary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-small);
+    padding: 6px 8px;
+    outline: none;
+}
+
+.timeInput {
+    width: 88px;
+    border: none;
+    border-radius: 6px;
+    background: var(--color-bg-primary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-small);
+    padding: 4px 6px;
+    outline: none;
+}
+
+.ruleList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ruleRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    background: var(--color-bg-primary);
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+.ruleMain {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ruleLabel {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-small);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.timeRuleEditor {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.weekdayRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.weekdayChip {
+    border: none;
+    border-radius: 6px;
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    line-height: 1;
+    padding: 4px 6px;
+    cursor: pointer;
+}
+
+.weekdayChipActive {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+}
+
+.timeRangeRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.timeRangeSeparator {
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+}
+
+.ruleActions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.ruleActionButton,
+.ruleActionButtonDanger {
+    border: none;
+    border-radius: 6px;
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    padding: 4px 6px;
+    cursor: pointer;
+}
+
+.ruleActionButtonDanger {
+    color: var(--red-error);
+}
+
 .previewBox {
     margin: 0;
     background: var(--color-bg-primary);

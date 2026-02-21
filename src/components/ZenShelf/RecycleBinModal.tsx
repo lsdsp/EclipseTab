@@ -303,7 +303,7 @@ const RecycleBinItem: React.FC<{
                             {sticker.content}
                         </div>
                     </div>
-                ) : (
+                ) : sticker.type === 'image' ? (
                     <img
                         src={sticker.content}
                         alt="sticker"
@@ -311,6 +311,18 @@ const RecycleBinItem: React.FC<{
                         draggable={false}
                         onDragStart={preventDrag}
                     />
+                ) : (
+                    <div className={styles.stickerText}>
+                        <div className={styles.textSticker} style={{ fontSize: '24px', lineHeight: 1 }}>
+                            {sticker.type === 'clock'
+                                ? t.widget.clock
+                                : sticker.type === 'timer'
+                                    ? t.widget.pomodoro
+                                    : sticker.type === 'todo'
+                                        ? t.widget.todo
+                                        : t.widget.calendar}
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

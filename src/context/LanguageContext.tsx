@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-type Language = 'en' | 'zh';
+export type Language = 'en' | 'zh';
 
 interface Translations {
     settings: {
@@ -42,9 +42,12 @@ interface Translations {
     };
     contextMenu: {
         addSticker: string;
-        addTodoTemplate: string;
-        addMeetingTemplate: string;
-        addIdeaTemplate: string;
+        addClockWidget: string;
+        addPomodoroWidget: string;
+        addTodoWidget: string;
+        addCalendarWidget: string;
+        widgetAutoGroupOn: string;
+        widgetAutoGroupOff: string;
         groupSelection: string;
         ungroupSelection: string;
         lockSelection: string;
@@ -102,6 +105,23 @@ interface Translations {
         emptyRecycleBin: string;
         emptyRecycleBinHint: string;
         recycleBinLimitHint: string;
+        rulesTitle: string;
+        rulesNoItems: string;
+        rulesAddTime: string;
+        rulesAddDomain: string;
+        rulesDomainPlaceholder: string;
+        rulesEnableTabPermission: string;
+        rulesPermissionEnabled: string;
+        rulesCooldown: string;
+        rulesQuietHours: string;
+        rulesQuietStart: string;
+        rulesQuietEnd: string;
+        suggestionSwitchPrefix: string;
+        suggestionReasonDomain: string;
+        suggestionReasonTime: string;
+        suggestionSwitchAction: string;
+        suggestionDismissAction: string;
+        suggestionRememberAction: string;
     };
     dock: {
         emptyHint: string;
@@ -119,6 +139,40 @@ interface Translations {
         fontCode: string;
         fontSizeIncrease: string;
         fontSizeDecrease: string;
+    };
+    widget: {
+        clock: string;
+        pomodoro: string;
+        todo: string;
+        focus: string;
+        shortBreak: string;
+        longBreak: string;
+        focusMinutes: string;
+        shortBreakMinutes: string;
+        longBreakMinutes: string;
+        longBreakEvery: string;
+        start: string;
+        pause: string;
+        reset: string;
+        skip: string;
+        cycles: string;
+        soundOn: string;
+        soundOff: string;
+        todoPlaceholder: string;
+        todoAdd: string;
+        todoEmpty: string;
+        calendar: string;
+        calendarEnable: string;
+        calendarDisable: string;
+        calendarUrlPlaceholder: string;
+        calendarSave: string;
+        calendarRefresh: string;
+        calendarLastSync: string;
+        calendarNoEvents: string;
+        calendarPermissionHint: string;
+        calendarLoadFailed: string;
+        calendarImportFile: string;
+        calendarImportSuccess: string;
     };
 }
 
@@ -163,9 +217,12 @@ const translations: Record<Language, Translations> = {
         },
         contextMenu: {
             addSticker: 'Add Sticker',
-            addTodoTemplate: 'Add TODO Template',
-            addMeetingTemplate: 'Add Meeting Template',
-            addIdeaTemplate: 'Add Idea Template',
+            addClockWidget: 'Add Clock Widget',
+            addPomodoroWidget: 'Add Pomodoro Widget',
+            addTodoWidget: 'Add Todo Widget',
+            addCalendarWidget: 'Add Calendar Widget',
+            widgetAutoGroupOn: 'Auto Group (On)',
+            widgetAutoGroupOff: 'Auto Group (Off)',
             groupSelection: 'Group Selection',
             ungroupSelection: 'Ungroup Selection',
             lockSelection: 'Lock Selection',
@@ -223,6 +280,23 @@ const translations: Record<Language, Translations> = {
             emptyRecycleBin: 'No deleted items',
             emptyRecycleBinHint: 'Deleted stickers will appear here',
             recycleBinLimitHint: 'Recycle bin stores up to 50 stickers',
+            rulesTitle: 'Space Rules',
+            rulesNoItems: 'No rules yet',
+            rulesAddTime: 'Add Workhour Rule',
+            rulesAddDomain: 'Add Domain Rule',
+            rulesDomainPlaceholder: 'example.com',
+            rulesEnableTabPermission: 'Enable Domain Detect',
+            rulesPermissionEnabled: 'Domain Detect Enabled',
+            rulesCooldown: 'Suggestion Cooldown (min)',
+            rulesQuietHours: 'Quiet Hours',
+            rulesQuietStart: 'Start',
+            rulesQuietEnd: 'End',
+            suggestionSwitchPrefix: 'Suggested Space',
+            suggestionReasonDomain: 'domain',
+            suggestionReasonTime: 'time',
+            suggestionSwitchAction: 'Switch',
+            suggestionDismissAction: 'Dismiss',
+            suggestionRememberAction: 'Remember',
         },
         dock: {
             emptyHint: 'Right-click or use top-right button to enter edit mode and add icons',
@@ -240,6 +314,40 @@ const translations: Record<Language, Translations> = {
             fontCode: 'Code',
             fontSizeIncrease: 'Press + Increase, Shift for larger step',
             fontSizeDecrease: 'Press - Decrease, Shift for larger step',
+        },
+        widget: {
+            clock: 'Clock',
+            pomodoro: 'Pomodoro',
+            todo: 'Todo',
+            focus: 'Focus',
+            shortBreak: 'Break',
+            longBreak: 'Long Break',
+            focusMinutes: 'Focus',
+            shortBreakMinutes: 'Break',
+            longBreakMinutes: 'Long',
+            longBreakEvery: 'Every',
+            start: 'Start',
+            pause: 'Pause',
+            reset: 'Reset',
+            skip: 'Skip',
+            cycles: 'Cycles',
+            soundOn: 'Sound On',
+            soundOff: 'Sound Off',
+            todoPlaceholder: 'Add a task...',
+            todoAdd: 'Add',
+            todoEmpty: 'No tasks yet',
+            calendar: 'Calendar',
+            calendarEnable: 'Enable iCal',
+            calendarDisable: 'Disable',
+            calendarUrlPlaceholder: 'Paste iCal URL',
+            calendarSave: 'Save',
+            calendarRefresh: 'Refresh',
+            calendarLastSync: 'Last sync',
+            calendarNoEvents: 'No upcoming events',
+            calendarPermissionHint: 'Only fetches this URL after you enable it.',
+            calendarLoadFailed: 'Failed to load iCal',
+            calendarImportFile: 'Import .ics',
+            calendarImportSuccess: 'Imported from file',
         }
     },
     zh: {
@@ -282,9 +390,12 @@ const translations: Record<Language, Translations> = {
         },
         contextMenu: {
             addSticker: '添加贴纸',
-            addTodoTemplate: '添加 TODO 模板',
-            addMeetingTemplate: '添加会议纪要模板',
-            addIdeaTemplate: '添加灵感卡片模板',
+            addClockWidget: '添加时钟组件',
+            addPomodoroWidget: '添加番茄钟组件',
+            addTodoWidget: '添加待办组件',
+            addCalendarWidget: '添加日历组件',
+            widgetAutoGroupOn: '自动成组（开）',
+            widgetAutoGroupOff: '自动成组（关）',
             groupSelection: '分组所选贴纸',
             ungroupSelection: '解组所选贴纸',
             lockSelection: '锁定所选贴纸',
@@ -342,6 +453,23 @@ const translations: Record<Language, Translations> = {
             emptyRecycleBin: '没有已删除的项目',
             emptyRecycleBinHint: '删除的贴纸将在这里显示',
             recycleBinLimitHint: '回收站最多存储50条贴纸',
+            rulesTitle: '空间规则',
+            rulesNoItems: '暂无规则',
+            rulesAddTime: '添加工作时段规则',
+            rulesAddDomain: '添加域名规则',
+            rulesDomainPlaceholder: 'example.com',
+            rulesEnableTabPermission: '启用域名检测',
+            rulesPermissionEnabled: '域名检测已启用',
+            rulesCooldown: '建议冷却（分钟）',
+            rulesQuietHours: '静默时段',
+            rulesQuietStart: '开始',
+            rulesQuietEnd: '结束',
+            suggestionSwitchPrefix: '建议切换空间',
+            suggestionReasonDomain: '域名',
+            suggestionReasonTime: '时间',
+            suggestionSwitchAction: '切换',
+            suggestionDismissAction: '忽略',
+            suggestionRememberAction: '记住',
         },
         dock: {
             emptyHint: '右键或点击右上角进入编辑模式添加图标',
@@ -359,6 +487,40 @@ const translations: Record<Language, Translations> = {
             fontCode: '代码',
             fontSizeIncrease: '按 + 键增大字号，Shift 增大更多',
             fontSizeDecrease: '按 - 键减小字号，Shift 减小更多',
+        },
+        widget: {
+            clock: '时钟',
+            pomodoro: '番茄钟',
+            todo: '待办',
+            focus: '专注',
+            shortBreak: '休息',
+            longBreak: '长休息',
+            focusMinutes: '专注',
+            shortBreakMinutes: '短休',
+            longBreakMinutes: '长休',
+            longBreakEvery: '每隔',
+            start: '开始',
+            pause: '暂停',
+            reset: '重置',
+            skip: '跳过',
+            cycles: '循环',
+            soundOn: '提示音开',
+            soundOff: '提示音关',
+            todoPlaceholder: '添加待办事项...',
+            todoAdd: '添加',
+            todoEmpty: '暂无待办',
+            calendar: '日历',
+            calendarEnable: '启用 iCal',
+            calendarDisable: '关闭',
+            calendarUrlPlaceholder: '粘贴 iCal 地址',
+            calendarSave: '保存',
+            calendarRefresh: '刷新',
+            calendarLastSync: '最近同步',
+            calendarNoEvents: '暂无近期日程',
+            calendarPermissionHint: '仅在你启用后访问该地址。',
+            calendarLoadFailed: 'iCal 加载失败',
+            calendarImportFile: '导入 .ics',
+            calendarImportSuccess: '已从文件导入',
         }
     }
 };

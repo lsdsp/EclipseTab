@@ -24,23 +24,26 @@ interface ContextMenuProps {
     y: number;
     type: 'background' | 'sticker';
     stickerId?: string;
-    isImageSticker?: boolean;
+    stickerKind?: 'image' | 'text' | 'widget';
     onClose: () => void;
     onAddSticker: () => void;
-    onAddTodoTemplate?: () => void;
-    onAddMeetingTemplate?: () => void;
-    onAddIdeaTemplate?: () => void;
+    onAddClockWidget?: () => void;
+    onAddPomodoroWidget?: () => void;
+    onAddTodoWidget?: () => void;
+    onAddCalendarWidget?: () => void;
     hasSelection?: boolean;
     canGroupSelection?: boolean;
     canUngroupSelection?: boolean;
     canLockSelection?: boolean;
     canUnlockSelection?: boolean;
     isGridSnapEnabled?: boolean;
+    widgetAutoGroupEnabled?: boolean;
     onGroupSelection?: () => void;
     onUngroupSelection?: () => void;
     onLockSelection?: () => void;
     onUnlockSelection?: () => void;
     onToggleGridSnap?: () => void;
+    onToggleWidgetAutoGroup?: () => void;
     onUploadImage: () => void;
     onToggleEditMode: () => void;
     isEditMode: boolean;
@@ -57,23 +60,26 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     x,
     y,
     type,
-    isImageSticker,
+    stickerKind = 'text',
     onClose,
     onAddSticker,
-    onAddTodoTemplate,
-    onAddMeetingTemplate,
-    onAddIdeaTemplate,
+    onAddClockWidget,
+    onAddPomodoroWidget,
+    onAddTodoWidget,
+    onAddCalendarWidget,
     hasSelection = false,
     canGroupSelection = false,
     canUngroupSelection = false,
     canLockSelection = false,
     canUnlockSelection = false,
     isGridSnapEnabled = true,
+    widgetAutoGroupEnabled = false,
     onGroupSelection,
     onUngroupSelection,
     onLockSelection,
     onUnlockSelection,
     onToggleGridSnap,
+    onToggleWidgetAutoGroup,
     onUploadImage,
     onToggleEditMode,
     isEditMode,
@@ -136,8 +142,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     const menuWidth = 220;
     const hasWhiteboardActions = isEditMode && (hasSelection || Boolean(onToggleGridSnap));
     const menuHeight = type === 'background'
-        ? (hasWhiteboardActions ? 520 : 330)
-        : (hasWhiteboardActions ? 430 : 220); // Approximate menu heights
+        ? (hasWhiteboardActions ? 560 : 360)
+        : stickerKind === 'widget'
+            ? (hasWhiteboardActions ? 320 : 140)
+            : (hasWhiteboardActions ? 430 : 220); // Approximate menu heights
     const padding = 10;
 
     // Calculate adjusted position, ensuring menu stays within viewport on all edges
@@ -231,17 +239,21 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${plusIcon})`, maskImage: `url(${plusIcon})` }} />
                             <span>{t.contextMenu.addSticker}</span>
                         </button>
-                        <button className={styles.menuItem} onClick={() => { onAddTodoTemplate?.(); onClose(); }}>
-                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
-                            <span>{t.contextMenu.addTodoTemplate}</span>
+                        <button className={styles.menuItem} onClick={() => { onAddClockWidget?.(); onClose(); }}>
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${monitorIcon})`, maskImage: `url(${monitorIcon})` }} />
+                            <span>{t.contextMenu.addClockWidget}</span>
                         </button>
-                        <button className={styles.menuItem} onClick={() => { onAddMeetingTemplate?.(); onClose(); }}>
-                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
-                            <span>{t.contextMenu.addMeetingTemplate}</span>
+                        <button className={styles.menuItem} onClick={() => { onAddPomodoroWidget?.(); onClose(); }}>
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${monitorIcon})`, maskImage: `url(${monitorIcon})` }} />
+                            <span>{t.contextMenu.addPomodoroWidget}</span>
                         </button>
-                        <button className={styles.menuItem} onClick={() => { onAddIdeaTemplate?.(); onClose(); }}>
-                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${writeIcon})`, maskImage: `url(${writeIcon})` }} />
-                            <span>{t.contextMenu.addIdeaTemplate}</span>
+                        <button className={styles.menuItem} onClick={() => { onAddTodoWidget?.(); onClose(); }}>
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${monitorIcon})`, maskImage: `url(${monitorIcon})` }} />
+                            <span>{t.contextMenu.addTodoWidget}</span>
+                        </button>
+                        <button className={styles.menuItem} onClick={() => { onAddCalendarWidget?.(); onClose(); }}>
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${monitorIcon})`, maskImage: `url(${monitorIcon})` }} />
+                            <span>{t.contextMenu.addCalendarWidget}</span>
                         </button>
                         <button className={styles.menuItem} onClick={() => { onUploadImage(); onClose(); }}>
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${uploadIcon})`, maskImage: `url(${uploadIcon})` }} />
@@ -251,6 +263,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${editIcon})`, maskImage: `url(${editIcon})` }} />
                             <span>{isEditMode ? t.contextMenu.exitEditMode : t.contextMenu.editMode}</span>
                         </button>
+                        <button className={styles.menuItem} onClick={() => { onToggleWidgetAutoGroup?.(); onClose(); }}>
+                            <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${pinIcon})`, maskImage: `url(${pinIcon})` }} />
+                            <span>{widgetAutoGroupEnabled ? t.contextMenu.widgetAutoGroupOn : t.contextMenu.widgetAutoGroupOff}</span>
+                        </button>
                         <button className={styles.menuItem} onClick={() => { onOpenSettings?.(); onClose(); }}>
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${settingsIcon})`, maskImage: `url(${settingsIcon})` }} />
                             <span>{t.contextMenu.settings}</span>
@@ -259,7 +275,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                     </>
                 ) : (
                     <>
-                        {isImageSticker ? (
+                        {stickerKind === 'image' ? (
                             <>
                                 <button className={styles.menuItem} onClick={() => { onCopyImage?.(); onClose(); }}>
                                     <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${exportIcon})`, maskImage: `url(${exportIcon})` }} />
@@ -270,7 +286,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                                     <span>{t.contextMenu.exportImage}</span>
                                 </button>
                             </>
-                        ) : (
+                        ) : stickerKind === 'text' ? (
                             <>
                                 <button className={styles.menuItem} onClick={() => { onCopyText?.(); onClose(); }}>
                                     <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${exportIcon})`, maskImage: `url(${exportIcon})` }} />
@@ -285,7 +301,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                                     <span>{t.contextMenu.exportAsImage}</span>
                                 </button>
                             </>
-                        )}
+                        ) : null}
                         {renderWhiteboardActions()}
                         <button className={`${styles.menuItem} ${styles.danger}`} onClick={() => { onDeleteSticker?.(); onClose(); }}>
                             <span className={styles.menuIcon} style={{ WebkitMaskImage: `url(${trashIcon})`, maskImage: `url(${trashIcon})` }} />
