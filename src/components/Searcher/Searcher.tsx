@@ -49,13 +49,33 @@ export const Searcher: React.FC<SearcherProps> = ({
     remoteSuggestionsEnabled ? query : ''
   );
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const [allowStickerContentSearch, setAllowStickerContentSearch] = useState<boolean>(() =>
+    storage.getSearchStickerContent()
+  );
+  const [stickerRevision, setStickerRevision] = useState(0);
   const { t, language } = useLanguage();
 
+  useEffect(() => {
+    const handleConfigChanged = () => {
+      setAllowStickerContentSearch(storage.getSearchStickerContent());
+    };
+    const handleStickersChanged = () => {
+      setStickerRevision((prev) => prev + 1);
+    };
+
+    window.addEventListener('eclipse-config-changed', handleConfigChanged as EventListener);
+    window.addEventListener('eclipse-stickers-changed', handleStickersChanged as EventListener);
+    return () => {
+      window.removeEventListener('eclipse-config-changed', handleConfigChanged as EventListener);
+      window.removeEventListener('eclipse-stickers-changed', handleStickersChanged as EventListener);
+    };
+  }, []);
+
   const localNotes = useMemo(() => {
-    if (!query.trim()) return [];
+    if (!allowStickerContentSearch) return [];
     const stickers = storage.getStickers();
     return extractSearchableNotesFromStickers(stickers, language);
-  }, [language, query]);
+  }, [allowStickerContentSearch, language, stickerRevision]);
 
   const suggestions = useMemo<SearchSuggestionItem[]>(
     () =>

@@ -57,6 +57,18 @@ export interface ImportPreview {
   stickerAssets: ImportPreviewSection;
 }
 
+export interface BackupImportScope {
+  space: boolean;
+  zenShelf: boolean;
+  config: boolean;
+}
+
+export const DEFAULT_BACKUP_IMPORT_SCOPE: BackupImportScope = {
+  space: true,
+  zenShelf: true,
+  config: true,
+};
+
 export interface ImportResult {
   strategy: BackupImportStrategy;
   restoredFromRollback: boolean;
@@ -215,6 +227,52 @@ const parseLocalEntries = (entries: Record<string, string | null>) => {
     wallpaperRaw: entries[STORAGE_KEYS.WALLPAPER] ?? null,
     lastWallpaperRaw: entries[STORAGE_KEYS.LAST_WALLPAPER] ?? null,
   };
+};
+
+const normalizeBackupImportScope = (scope?: Partial<BackupImportScope>): BackupImportScope => ({
+  ...DEFAULT_BACKUP_IMPORT_SCOPE,
+  ...scope,
+});
+
+const emptyPreviewSection = (): ImportPreviewSection => ({
+  current: 0,
+  incoming: 0,
+  add: 0,
+  overwrite: 0,
+  conflict: 0,
+});
+
+const SPACE_IMPORT_KEYS: ReadonlyArray<string> = [
+  STORAGE_KEYS.SPACES,
+  STORAGE_KEYS.DELETED_DOCK_ITEMS,
+  STORAGE_KEYS.DELETED_SPACES,
+];
+
+const ZENSHELF_IMPORT_KEYS: ReadonlyArray<string> = [
+  STORAGE_KEYS.STICKERS,
+  STORAGE_KEYS.DELETED_STICKERS,
+];
+
+const CONFIG_IMPORT_KEYS: ReadonlyArray<string> = [
+  STORAGE_KEYS.SEARCH_ENGINE,
+  STORAGE_KEYS.SEARCH_ENGINES,
+  STORAGE_KEYS.CONFIG,
+  STORAGE_KEYS.WALLPAPER,
+  STORAGE_KEYS.LAST_WALLPAPER,
+  STORAGE_KEYS.WALLPAPER_ID,
+  STORAGE_KEYS.SPACE_RULES,
+  STORAGE_KEYS.SPACE_OVERRIDES,
+  LANGUAGE_KEY,
+];
+
+const copyEntriesByKeys = (
+  source: Record<string, string | null>,
+  target: Record<string, string | null>,
+  keys: ReadonlyArray<string>
+) => {
+  keys.forEach((key) => {
+    target[key] = source[key] ?? null;
+  });
 };
 
 const readCurrentLocalStorageEntries = (): Record<string, string | null> => {
@@ -377,7 +435,8 @@ const remapStickerIds = (
 
 const mergeAssets = (
   current: BackupIndexedDbAssets,
-  incoming: BackupIndexedDbAssets
+  incoming: BackupIndexedDbAssets,
+  scope: BackupImportScope
 ): {
   assets: BackupIndexedDbAssets;
   wallpaperConflicts: number;
@@ -391,35 +450,39 @@ const mergeAssets = (
   const stickerAssetIdRemap = new Map<string, string>();
 
   let wallpaperConflicts = 0;
-  incoming.wallpapers.forEach((asset) => {
-    let nextId = asset.id;
-    if (usedWallpaperIds.has(nextId)) {
-      wallpaperConflicts += 1;
-      nextId = ensureUniqueId(generateId('wallpaper'), usedWallpaperIds, 'wallpaper');
-    } else {
-      usedWallpaperIds.add(nextId);
-    }
-    wallpapers.push({
-      ...asset,
-      id: nextId,
+  if (scope.config) {
+    incoming.wallpapers.forEach((asset) => {
+      let nextId = asset.id;
+      if (usedWallpaperIds.has(nextId)) {
+        wallpaperConflicts += 1;
+        nextId = ensureUniqueId(generateId('wallpaper'), usedWallpaperIds, 'wallpaper');
+      } else {
+        usedWallpaperIds.add(nextId);
+      }
+      wallpapers.push({
+        ...asset,
+        id: nextId,
+      });
     });
-  });
+  }
 
   let stickerAssetConflicts = 0;
-  incoming.stickerAssets.forEach((asset) => {
-    let nextId = asset.id;
-    if (usedStickerAssetIds.has(nextId)) {
-      stickerAssetConflicts += 1;
-      nextId = ensureUniqueId(generateId('sticker_asset'), usedStickerAssetIds, 'sticker_asset');
-    } else {
-      usedStickerAssetIds.add(nextId);
-    }
-    stickerAssetIdRemap.set(asset.id, nextId);
-    stickerAssets.push({
-      ...asset,
-      id: nextId,
+  if (scope.zenShelf) {
+    incoming.stickerAssets.forEach((asset) => {
+      let nextId = asset.id;
+      if (usedStickerAssetIds.has(nextId)) {
+        stickerAssetConflicts += 1;
+        nextId = ensureUniqueId(generateId('sticker_asset'), usedStickerAssetIds, 'sticker_asset');
+      } else {
+        usedStickerAssetIds.add(nextId);
+      }
+      stickerAssetIdRemap.set(asset.id, nextId);
+      stickerAssets.push({
+        ...asset,
+        id: nextId,
+      });
     });
-  });
+  }
 
   return {
     assets: {
@@ -435,7 +498,8 @@ const mergeAssets = (
 const mergeEntries = (
   currentEntries: Record<string, string | null>,
   incomingEntries: Record<string, string | null>,
-  assetIdRemap: Map<string, string>
+  assetIdRemap: Map<string, string>,
+  scope: BackupImportScope
 ): {
   entries: Record<string, string | null>;
   preview: ImportPreview;
@@ -443,12 +507,26 @@ const mergeEntries = (
   const current = parseLocalEntries(currentEntries);
   const incoming = parseLocalEntries(incomingEntries);
 
-  const { merged: mergedSpaces, nameConflicts, dockUrlConflicts } = mergeSpaces(current.spacesState, incoming.spacesState);
+  const {
+    merged: mergedSpaces,
+    nameConflicts,
+    dockUrlConflicts,
+  } = scope.space
+    ? mergeSpaces(current.spacesState, incoming.spacesState)
+    : {
+      merged: current.spacesState,
+      nameConflicts: 0,
+      dockUrlConflicts: 0,
+    };
 
   const usedStickerIds = new Set(current.stickers.map((sticker) => sticker.id));
-  const mergedStickersResult = remapStickerIds(incoming.stickers, usedStickerIds, assetIdRemap);
+  const mergedStickersResult = scope.zenShelf
+    ? remapStickerIds(incoming.stickers, usedStickerIds, assetIdRemap)
+    : { stickers: [] as Sticker[], conflicts: 0 };
   const usedDeletedStickerIds = new Set(current.deletedStickers.map((sticker) => sticker.id));
-  const mergedDeletedStickersResult = remapStickerIds(incoming.deletedStickers, usedDeletedStickerIds, assetIdRemap);
+  const mergedDeletedStickersResult = scope.zenShelf
+    ? remapStickerIds(incoming.deletedStickers, usedDeletedStickerIds, assetIdRemap)
+    : { stickers: [] as Sticker[], conflicts: 0 };
 
   const searchEnginesCurrent = current.searchEngines || [];
   const searchEnginesIncoming = incoming.searchEngines || [];
@@ -457,37 +535,39 @@ const mergeEntries = (
     searchEnginesById.set(engine.id, engine);
   });
   let searchEngineConflicts = 0;
-  searchEnginesIncoming.forEach((engine) => {
-    if (searchEnginesById.has(engine.id)) {
-      searchEngineConflicts += 1;
-      return;
-    }
-    const sameUrl = Array.from(searchEnginesById.values()).some((existing) => existing.url === engine.url);
-    if (sameUrl) {
-      searchEngineConflicts += 1;
-      return;
-    }
-    searchEnginesById.set(engine.id, engine);
-  });
-  const mergedSearchEngines = Array.from(searchEnginesById.values());
+  if (scope.config) {
+    searchEnginesIncoming.forEach((engine) => {
+      if (searchEnginesById.has(engine.id)) {
+        searchEngineConflicts += 1;
+        return;
+      }
+      const sameUrl = Array.from(searchEnginesById.values()).some((existing) => existing.url === engine.url);
+      if (sameUrl) {
+        searchEngineConflicts += 1;
+        return;
+      }
+      searchEnginesById.set(engine.id, engine);
+    });
+  }
+  const mergedSearchEngines = scope.config ? Array.from(searchEnginesById.values()) : searchEnginesCurrent;
 
   const mergedDeletedDockItems: DeletedDockItemRecord[] = [...current.deletedDockItems];
   const usedDeletedDockRecordIds = new Set(mergedDeletedDockItems.map((record) => record.id));
-  let deletedDockConflicts = 0;
-  incoming.deletedDockItems.forEach((record) => {
-    const nextId = ensureUniqueId(record.id || generateId('deleted_dock'), usedDeletedDockRecordIds, 'deleted_dock');
-    if (nextId !== record.id) deletedDockConflicts += 1;
-    mergedDeletedDockItems.push({ ...record, id: nextId });
-  });
+  if (scope.space) {
+    incoming.deletedDockItems.forEach((record) => {
+      const nextId = ensureUniqueId(record.id || generateId('deleted_dock'), usedDeletedDockRecordIds, 'deleted_dock');
+      mergedDeletedDockItems.push({ ...record, id: nextId });
+    });
+  }
 
   const mergedDeletedSpaces: DeletedSpaceRecord[] = [...current.deletedSpaces];
   const usedDeletedSpaceRecordIds = new Set(mergedDeletedSpaces.map((record) => record.id));
-  let deletedSpaceConflicts = 0;
-  incoming.deletedSpaces.forEach((record) => {
-    const nextId = ensureUniqueId(record.id || generateId('deleted_space'), usedDeletedSpaceRecordIds, 'deleted_space');
-    if (nextId !== record.id) deletedSpaceConflicts += 1;
-    mergedDeletedSpaces.push({ ...record, id: nextId });
-  });
+  if (scope.space) {
+    incoming.deletedSpaces.forEach((record) => {
+      const nextId = ensureUniqueId(record.id || generateId('deleted_space'), usedDeletedSpaceRecordIds, 'deleted_space');
+      mergedDeletedSpaces.push({ ...record, id: nextId });
+    });
+  }
 
   const entries: Record<string, string | null> = {
     ...currentEntries,
@@ -498,69 +578,66 @@ const mergeEntries = (
     [STORAGE_KEYS.DELETED_SPACES]: JSON.stringify(mergedDeletedSpaces),
     [STORAGE_KEYS.SEARCH_ENGINES]: JSON.stringify(mergedSearchEngines),
     [STORAGE_KEYS.SEARCH_ENGINE]:
-      current.searchEngine && mergedSearchEngines.some((engine) => engine.id === current.searchEngine?.id)
-        ? JSON.stringify(current.searchEngine)
-        : (mergedSearchEngines[0] ? JSON.stringify(mergedSearchEngines[0]) : null),
-    // Merge strategy keeps current config and language
-    [STORAGE_KEYS.CONFIG]: current.configRaw,
-    [LANGUAGE_KEY]: current.language,
-    [STORAGE_KEYS.WALLPAPER]: current.wallpaperRaw,
-    [STORAGE_KEYS.LAST_WALLPAPER]: current.lastWallpaperRaw,
-    [STORAGE_KEYS.WALLPAPER_ID]: current.wallpaperIdRaw,
+      scope.config
+        ? (
+          incoming.searchEngine && mergedSearchEngines.some((engine) => engine.id === incoming.searchEngine?.id)
+            ? JSON.stringify(incoming.searchEngine)
+            : (mergedSearchEngines[0] ? JSON.stringify(mergedSearchEngines[0]) : null)
+        )
+        : currentEntries[STORAGE_KEYS.SEARCH_ENGINE] ?? null,
+    [STORAGE_KEYS.CONFIG]: scope.config ? incoming.configRaw : current.configRaw,
+    [LANGUAGE_KEY]: scope.config ? incoming.language : current.language,
+    [STORAGE_KEYS.WALLPAPER]: scope.config ? incoming.wallpaperRaw : current.wallpaperRaw,
+    [STORAGE_KEYS.LAST_WALLPAPER]: scope.config ? incoming.lastWallpaperRaw : current.lastWallpaperRaw,
+    [STORAGE_KEYS.WALLPAPER_ID]: scope.config ? incoming.wallpaperIdRaw : current.wallpaperIdRaw,
+    [STORAGE_KEYS.SPACE_RULES]: scope.config
+      ? incomingEntries[STORAGE_KEYS.SPACE_RULES] ?? null
+      : currentEntries[STORAGE_KEYS.SPACE_RULES] ?? null,
+    [STORAGE_KEYS.SPACE_OVERRIDES]: scope.config
+      ? incomingEntries[STORAGE_KEYS.SPACE_OVERRIDES] ?? null
+      : currentEntries[STORAGE_KEYS.SPACE_OVERRIDES] ?? null,
   };
 
   return {
     entries,
     preview: {
-      spaces: {
+      spaces: scope.space ? {
         current: current.spacesState.spaces.length,
         incoming: incoming.spacesState.spaces.length,
         add: incoming.spacesState.spaces.length - nameConflicts,
         overwrite: nameConflicts,
         conflict: nameConflicts,
-      },
-      dockUrls: {
+      } : emptyPreviewSection(),
+      dockUrls: scope.space ? {
         current: collectDockUrls(current.spacesState.spaces.flatMap((space) => space.apps || [])).size,
         incoming: collectDockUrls(incoming.spacesState.spaces.flatMap((space) => space.apps || [])).size,
         add: Math.max(0, collectDockUrls(incoming.spacesState.spaces.flatMap((space) => space.apps || [])).size - dockUrlConflicts),
         overwrite: dockUrlConflicts,
         conflict: dockUrlConflicts,
-      },
-      stickers: {
+      } : emptyPreviewSection(),
+      stickers: scope.zenShelf ? {
         current: current.stickers.length,
         incoming: incoming.stickers.length,
         add: incoming.stickers.length - mergedStickersResult.conflicts,
         overwrite: mergedStickersResult.conflicts,
         conflict: mergedStickersResult.conflicts,
-      },
-      deletedStickers: {
+      } : emptyPreviewSection(),
+      deletedStickers: scope.zenShelf ? {
         current: current.deletedStickers.length,
         incoming: incoming.deletedStickers.length,
         add: incoming.deletedStickers.length - mergedDeletedStickersResult.conflicts,
         overwrite: mergedDeletedStickersResult.conflicts,
         conflict: mergedDeletedStickersResult.conflicts,
-      },
-      searchEngines: {
+      } : emptyPreviewSection(),
+      searchEngines: scope.config ? {
         current: searchEnginesCurrent.length,
         incoming: searchEnginesIncoming.length,
         add: searchEnginesIncoming.length - searchEngineConflicts,
         overwrite: searchEngineConflicts,
         conflict: searchEngineConflicts,
-      },
-      wallpapers: {
-        current: 0,
-        incoming: 0,
-        add: 0,
-        overwrite: 0,
-        conflict: 0,
-      },
-      stickerAssets: {
-        current: 0,
-        incoming: 0,
-        add: 0,
-        overwrite: deletedDockConflicts + deletedSpaceConflicts,
-        conflict: deletedDockConflicts + deletedSpaceConflicts,
-      },
+      } : emptyPreviewSection(),
+      wallpapers: emptyPreviewSection(),
+      stickerAssets: emptyPreviewSection(),
     },
   };
 };
@@ -568,7 +645,8 @@ const mergeEntries = (
 const buildPreview = (
   current: BackupPackage,
   incoming: BackupPackage,
-  strategy: BackupImportStrategy
+  strategy: BackupImportStrategy,
+  scope: BackupImportScope
 ): ImportPreview => {
   const currentParsed = parseLocalEntries(current.localStorageEntries);
   const incomingParsed = parseLocalEntries(incoming.localStorageEntries);
@@ -609,47 +687,70 @@ const buildPreview = (
   });
 
   return {
-    spaces: overwriteSection(currentParsed.spacesState.spaces.length, incomingParsed.spacesState.spaces.length, incomingSpaceConflicts),
-    dockUrls: overwriteSection(
-      collectDockUrls(currentParsed.spacesState.spaces.flatMap((space) => space.apps || [])).size,
-      collectDockUrls(incomingParsed.spacesState.spaces.flatMap((space) => space.apps || [])).size,
-      0
-    ),
-    stickers: overwriteSection(currentParsed.stickers.length, incomingParsed.stickers.length, incomingStickerConflicts),
-    deletedStickers: overwriteSection(
-      currentParsed.deletedStickers.length,
-      incomingParsed.deletedStickers.length,
-      incomingDeletedStickerConflicts
-    ),
-    searchEngines: overwriteSection(
-      (currentParsed.searchEngines || []).length,
-      (incomingParsed.searchEngines || []).length,
-      incomingSearchConflicts
-    ),
-    wallpapers: overwriteSection(current.assets.wallpapers.length, incoming.assets.wallpapers.length, incomingWallpaperConflicts),
-    stickerAssets: overwriteSection(
-      current.assets.stickerAssets.length,
-      incoming.assets.stickerAssets.length,
-      incomingStickerAssetConflicts
-    ),
+    spaces: scope.space
+      ? overwriteSection(currentParsed.spacesState.spaces.length, incomingParsed.spacesState.spaces.length, incomingSpaceConflicts)
+      : emptyPreviewSection(),
+    dockUrls: scope.space
+      ? overwriteSection(
+        collectDockUrls(currentParsed.spacesState.spaces.flatMap((space) => space.apps || [])).size,
+        collectDockUrls(incomingParsed.spacesState.spaces.flatMap((space) => space.apps || [])).size,
+        0
+      )
+      : emptyPreviewSection(),
+    stickers: scope.zenShelf
+      ? overwriteSection(currentParsed.stickers.length, incomingParsed.stickers.length, incomingStickerConflicts)
+      : emptyPreviewSection(),
+    deletedStickers: scope.zenShelf
+      ? overwriteSection(
+        currentParsed.deletedStickers.length,
+        incomingParsed.deletedStickers.length,
+        incomingDeletedStickerConflicts
+      )
+      : emptyPreviewSection(),
+    searchEngines: scope.config
+      ? overwriteSection(
+        (currentParsed.searchEngines || []).length,
+        (incomingParsed.searchEngines || []).length,
+        incomingSearchConflicts
+      )
+      : emptyPreviewSection(),
+    wallpapers: scope.config
+      ? overwriteSection(current.assets.wallpapers.length, incoming.assets.wallpapers.length, incomingWallpaperConflicts)
+      : emptyPreviewSection(),
+    stickerAssets: scope.zenShelf
+      ? overwriteSection(
+        current.assets.stickerAssets.length,
+        incoming.assets.stickerAssets.length,
+        incomingStickerAssetConflicts
+      )
+      : emptyPreviewSection(),
   };
 };
 
-const mergePackages = (current: BackupPackage, incoming: BackupPackage): { merged: BackupPackage; preview: ImportPreview } => {
-  const mergedAssetsResult = mergeAssets(current.assets, incoming.assets);
+const mergePackages = (
+  current: BackupPackage,
+  incoming: BackupPackage,
+  scope: BackupImportScope
+): { merged: BackupPackage; preview: ImportPreview } => {
+  const mergedAssetsResult = mergeAssets(current.assets, incoming.assets, scope);
   const mergedEntriesResult = mergeEntries(
     current.localStorageEntries,
     incoming.localStorageEntries,
-    mergedAssetsResult.stickerAssetIdRemap
+    mergedAssetsResult.stickerAssetIdRemap,
+    scope
   );
 
-  const preview = buildPreview(current, incoming, 'merge');
-  preview.wallpapers.conflict = mergedAssetsResult.wallpaperConflicts;
-  preview.wallpapers.overwrite = mergedAssetsResult.wallpaperConflicts;
-  preview.wallpapers.add = incoming.assets.wallpapers.length - mergedAssetsResult.wallpaperConflicts;
-  preview.stickerAssets.conflict = mergedAssetsResult.stickerAssetConflicts;
-  preview.stickerAssets.overwrite = mergedAssetsResult.stickerAssetConflicts;
-  preview.stickerAssets.add = incoming.assets.stickerAssets.length - mergedAssetsResult.stickerAssetConflicts;
+  const preview = buildPreview(current, incoming, 'merge', scope);
+  if (scope.config) {
+    preview.wallpapers.conflict = mergedAssetsResult.wallpaperConflicts;
+    preview.wallpapers.overwrite = mergedAssetsResult.wallpaperConflicts;
+    preview.wallpapers.add = incoming.assets.wallpapers.length - mergedAssetsResult.wallpaperConflicts;
+  }
+  if (scope.zenShelf) {
+    preview.stickerAssets.conflict = mergedAssetsResult.stickerAssetConflicts;
+    preview.stickerAssets.overwrite = mergedAssetsResult.stickerAssetConflicts;
+    preview.stickerAssets.add = incoming.assets.stickerAssets.length - mergedAssetsResult.stickerAssetConflicts;
+  }
 
   return {
     merged: {
@@ -680,6 +781,37 @@ const assertPackage = (value: unknown): BackupPackage => {
     throw new Error(`Unsupported backup version: ${candidate.exportVersion}`);
   }
   return candidate;
+};
+
+const buildOverwriteTargetPackage = (
+  snapshot: BackupPackage,
+  incoming: BackupPackage,
+  scope: BackupImportScope
+): BackupPackage => {
+  const localStorageEntries: Record<string, string | null> = {
+    ...snapshot.localStorageEntries,
+  };
+
+  if (scope.space) {
+    copyEntriesByKeys(incoming.localStorageEntries, localStorageEntries, SPACE_IMPORT_KEYS);
+  }
+  if (scope.zenShelf) {
+    copyEntriesByKeys(incoming.localStorageEntries, localStorageEntries, ZENSHELF_IMPORT_KEYS);
+  }
+  if (scope.config) {
+    copyEntriesByKeys(incoming.localStorageEntries, localStorageEntries, CONFIG_IMPORT_KEYS);
+  }
+
+  return {
+    type: snapshot.type,
+    exportVersion: snapshot.exportVersion,
+    createdAt: Date.now(),
+    localStorageEntries,
+    assets: {
+      wallpapers: scope.config ? incoming.assets.wallpapers : snapshot.assets.wallpapers,
+      stickerAssets: scope.zenShelf ? incoming.assets.stickerAssets : snapshot.assets.stickerAssets,
+    },
+  };
 };
 
 export const buildSpaceSnapshotEntries = (space: Space): Record<string, string | null> => {
@@ -735,24 +867,28 @@ export const parseBackupFile = async (file: File): Promise<BackupPackage> => {
 
 export const previewBackupImport = async (
   incoming: BackupPackage,
-  strategy: BackupImportStrategy
+  strategy: BackupImportStrategy,
+  scope?: Partial<BackupImportScope>
 ): Promise<ImportPreview> => {
   const current = await createPackage('eclipse-full-backup');
-  return buildPreview(current, incoming, strategy);
+  return buildPreview(current, incoming, strategy, normalizeBackupImportScope(scope));
 };
 
 export const applyBackupImport = async (
   incoming: BackupPackage,
-  strategy: BackupImportStrategy
+  strategy: BackupImportStrategy,
+  scope?: Partial<BackupImportScope>
 ): Promise<ImportResult> => {
   const snapshot = await createPackage('eclipse-full-backup');
+  const importScope = normalizeBackupImportScope(scope);
   let restoredFromRollback = false;
 
   try {
     if (strategy === 'overwrite') {
-      const preview = buildPreview(snapshot, incoming, strategy);
-      writeLocalStorageEntries(incoming.localStorageEntries);
-      await writeAssets(incoming.assets);
+      const preview = buildPreview(snapshot, incoming, strategy, importScope);
+      const overwriteTarget = buildOverwriteTargetPackage(snapshot, incoming, importScope);
+      writeLocalStorageEntries(overwriteTarget.localStorageEntries);
+      await writeAssets(overwriteTarget.assets);
       storage.resetMemoryCache();
       return {
         strategy,
@@ -761,7 +897,7 @@ export const applyBackupImport = async (
       };
     }
 
-    const merged = mergePackages(snapshot, incoming);
+    const merged = mergePackages(snapshot, incoming, importScope);
     writeLocalStorageEntries(merged.merged.localStorageEntries);
     await writeAssets(merged.merged.assets);
     storage.resetMemoryCache();

@@ -56,6 +56,7 @@ export interface AppConfig {
   gridSnapEnabled: boolean;
   widgetSnapAutoGroupEnabled: boolean;
   openInNewTab: boolean;
+  searchStickerContent: boolean;
   allowThirdPartyIconService: boolean;
   thirdPartyIconServicePrompted: boolean;
   texture: string;
@@ -75,6 +76,7 @@ const DEFAULT_CONFIG: AppConfig = {
   gridSnapEnabled: true,
   widgetSnapAutoGroupEnabled: false,
   openInNewTab: false,
+  searchStickerContent: true,
   allowThirdPartyIconService: false,
   thirdPartyIconServicePrompted: false,
   texture: 'point',
@@ -325,6 +327,14 @@ export const storage = {
 
   saveOpenInNewTab(openInNewTab: boolean): void {
     this.updateConfig({ openInNewTab });
+  },
+
+  getSearchStickerContent(): boolean {
+    return this.getConfig().searchStickerContent;
+  },
+
+  saveSearchStickerContent(searchStickerContent: boolean): void {
+    this.updateConfig({ searchStickerContent: Boolean(searchStickerContent) });
   },
 
   getAllowThirdPartyIconService(): boolean {
@@ -701,6 +711,9 @@ export const storage = {
       const json = JSON.stringify(stickers);
       localStorage.setItem(STORAGE_KEYS.STICKERS, json);
       memoryCache.stickers = { data: stickers, raw: json };
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('eclipse-stickers-changed'));
+      }
     } catch (error) {
       logger.error('Failed to save stickers:', error);
       notifyStorageFailure();
@@ -730,6 +743,9 @@ export const storage = {
       const json = JSON.stringify(stickers);
       localStorage.setItem(STORAGE_KEYS.DELETED_STICKERS, json);
       memoryCache.deletedStickers = { data: stickers, raw: json };
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('eclipse-stickers-changed'));
+      }
     } catch (error) {
       logger.error('Failed to save deleted stickers:', error);
       notifyStorageFailure();

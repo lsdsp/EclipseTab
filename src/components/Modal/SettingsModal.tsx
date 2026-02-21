@@ -27,8 +27,10 @@ import {
 import { storage } from '../../utils/storage';
 import {
     applyBackupImport,
+    BackupImportScope,
     BackupImportStrategy,
     BackupPackage,
+    DEFAULT_BACKUP_IMPORT_SCOPE,
     exportFullBackupToZip,
     exportSpaceSnapshotToZip,
     parseBackupFile,
@@ -231,10 +233,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
     const [allowThirdPartyIconService, setAllowThirdPartyIconService] = useState<boolean>(() =>
         storage.getAllowThirdPartyIconService()
     );
+    const [allowStickerContentSearch, setAllowStickerContentSearch] = useState<boolean>(() =>
+        storage.getSearchStickerContent()
+    );
 
     const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
     const [storageLoading, setStorageLoading] = useState(false);
     const [importPackage, setImportPackage] = useState<BackupPackage | null>(null);
+    const [importScope, setImportScope] = useState<BackupImportScope>(DEFAULT_BACKUP_IMPORT_SCOPE);
     const [importPreviewText, setImportPreviewText] = useState<string>('');
     const [importBusy, setImportBusy] = useState(false);
     const importInputRef = useRef<HTMLInputElement>(null);
@@ -352,6 +358,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
             setQuietHoursEnabled(storage.getSpaceSuggestionQuietHoursEnabled());
             setQuietStartMinute(storage.getSpaceSuggestionQuietStartMinute());
             setQuietEndMinute(storage.getSpaceSuggestionQuietEndMinute());
+            setAllowStickerContentSearch(storage.getSearchStickerContent());
         };
         window.addEventListener('eclipse-config-changed', syncSuggestionConfig as EventListener);
         return () => {
@@ -425,16 +432,65 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         storage.saveAllowThirdPartyIconService(next);
     };
 
+    const handleStickerContentSearchToggle = (next: boolean) => {
+        setAllowStickerContentSearch(next);
+        storage.saveSearchStickerContent(next);
+    };
+
     const describePreview = useCallback((preview: Awaited<ReturnType<typeof previewBackupImport>>) => {
-        const lines = [
-            language === 'zh' ? `空间：新增 ${preview.spaces.add} / 覆盖 ${preview.spaces.overwrite} / 冲突 ${preview.spaces.conflict}` : `Spaces: +${preview.spaces.add} / overwrite ${preview.spaces.overwrite} / conflicts ${preview.spaces.conflict}`,
-            language === 'zh' ? `Dock URL：新增 ${preview.dockUrls.add} / 覆盖 ${preview.dockUrls.overwrite} / 冲突 ${preview.dockUrls.conflict}` : `Dock URLs: +${preview.dockUrls.add} / overwrite ${preview.dockUrls.overwrite} / conflicts ${preview.dockUrls.conflict}`,
-            language === 'zh' ? `贴纸：新增 ${preview.stickers.add} / 覆盖 ${preview.stickers.overwrite} / 冲突 ${preview.stickers.conflict}` : `Stickers: +${preview.stickers.add} / overwrite ${preview.stickers.overwrite} / conflicts ${preview.stickers.conflict}`,
-            language === 'zh' ? `壁纸资源：新增 ${preview.wallpapers.add} / 覆盖 ${preview.wallpapers.overwrite} / 冲突 ${preview.wallpapers.conflict}` : `Wallpapers: +${preview.wallpapers.add} / overwrite ${preview.wallpapers.overwrite} / conflicts ${preview.wallpapers.conflict}`,
-            language === 'zh' ? `贴纸资源：新增 ${preview.stickerAssets.add} / 覆盖 ${preview.stickerAssets.overwrite} / 冲突 ${preview.stickerAssets.conflict}` : `Sticker assets: +${preview.stickerAssets.add} / overwrite ${preview.stickerAssets.overwrite} / conflicts ${preview.stickerAssets.conflict}`,
-        ];
+        const lines: string[] = [];
+        if (importScope.space) {
+            lines.push(
+                language === 'zh' ? `空间：新增 ${preview.spaces.add} / 覆盖 ${preview.spaces.overwrite} / 冲突 ${preview.spaces.conflict}` : `Spaces: +${preview.spaces.add} / overwrite ${preview.spaces.overwrite} / conflicts ${preview.spaces.conflict}`,
+                language === 'zh' ? `Dock URL：新增 ${preview.dockUrls.add} / 覆盖 ${preview.dockUrls.overwrite} / 冲突 ${preview.dockUrls.conflict}` : `Dock URLs: +${preview.dockUrls.add} / overwrite ${preview.dockUrls.overwrite} / conflicts ${preview.dockUrls.conflict}`
+            );
+        }
+        if (importScope.zenShelf) {
+            lines.push(
+                language === 'zh' ? `贴纸：新增 ${preview.stickers.add} / 覆盖 ${preview.stickers.overwrite} / 冲突 ${preview.stickers.conflict}` : `Stickers: +${preview.stickers.add} / overwrite ${preview.stickers.overwrite} / conflicts ${preview.stickers.conflict}`,
+                language === 'zh' ? `贴纸资源：新增 ${preview.stickerAssets.add} / 覆盖 ${preview.stickerAssets.overwrite} / 冲突 ${preview.stickerAssets.conflict}` : `Sticker assets: +${preview.stickerAssets.add} / overwrite ${preview.stickerAssets.overwrite} / conflicts ${preview.stickerAssets.conflict}`
+            );
+        }
+        if (importScope.config) {
+            lines.push(
+                language === 'zh' ? `搜索引擎：新增 ${preview.searchEngines.add} / 覆盖 ${preview.searchEngines.overwrite} / 冲突 ${preview.searchEngines.conflict}` : `Search engines: +${preview.searchEngines.add} / overwrite ${preview.searchEngines.overwrite} / conflicts ${preview.searchEngines.conflict}`,
+                language === 'zh' ? `壁纸资源：新增 ${preview.wallpapers.add} / 覆盖 ${preview.wallpapers.overwrite} / 冲突 ${preview.wallpapers.conflict}` : `Wallpapers: +${preview.wallpapers.add} / overwrite ${preview.wallpapers.overwrite} / conflicts ${preview.wallpapers.conflict}`
+            );
+        }
         return lines.join('\n');
-    }, [language]);
+    }, [importScope, language]);
+
+    const toggleImportScope = useCallback((section: keyof BackupImportScope) => {
+        setImportScope((prev) => {
+            const next = { ...prev, [section]: !prev[section] };
+            if (!next.space && !next.zenShelf && !next.config) {
+                return prev;
+            }
+            return next;
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!importPackage) {
+            return;
+        }
+        let cancelled = false;
+        const refreshPreview = async () => {
+            try {
+                const preview = await previewBackupImport(importPackage, DEFAULT_IMPORT_PREVIEW_STRATEGY, importScope);
+                if (cancelled) return;
+                setImportPreviewText(describePreview(preview));
+            } catch (error) {
+                if (cancelled) return;
+                const message = error instanceof Error ? error.message : 'Import preview failed';
+                setImportPreviewText(message);
+            }
+        };
+        void refreshPreview();
+        return () => {
+            cancelled = true;
+        };
+    }, [describePreview, importPackage, importScope]);
 
     const handleExportFullBackup = async () => {
         try {
@@ -463,7 +519,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
         try {
             const parsed = await parseBackupFile(file);
             setImportPackage(parsed);
-            const preview = await previewBackupImport(parsed, DEFAULT_IMPORT_PREVIEW_STRATEGY);
+            const preview = await previewBackupImport(parsed, DEFAULT_IMPORT_PREVIEW_STRATEGY, importScope);
             setImportPreviewText(describePreview(preview));
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Import file parse failed';
@@ -479,6 +535,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
 
     const handleApplyImport = async () => {
         if (!importPackage || importBusy) return;
+        if (!importScope.space && !importScope.zenShelf && !importScope.config) {
+            window.alert(language === 'zh' ? '请至少选择一个导入范围。' : 'Select at least one import scope.');
+            return;
+        }
 
         const selectedStrategy = promptImportStrategy(language);
         if (!selectedStrategy) return;
@@ -492,9 +552,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
 
         setImportBusy(true);
         try {
-            const preview = await previewBackupImport(importPackage, selectedStrategy);
+            const preview = await previewBackupImport(importPackage, selectedStrategy, importScope);
             setImportPreviewText(describePreview(preview));
-            const result = await applyBackupImport(importPackage, selectedStrategy);
+            const result = await applyBackupImport(importPackage, selectedStrategy, importScope);
             window.alert(
                 language === 'zh'
                     ? `导入完成（${result.strategy}）`
@@ -997,6 +1057,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                         <div className={styles.layoutHint}>{t.settings.thirdPartyIconDomainsHint}</div>
 
                         <div className={styles.layoutRow}>
+                            <span className={styles.layoutLabel}>
+                                {language === 'zh' ? '搜索贴纸内容' : 'Search Sticker Content'}
+                            </span>
+                            <div className={styles.layoutToggleGroup}>
+                                <div
+                                    className={styles.layoutHighlight}
+                                    style={{
+                                        transform: `translateX(${allowStickerContentSearch ? 0 : 100}%)`,
+                                    }}
+                                />
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => handleStickerContentSearchToggle(true)}
+                                    title={t.settings.on}
+                                >
+                                    {t.settings.on}
+                                </button>
+                                <button
+                                    className={styles.layoutToggleOption}
+                                    onClick={() => handleStickerContentSearchToggle(false)}
+                                    title={t.settings.off}
+                                >
+                                    {t.settings.off}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className={styles.layoutRow}>
                             <span className={styles.layoutLabel}>{t.settings.openInNewTab}</span>
                             <div className={styles.layoutToggleGroup}>
                                 <div
@@ -1046,6 +1134,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                                 style={{ display: 'none' }}
                                 onChange={handleImportFileChange}
                             />
+                        </div>
+                        <div className={styles.actionRow}>
+                            <button
+                                className={`${styles.actionButton} ${importScope.space ? styles.actionButtonActive : ''}`}
+                                onClick={() => toggleImportScope('space')}
+                            >
+                                {language === 'zh' ? '导入 Space' : 'Import Space'}
+                            </button>
+                            <button
+                                className={`${styles.actionButton} ${importScope.zenShelf ? styles.actionButtonActive : ''}`}
+                                onClick={() => toggleImportScope('zenShelf')}
+                            >
+                                {language === 'zh' ? '导入 ZenShelf' : 'Import ZenShelf'}
+                            </button>
+                            <button
+                                className={`${styles.actionButton} ${importScope.config ? styles.actionButtonActive : ''}`}
+                                onClick={() => toggleImportScope('config')}
+                            >
+                                {language === 'zh' ? '导入配置' : 'Import Config'}
+                            </button>
                         </div>
                         {importPreviewText && (
                             <pre className={styles.previewBox}>{importPreviewText}</pre>

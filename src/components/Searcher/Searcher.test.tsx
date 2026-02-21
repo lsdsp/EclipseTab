@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoot, Root } from 'react-dom/client';
 import { LanguageProvider } from '../../context/LanguageContext';
 import { Searcher } from './Searcher';
+import { storage } from '../../utils/storage';
 
 const mockUseSearchSuggestions = vi.hoisted(() => ({
   requestPermission: vi.fn(async () => true),
@@ -161,5 +162,61 @@ describe('Searcher', () => {
 
     expect(onSwitchSpace).toHaveBeenCalledWith('space-2');
     expect(onSearch).not.toHaveBeenCalled();
+  });
+
+  it('shows sticker note suggestions when sticker content search is enabled', async () => {
+    const onSearch = vi.fn();
+    const getStickerContentSpy = vi.spyOn(storage, 'getSearchStickerContent').mockReturnValue(true);
+    vi.spyOn(storage, 'getStickers').mockReturnValue([
+      {
+        id: 'sticker-1',
+        type: 'text',
+        content: 'unique note keyword',
+        x: 10,
+        y: 10,
+      },
+    ]);
+    renderSearcher(onSearch);
+
+    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value'
+      )?.set;
+      valueSetter?.call(input, 'unique note');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    expect(document.body.textContent).toContain('unique note keyword');
+    expect(getStickerContentSpy).toHaveBeenCalled();
+  });
+
+  it('does not build sticker note suggestions when sticker content search is disabled', async () => {
+    const onSearch = vi.fn();
+    vi.spyOn(storage, 'getSearchStickerContent').mockReturnValue(false);
+    const getStickersSpy = vi.spyOn(storage, 'getStickers').mockReturnValue([
+      {
+        id: 'sticker-1',
+        type: 'text',
+        content: 'disabled note keyword',
+        x: 10,
+        y: 10,
+      },
+    ]);
+    renderSearcher(onSearch);
+
+    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value'
+      )?.set;
+      valueSetter?.call(input, 'disabled note');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    expect(document.body.textContent).not.toContain('disabled note keyword');
+    expect(getStickersSpy).not.toHaveBeenCalled();
   });
 });

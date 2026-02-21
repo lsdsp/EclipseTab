@@ -407,6 +407,11 @@
     color: var(--red-error);
 }
 
+.actionButtonActive {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+}
+
 .actionButton:disabled,
 .actionButtonDanger:disabled {
     opacity: 0.55;
