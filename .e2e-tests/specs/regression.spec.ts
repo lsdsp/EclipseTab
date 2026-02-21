@@ -273,6 +273,8 @@ test.describe('Cross-browser Regression', () => {
   });
 
   test('Dock quick access and Focus Spaces add/switch flow', async ({ page }) => {
+    await setSearchOpenInNewTab(page, true);
+
     await installWindowOpenSpy(page);
 
     const bilibiliItem = page
@@ -282,8 +284,11 @@ test.describe('Cross-browser Regression', () => {
     await expect(bilibiliItem).toBeVisible();
     await bilibiliItem.click({ force: true });
 
-    const calls = await getWindowOpenCalls(page);
-    expect(calls.some((call) => call.url.includes('bilibili.com'))).toBeTruthy();
+    await expect
+      .poll(async () =>
+        (await getWindowOpenCalls(page)).some((call) => call.url.includes('bilibili.com'))
+      )
+      .toBeTruthy();
 
     const navigator = page.locator('[class*="navigator"]').first();
     const currentNameBefore = (await navigator.locator('[class*="spaceName"]').textContent())?.trim();
