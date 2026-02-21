@@ -39,8 +39,12 @@ export const STORAGE_KEYS = {
   DELETED_SPACES: 'EclipseTab_deletedSpaces',
 } as const;
 
+const LEGACY_LANGUAGE_KEY = 'app_language';
+type AppLanguage = 'en' | 'zh';
+
 // Unified Configuration Interface
 export interface AppConfig {
+  language: AppLanguage;
   theme: string;
   followSystem: boolean;
   dockPosition: 'center' | 'bottom';
@@ -59,6 +63,7 @@ export interface AppConfig {
 }
 
 const DEFAULT_CONFIG: AppConfig = {
+  language: 'en',
   theme: 'light',
   followSystem: true,
   dockPosition: 'bottom',
@@ -93,6 +98,9 @@ const memoryCache = {
   deletedSpaces: null as CacheEntry<DeletedSpaceRecord[]> | null,
   config: null as CacheEntry<AppConfig> | null,
 };
+
+const isValidLanguage = (value: unknown): value is AppLanguage =>
+  value === 'en' || value === 'zh';
 
 let storageFailureNotified = false;
 
@@ -134,8 +142,23 @@ export const storage = {
       const json = localStorage.getItem(STORAGE_KEYS.CONFIG);
       if (json) {
         const parsed = JSON.parse(json);
-        const config = { ...DEFAULT_CONFIG, ...parsed };
-        memoryCache.config = { data: config, raw: json };
+        const config = { ...DEFAULT_CONFIG, ...parsed } as AppConfig;
+        const legacyLanguage = localStorage.getItem(LEGACY_LANGUAGE_KEY);
+        const shouldApplyLegacyLanguage =
+          !isValidLanguage((parsed as { language?: unknown }).language) &&
+          isValidLanguage(legacyLanguage);
+        if (shouldApplyLegacyLanguage) {
+          config.language = legacyLanguage;
+        }
+
+        const normalizedJson = JSON.stringify(config);
+        if (normalizedJson !== json) {
+          localStorage.setItem(STORAGE_KEYS.CONFIG, normalizedJson);
+        }
+        if (isValidLanguage(legacyLanguage)) {
+          localStorage.removeItem(LEGACY_LANGUAGE_KEY);
+        }
+        memoryCache.config = { data: config, raw: normalizedJson };
         return config;
       }
 
@@ -160,9 +183,15 @@ export const storage = {
       const legacyGradient = localStorage.getItem('EclipseTab_gradient');
       if (legacyGradient) config.gradient = legacyGradient;
 
+      const legacyLanguage = localStorage.getItem(LEGACY_LANGUAGE_KEY);
+      if (isValidLanguage(legacyLanguage)) config.language = legacyLanguage;
+
       // Save migrated config
       const newJson = JSON.stringify(config);
       localStorage.setItem(STORAGE_KEYS.CONFIG, newJson);
+      if (isValidLanguage(legacyLanguage)) {
+        localStorage.removeItem(LEGACY_LANGUAGE_KEY);
+      }
       memoryCache.config = { data: config, raw: newJson };
 
       return config;
@@ -193,6 +222,20 @@ export const storage = {
   // ==========================================================================
   // Specific Settings Accessors (Adapters using getConfig/saveConfig)
   // ==========================================================================
+
+  getLanguage(): AppLanguage {
+    const language = this.getConfig().language;
+    return isValidLanguage(language) ? language : 'en';
+  },
+
+  saveLanguage(language: AppLanguage): void {
+    this.updateConfig({ language });
+    try {
+      localStorage.removeItem(LEGACY_LANGUAGE_KEY);
+    } catch {
+      // ignore
+    }
+  },
 
   getTheme(): string {
     return this.getConfig().theme;

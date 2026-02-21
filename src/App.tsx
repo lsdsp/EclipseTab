@@ -13,6 +13,8 @@ import { ZenShelf } from './components/ZenShelf';
 import { resolveDockInsertIndex } from './utils/dockInsertIndex';
 import { storage } from './utils/storage';
 import { createDomainRule, getActiveTabDomain, isMinuteInQuietHours, resolveSpaceSuggestion, SpaceSuggestion } from './utils/spaceRules';
+import { openUrl } from './utils/url';
+import { useStickerStrokeSync } from './hooks/useStickerStrokeSync';
 import styles from './App.module.css';
 import { useUndo } from './context/UndoContext';
 import { UndoSnackbar } from './components/UndoSnackbar/UndoSnackbar';
@@ -99,9 +101,9 @@ function App() {
       setOpenFolderId(item.id);
       setFolderAnchor(rect ?? null);
     } else if (item.url) {
-      window.open(item.url, '_blank');
+      openUrl(item.url, { openInNewTab });
     }
-  }, [setOpenFolderId, setFolderAnchor]);
+  }, [openInNewTab, setOpenFolderId, setFolderAnchor]);
 
   const handleHoverOpenFolder = useCallback((_item: DockItem, folder: DockItem) => {
     if (folder.type === 'folder') {
@@ -334,26 +336,19 @@ function App() {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
 
-    const openUrl = (url: string) => {
-      if (openInNewTab) {
-        window.open(url, '_blank');
-      } else {
-        window.location.assign(url);
-      }
-    };
-
     // 输入的是 URL 时，按设置决定在当前页或新标签页打开
     try {
       const url = new URL(trimmedQuery);
-      openUrl(url.toString());
-      return;
+      if (openUrl(url.toString(), { openInNewTab })) {
+        return;
+      }
     } catch {
       // 不是 URL，继续执行搜索
     }
 
     const searchTemplate = selectedSearchEngine.url || 'https://www.google.com/search?q=';
     const searchUrl = applySearchQuery(searchTemplate, trimmedQuery);
-    openUrl(searchUrl);
+    openUrl(searchUrl, { openInNewTab });
   };
 
   const handleItemEdit = (item: DockItem, rect?: DOMRect) => {
@@ -430,9 +425,9 @@ function App() {
 
   const handleFolderItemClick = useCallback((item: DockItem) => {
     if (item.url) {
-      window.open(item.url, '_blank');
+      openUrl(item.url, { openInNewTab });
     }
-  }, []);
+  }, [openInNewTab]);
 
   const handleFolderItemEdit = useCallback((item: DockItem, rect?: DOMRect) => {
     handleItemEdit(item, rect);
@@ -457,37 +452,7 @@ function App() {
     handleDragFromFolder(item, insertIndex);
   }, [handleDragFromFolder, resolveDockInsertIndexFromDom]);
 
-  // 根据 CSS 变量更新 SVG 滤镜的描边颜色
-  useEffect(() => {
-    const updateStrokeColor = () => {
-      const strokeColor = getComputedStyle(document.documentElement)
-        .getPropertyValue('--color-sticker-stroke').trim();
-
-      const floodElement = document.querySelector('#text-sticker-stroke feFlood');
-      if (floodElement && strokeColor) {
-        floodElement.setAttribute('flood-color', strokeColor);
-      }
-    };
-
-    // 组件挂载时更新
-    updateStrokeColor();
-
-    // 当主题变化时更新 (观察 data-theme 属性变化)
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
-          updateStrokeColor();
-        }
-      });
-    });
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-theme']
-    });
-
-    return () => observer.disconnect();
-  }, []);
+  useStickerStrokeSync();
 
   const suggestionSpaceName = spaceSuggestion
     ? (spaces.find((space) => space.id === spaceSuggestion.spaceId)?.name || '')

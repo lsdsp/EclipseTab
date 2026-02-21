@@ -306,6 +306,13 @@
     gap: 8px;
 }
 
+.layoutHint {
+    font-family: var(--font-family);
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--color-text-tertiary);
+}
+
 /* 布局标签 */
 .layoutLabel {
     font-family: var(--font-family);

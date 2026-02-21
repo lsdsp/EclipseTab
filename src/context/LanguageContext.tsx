@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { storage } from '../utils/storage';
 
 export type Language = 'en' | 'zh';
 
@@ -11,8 +12,10 @@ interface Translations {
         large: string;
         small: string;
         suggestions: string;
+        suggestionsPrivacyHint: string;
         thirdPartyIconService: string;
         thirdPartyIconServiceHint: string;
+        thirdPartyIconDomainsHint: string;
         openInNewTab: string;
         on: string;
         off: string;
@@ -186,8 +189,10 @@ const translations: Record<Language, Translations> = {
             large: 'Large',
             small: 'Small',
             suggestions: 'Suggestions',
+            suggestionsPrivacyHint: 'Domains used after enabling: suggestqueries.google.com, www.google.com, suggestion.baidu.com',
             thirdPartyIconService: '3rd-party Icons',
             thirdPartyIconServiceHint: 'Enable external favicon services? This may send site domains to third-party providers.',
+            thirdPartyIconDomainsHint: 'May contact icon providers: icons.duckduckgo.com, www.google.com (s2 favicon).',
             openInNewTab: 'New Tab',
             on: 'On',
             off: 'Off',
@@ -359,8 +364,10 @@ const translations: Record<Language, Translations> = {
             large: '大',
             small: '小',
             suggestions: '搜索建议',
+            suggestionsPrivacyHint: '启用后会访问：suggestqueries.google.com、www.google.com、suggestion.baidu.com',
             thirdPartyIconService: '第三方图标',
             thirdPartyIconServiceHint: '启用第三方图标服务后，网站域名可能会发送给第三方提供者。是否继续？',
+            thirdPartyIconDomainsHint: '启用后可能访问图标服务：icons.duckduckgo.com、www.google.com（s2 favicon）。',
             openInNewTab: '新标签页',
             on: '开启',
             off: '关闭',
@@ -535,14 +542,11 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [language, setLanguage] = useState<Language>(() => {
-        const saved = localStorage.getItem('app_language');
-        if (saved === 'en' || saved === 'zh') return saved;
-        // 默认使用英文
-        return 'en';
+        return storage.getLanguage();
     });
 
     useEffect(() => {
-        localStorage.setItem('app_language', language);
+        storage.saveLanguage(language);
     }, [language]);
 
     const value = {

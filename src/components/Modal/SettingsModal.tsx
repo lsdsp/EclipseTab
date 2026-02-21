@@ -967,6 +967,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                             <span className={styles.layoutLabel}>{t.settings.suggestions}</span>
                             <PermissionToggle />
                         </div>
+                        <div className={styles.layoutHint}>{t.settings.suggestionsPrivacyHint}</div>
 
                         <div className={styles.layoutRow}>
                             <span className={styles.layoutLabel}>{t.settings.thirdPartyIconService}</span>
@@ -993,6 +994,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                                 </button>
                             </div>
                         </div>
+                        <div className={styles.layoutHint}>{t.settings.thirdPartyIconDomainsHint}</div>
 
                         <div className={styles.layoutRow}>
                             <span className={styles.layoutLabel}>{t.settings.openInNewTab}</span>

@@ -4,6 +4,7 @@ import { DOCK_RECYCLE_LIMIT } from '../constants/recycle';
 import { storage } from '../utils/storage';
 import { DEFAULT_SEARCH_ENGINE, GOOGLE_ENGINE, SEARCH_ENGINES } from '../constants/searchEngines';
 import { generateFolderIcon, fetchIcon } from '../utils/iconFetcher';
+import { openUrl } from '../utils/url';
 import { useSpaces } from './SpacesContext';
 import { shouldSyncDockItemsToSpace } from './dockSync';
 
@@ -865,7 +866,7 @@ export const useDock = (): DockContextType => {
             uiContext.setOpenFolderId(item.id);
             uiContext.setFolderAnchor(rect ?? null);
         } else if (item.url) {
-            window.open(item.url, '_blank');
+            openUrl(item.url, { openInNewTab: storage.getOpenInNewTab() });
         }
     }, [uiContext]);
 

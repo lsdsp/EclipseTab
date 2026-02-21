@@ -6,6 +6,8 @@
 import { Space, DockItem } from '../types';
 import { compressIcon, compressIconsInItems } from './imageCompression';
 
+export const CURRENT_SPACE_EXPORT_SCHEMA_VERSION = 1;
+
 // ============================================================================
 // 类型定义
 // ============================================================================
@@ -15,6 +17,7 @@ import { compressIcon, compressIconsInItems } from './imageCompression';
  */
 export interface SpaceExportData {
     version: string;
+    schemaVersion?: number;
     type: 'eclipse-space-export';
     data: {
         name: string;
@@ -29,6 +32,7 @@ export interface SpaceExportData {
  */
 export interface MultiSpaceExportData {
     version: string;
+    schemaVersion?: number;
     type: 'eclipse-multi-space-export';
     data: {
         spaces: Array<{
@@ -50,6 +54,45 @@ interface ExportedDockItem {
     type: 'app' | 'folder';
     children?: ExportedDockItem[];
 }
+
+const normalizeSchemaVersion = (value: unknown): number => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return Math.max(1, Math.floor(value));
+    }
+    return 1;
+};
+
+export const normalizeSingleSpaceImportSchema = (data: SpaceExportData): SpaceExportData => {
+    const schemaVersion = normalizeSchemaVersion(data.schemaVersion);
+    if (schemaVersion > CURRENT_SPACE_EXPORT_SCHEMA_VERSION) {
+        throw new Error(`Unsupported space import schema version: ${schemaVersion}`);
+    }
+
+    if (schemaVersion === 1) {
+        return {
+            ...data,
+            schemaVersion: 1,
+        };
+    }
+
+    throw new Error(`Unsupported space import schema version: ${schemaVersion}`);
+};
+
+export const normalizeMultiSpaceImportSchema = (data: MultiSpaceExportData): MultiSpaceExportData => {
+    const schemaVersion = normalizeSchemaVersion(data.schemaVersion);
+    if (schemaVersion > CURRENT_SPACE_EXPORT_SCHEMA_VERSION) {
+        throw new Error(`Unsupported multi-space import schema version: ${schemaVersion}`);
+    }
+
+    if (schemaVersion === 1) {
+        return {
+            ...data,
+            schemaVersion: 1,
+        };
+    }
+
+    throw new Error(`Unsupported multi-space import schema version: ${schemaVersion}`);
+};
 
 // ============================================================================
 // 导出功能
@@ -95,6 +138,7 @@ export async function exportSpaceToFile(space: Space): Promise<void> {
     // 构建导出数据
     const exportData: SpaceExportData = {
         version: '1.0',
+        schemaVersion: CURRENT_SPACE_EXPORT_SCHEMA_VERSION,
         type: 'eclipse-space-export',
         data: {
             name: space.name,
@@ -147,6 +191,7 @@ export async function exportAllSpacesToFile(spaces: Space[]): Promise<void> {
     // 构建导出数据
     const exportData: MultiSpaceExportData = {
         version: '1.0',
+        schemaVersion: CURRENT_SPACE_EXPORT_SCHEMA_VERSION,
         type: 'eclipse-multi-space-export',
         data: {
             spaces: spacesData,
@@ -271,19 +316,23 @@ export async function parseAndValidateImportFile(file: File): Promise<ImportFile
 
                 // 尝试验证多空间格式
                 if (validateMultiSpaceExportData(data)) {
-                    resolve({ type: 'multi', data });
+                    resolve({ type: 'multi', data: normalizeMultiSpaceImportSchema(data) });
                     return;
                 }
 
                 // 尝试验证单空间格式
                 if (validateExportData(data)) {
-                    resolve({ type: 'single', data });
+                    resolve({ type: 'single', data: normalizeSingleSpaceImportSchema(data) });
                     return;
                 }
 
                 reject(new Error('Invalid file format: missing required fields'));
-            } catch {
-                reject(new Error('Invalid JSON file'));
+            } catch (error) {
+                if (error instanceof SyntaxError) {
+                    reject(new Error('Invalid JSON file'));
+                    return;
+                }
+                reject(error instanceof Error ? error : new Error('Invalid file'));
             }
         };
 
@@ -312,9 +361,13 @@ export async function parseAndValidateSpaceFile(file: File): Promise<SpaceExport
                     return;
                 }
 
-                resolve(data);
-            } catch {
-                reject(new Error('Invalid JSON file'));
+                resolve(normalizeSingleSpaceImportSchema(data));
+            } catch (error) {
+                if (error instanceof SyntaxError) {
+                    reject(new Error('Invalid JSON file'));
+                    return;
+                }
+                reject(error instanceof Error ? error : new Error('Invalid file'));
             }
         };
 
